@@ -13,11 +13,15 @@ export function App() {
   // اعمال تم + دنبال‌کردن تغییر تم سیستم‌عامل در حالت «سیستم»
   useEffect(() => {
     applyTheme(theme);
-    if (theme !== 'system') return;
+    if (theme !== 'system' || typeof window.matchMedia !== 'function') return;
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const onChange = () => applyTheme('system');
-    media.addEventListener('change', onChange);
-    return () => media.removeEventListener('change', onChange);
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', onChange);
+      return () => media.removeEventListener('change', onChange);
+    }
+    media.addListener(onChange);
+    return () => media.removeListener(onChange);
   }, [theme]);
 
   // بارگذاری و راستی‌آزمایی لایسنس ذخیره‌شده

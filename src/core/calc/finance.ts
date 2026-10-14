@@ -99,12 +99,20 @@ export function compoundInterest(
   years: number,
   compoundsPerYear = 1,
 ): CompoundResult {
-  const finalAmount = principal * Math.pow(1 + annualRatePercent / 100 / compoundsPerYear, compoundsPerYear * years);
-  return { finalAmount: roundMoney(finalAmount), totalInterest: roundMoney(finalAmount - principal) };
+  const finalAmount =
+    principal * Math.pow(1 + annualRatePercent / 100 / compoundsPerYear, compoundsPerYear * years);
+  return {
+    finalAmount: roundMoney(finalAmount),
+    totalInterest: roundMoney(finalAmount - principal),
+  };
 }
 
 /** سود ساده */
-export function simpleInterest(principal: number, annualRatePercent: number, years: number): CompoundResult {
+export function simpleInterest(
+  principal: number,
+  annualRatePercent: number,
+  years: number,
+): CompoundResult {
   const interest = (principal * annualRatePercent * years) / 100;
   return { finalAmount: roundMoney(principal + interest), totalInterest: roundMoney(interest) };
 }
@@ -118,7 +126,11 @@ export interface LoanResult {
 }
 
 /** قسط ماهانه‌ی وام با نرخ سود سالانه (فرمول استاندارد EMI) */
-export function loanInstallment(principal: number, annualRatePercent: number, months: number): LoanResult {
+export function loanInstallment(
+  principal: number,
+  annualRatePercent: number,
+  months: number,
+): LoanResult {
   if (months <= 0) return { monthlyPayment: 0, totalPayment: 0, totalInterest: 0 };
   if (principal <= 0) return { monthlyPayment: 0, totalPayment: 0, totalInterest: 0 };
   const monthlyRate = annualRatePercent / 100 / 12;
@@ -156,7 +168,13 @@ export function amortizationSchedule(
     if (month === months || principalPart > balance) principalPart = balance; // تسویه‌ی دقیق قسط آخر
     const payment = principalPart + interestPart;
     balance = roundMoney(balance - principalPart);
-    rows.push({ month, payment, principalPart, interestPart, remainingBalance: Math.max(balance, 0) });
+    rows.push({
+      month,
+      payment,
+      principalPart,
+      interestPart,
+      remainingBalance: Math.max(balance, 0),
+    });
     if (balance <= 0) break;
   }
   return rows;

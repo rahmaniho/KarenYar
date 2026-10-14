@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 
 interface FeatureGateProps {
   feature: Feature;
-  children: ReactNode;
+  children?: ReactNode;
   /** حالت جمع‌وجور: فقط یک بنر خطی به‌جای کارت کامل */
   compact?: boolean;
   className?: string;
@@ -32,9 +32,7 @@ export function FeatureGate({ feature, children, compact = false, className }: F
         role="note"
       >
         <Lock className="h-4 w-4 text-warning" aria-hidden />
-        <span>
-          «{FEATURE_LABELS[feature]}» در نسخه‌ی حرفه‌ای فعال است.
-        </span>
+        <span>«{FEATURE_LABELS[feature]}» در نسخه‌ی حرفه‌ای فعال است.</span>
         <Button asChild size="sm" variant="neon" className="ms-auto">
           <Link to="/settings#license">
             <Crown className="h-4 w-4" />
@@ -58,8 +56,8 @@ export function FeatureGate({ feature, children, compact = false, className }: F
       </div>
       <p className="font-bold">این قابلیت در نسخه‌ی حرفه‌ای است</p>
       <p className="max-w-md text-sm text-muted-foreground">
-        «{FEATURE_LABELS[feature]}» برای کاربران نسخه‌ی رایگان قفل است. با یک‌بار خرید نسخه‌ی حرفه‌ای،
-        همه‌ی امکانات حساب‌یار برای همیشه فعال می‌شود.
+        «{FEATURE_LABELS[feature]}» برای کاربران نسخه‌ی رایگان قفل است. با یک‌بار خرید نسخه‌ی
+        حرفه‌ای، همه‌ی امکانات حساب‌یار برای همیشه فعال می‌شود.
       </p>
       <Button asChild variant="neon">
         <Link to="/settings#license">

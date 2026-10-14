@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Crown, Download, Menu, Moon, Sun, Wifi, WifiOff, X } from 'lucide-react';
@@ -56,7 +56,8 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
                     className={({ isActive }) =>
                       cn(
                         'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-white/75 transition hover:bg-white/10 hover:text-white',
-                        isActive && 'bg-white/10 text-white shadow-[inset_2px_0_0_0_#39FF88] [&_svg]:text-neon-500',
+                        isActive &&
+                          'bg-white/10 text-white shadow-[inset_2px_0_0_0_#39FF88] [&_svg]:text-neon-500',
                       )
                     }
                   >
@@ -94,7 +95,10 @@ export function AppLayout() {
   const tier = useLicenseStore((s) => s.info.tier);
   const location = useLocation();
 
-  const isDark = document.documentElement.classList.contains('dark');
+  const systemDark =
+    typeof window !== 'undefined' &&
+    (window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false);
+  const isDark = theme === 'dark' || (theme === 'system' && systemDark);
 
   return (
     <div className="min-h-dvh bg-background">
@@ -162,11 +166,20 @@ export function AppLayout() {
             </div>
             <div className="ms-auto flex items-center gap-1.5 sm:gap-2">
               <Badge variant={online ? 'success' : 'warning'} className="hidden sm:inline-flex">
-                {online ? <Wifi className="h-3 w-3" aria-hidden /> : <WifiOff className="h-3 w-3" aria-hidden />}
+                {online ? (
+                  <Wifi className="h-3 w-3" aria-hidden />
+                ) : (
+                  <WifiOff className="h-3 w-3" aria-hidden />
+                )}
                 {online ? 'آنلاین' : 'آفلاین'}
               </Badge>
               {canInstall && (
-                <Button size="sm" variant="neon" onClick={promptInstall} className="hidden md:inline-flex">
+                <Button
+                  size="sm"
+                  variant="neon"
+                  onClick={promptInstall}
+                  className="hidden md:inline-flex"
+                >
                   <Download className="h-4 w-4" />
                   نصب اپلیکیشن
                 </Button>
@@ -179,7 +192,12 @@ export function AppLayout() {
               >
                 {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
               </Button>
-              <Button asChild size="sm" variant={tier === 'free' ? 'outline' : 'neon'} className="hidden sm:inline-flex">
+              <Button
+                asChild
+                size="sm"
+                variant={tier === 'free' ? 'outline' : 'neon'}
+                className="hidden sm:inline-flex"
+              >
                 <Link to="/settings#license">
                   <Crown className="h-4 w-4" />
                   {TIER_LABELS[tier]}
@@ -198,7 +216,21 @@ export function AppLayout() {
           transition={{ duration: 0.22 }}
           className="mx-auto w-full max-w-6xl px-4 pb-24 pt-5 lg:pb-10"
         >
-          <Outlet />
+          <Suspense
+            fallback={
+              <div className="space-y-4" role="status" aria-label="در حال بارگذاری">
+                <div className="h-8 w-56 animate-pulse rounded-lg bg-muted" />
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="h-24 animate-pulse rounded-xl bg-muted" />
+                  <div className="h-24 animate-pulse rounded-xl bg-muted" />
+                  <div className="h-24 animate-pulse rounded-xl bg-muted" />
+                </div>
+                <div className="h-64 animate-pulse rounded-xl bg-muted" />
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </motion.main>
       </div>
 

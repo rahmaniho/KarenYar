@@ -1,4 +1,3 @@
-/// <reference types="vitest/config" />
 import { fileURLToPath, URL } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -38,10 +37,34 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  server: {
+    host: true,
+    // اجازه‌ی هاست‌های پیش‌نمایش (مثل محیط‌های ابری) در حالت توسعه
+    allowedHosts: true,
+  },
+  preview: { host: true, allowedHosts: true },
   build: {
     target: 'es2020',
     sourcemap: false,
     chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        // چانک‌بندی دستی: کش بهتر + پارس سریع‌تر در موبایل
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-charts': ['recharts'],
+          'vendor-pdf': ['jspdf', 'html2canvas'],
+          'vendor-ui': [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-select',
+            '@radix-ui/react-tabs',
+            '@radix-ui/react-switch',
+            'framer-motion',
+          ],
+          'vendor-data': ['dexie', 'dexie-react-hooks', 'zustand'],
+        },
+      },
+    },
   },
   test: {
     environment: 'jsdom',

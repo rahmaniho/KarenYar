@@ -125,6 +125,16 @@ export function jalaliMonthRange(key: string): { start: Date; end: Date } {
   return { start, end };
 }
 
+/** افزودن n ماه شمسی به یک تاریخ میلادی (با سقف روز ماه مقصد) — مثلاً سررسید قسط بعد */
+export function addJalaliMonthsToDate(date: Date, n: number): Date {
+  const j = dateToJalali(date);
+  const total = j.jy * 12 + (j.jm - 1) + n;
+  const ny = Math.floor(total / 12);
+  const nm = (total % 12) + 1;
+  const nd = Math.min(j.jd, jalaaliMonthLength(ny, nm));
+  return jalaliToDate({ jy: ny, jm: nm, jd: nd });
+}
+
 /** اختلاف دو تاریخ به روز */
 export function daysDiff(from: Date, to: Date): number {
   const ms = startOfDay(to).getTime() - startOfDay(from).getTime();

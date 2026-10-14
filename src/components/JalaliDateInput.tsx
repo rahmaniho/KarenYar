@@ -2,11 +2,7 @@ import { useEffect, useState } from 'react';
 import { CalendarDays } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import {
-  formatJalaliLong,
-  parseJalaliDateString,
-  toJalaliInputString,
-} from '@/core/jalali/jalali';
+import { formatJalaliLong, parseJalaliDateString, toJalaliInputString } from '@/core/jalali/jalali';
 import { toEnDigits } from '@/core/currency/currency';
 import { cn } from '@/lib/utils';
 
@@ -21,7 +17,14 @@ interface JalaliDateInputProps {
 }
 
 /** ورودی تاریخ شمسی با قالب ۱۴۰۴-۰۷-۱۴ + پیش‌نمایش خوانا و اعتبارسنجی */
-export function JalaliDateInput({ value, onChange, id, disabled, className, ...rest }: JalaliDateInputProps) {
+export function JalaliDateInput({
+  value,
+  onChange,
+  id,
+  disabled,
+  className,
+  ...rest
+}: JalaliDateInputProps) {
   const [text, setText] = useState(() => (value ? toJalaliInputString(new Date(value)) : ''));
   const [error, setError] = useState<string | null>(null);
 
@@ -82,7 +85,9 @@ export function JalaliDateInput({ value, onChange, id, disabled, className, ...r
         </p>
       ) : (
         value && (
-          <p className="mt-1.5 text-xs text-muted-foreground">{formatJalaliLong(new Date(value))}</p>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            {formatJalaliLong(new Date(value))}
+          </p>
         )
       )}
     </div>

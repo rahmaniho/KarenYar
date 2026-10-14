@@ -1,0 +1,18 @@
+# هاست‌های اشتراکی Apache (ایرانی و…) — SPA fallback + کش مناسب PWA
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  # فایل و پوشه‌ی واقعی مستقیم سرو شود
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+  # بقیه‌ی مسیرها به index.html
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# سرویس‌ورکر و مانیفست نباید کش شوند تا آپدیت سریع برسد
+<FilesMatch "(sw\.js|manifest\.webmanifest|index\.html)$">
+  <IfModule mod_headers.c>
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </IfModule>
+</FilesMatch>

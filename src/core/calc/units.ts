@@ -90,7 +90,12 @@ function celsiusToTemperature(celsius: number, to: string): number {
   return celsius;
 }
 
-export function convertUnits(value: number, categoryId: string, fromId: string, toId: string): number {
+export function convertUnits(
+  value: number,
+  categoryId: string,
+  fromId: string,
+  toId: string,
+): number {
   const category = UNIT_CATEGORIES.find((c) => c.id === categoryId);
   if (!category) throw new Error('دسته‌ی واحد یافت نشد');
   const from = category.units.find((u) => u.id === fromId);
@@ -121,7 +126,12 @@ export const DEFAULT_CURRENCY_RATES: CurrencyRate[] = [
   { code: 'TRY', label: 'لیر ترکیه', rateToToman: 2_700 },
 ];
 
-export function convertCurrency(value: number, fromCode: string, toCode: string, rates: CurrencyRate[]): number {
+export function convertCurrency(
+  value: number,
+  fromCode: string,
+  toCode: string,
+  rates: CurrencyRate[],
+): number {
   const from = rates.find((r) => r.code === fromCode);
   const to = rates.find((r) => r.code === toCode);
   if (!from || !to || to.rateToToman === 0) throw new Error('ارز نامعتبر است');

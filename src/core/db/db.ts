@@ -12,6 +12,12 @@ export interface Product {
   category: string;
   /** قیمت خرید هر واحد */
   buyPrice: number;
+  /** مالیات خرید (٪) — جزء قیمت تمام‌شده */
+  buyTaxPercent: number;
+  /** حمل هر واحد — جزء قیمت تمام‌شده */
+  shippingPerUnit: number;
+  /** سربار هر واحد — جزء قیمت تمام‌شده */
+  overheadPerUnit: number;
   /** قیمت تمام‌شده‌ی محاسبه‌شده (خرید + مالیات + حمل + سربار) */
   costPrice: number;
   sellPrice: number;

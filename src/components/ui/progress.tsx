@@ -19,7 +19,10 @@ function Progress({ value, className, indicatorClassName, ...props }: ProgressPr
       {...props}
     >
       <div
-        className={cn('h-full rounded-full bg-primary transition-all duration-500', indicatorClassName)}
+        className={cn(
+          'h-full rounded-full bg-primary transition-all duration-500',
+          indicatorClassName,
+        )}
         style={{ width: `${clamped}%` }}
       />
     </div>

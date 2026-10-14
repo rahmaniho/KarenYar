@@ -33,11 +33,14 @@ export class ErrorBoundary extends Component<Props, State> {
           </div>
           <h1 className="text-lg font-extrabold">مشکلی پیش آمد!</h1>
           <p className="mt-2 text-sm leading-7 text-muted-foreground">
-            متأسفیم؛ خطای غیرمنتظره‌ای رخ داد. نگران نباشید، داده‌های شما روی همین دستگاه ذخیره شده و
-            از بین نرفته است. لطفاً برنامه را دوباره بارگذاری کنید.
+            متأسفیم؛ خطای غیرمنتظره‌ای رخ داد. نگران نباشید، داده‌های شما روی همین دستگاه ذخیره شده
+            و از بین نرفته است. لطفاً برنامه را دوباره بارگذاری کنید.
           </p>
           {this.state.message && (
-            <p className="mt-3 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground" dir="ltr">
+            <p
+              className="mt-3 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground"
+              dir="ltr"
+            >
               {this.state.message}
             </p>
           )}

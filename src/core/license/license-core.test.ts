@@ -20,7 +20,11 @@ const SECRET = 'karensoft-hesabyar::license-secret::v1::CHANGE-ME';
 
 function mintKey(payload: LicensePayload, secret: string = SECRET): string {
   const b64url = (buf: Buffer | string) =>
-    Buffer.from(buf).toString('base64').replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+    Buffer.from(buf)
+      .toString('base64')
+      .replaceAll('+', '-')
+      .replaceAll('/', '_')
+      .replace(/=+$/, '');
   const payloadB64 = b64url(JSON.stringify(payload));
   const sig = createHmac('sha256', secret).update(payloadB64).digest();
   return `KS1.${payloadB64}.${b64url(sig)}`;
@@ -44,7 +48,10 @@ describe('لایسنس آفلاین', () => {
   });
 
   it('کلید با امضای اشتباه رد می‌شود', async () => {
-    const key = mintKey({ v: 1, tier: 'proplus', name: 'تست', iat: '2025-01-01', exp: null }, 'secret-دیگر');
+    const key = mintKey(
+      { v: 1, tier: 'proplus', name: 'تست', iat: '2025-01-01', exp: null },
+      'secret-دیگر',
+    );
     await expect(verifier.verify(key)).rejects.toThrow('امضای کلید معتبر نیست');
   });
 
@@ -54,14 +61,22 @@ describe('لایسنس آفلاین', () => {
   });
 
   it('لایسنس منقضی به سطح رایگان برمی‌گردد', async () => {
-    const key = mintKey({ v: 1, tier: 'proplus', name: 'تست', iat: '2020-01-01', exp: '2020-12-31' });
+    const key = mintKey({
+      v: 1,
+      tier: 'proplus',
+      name: 'تست',
+      iat: '2020-01-01',
+      exp: '2020-12-31',
+    });
     const info = await verifier.verify(key);
     expect(info.isExpired).toBe(true);
     expect(info.tier).toBe('free');
   });
 
   it('تشخیص انقضا برای مادام‌العمر همیشه false است', () => {
-    expect(isPayloadExpired({ v: 1, tier: 'pro', name: 'x', iat: '2020-01-01', exp: null })).toBe(false);
+    expect(isPayloadExpired({ v: 1, tier: 'pro', name: 'x', iat: '2020-01-01', exp: null })).toBe(
+      false,
+    );
   });
 });
 

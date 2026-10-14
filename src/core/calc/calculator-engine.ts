@@ -116,7 +116,10 @@ class Parser {
     let value = this.parseFactor();
     for (;;) {
       const token = this.peek();
-      if (token?.type === 'op' && (token.value === '*' || token.value === '/' || token.value === '%')) {
+      if (
+        token?.type === 'op' &&
+        (token.value === '*' || token.value === '/' || token.value === '%')
+      ) {
         this.pos++;
         const rhs = this.parseFactor();
         if (token.value === '*') value *= rhs;
@@ -179,7 +182,8 @@ class Parser {
     }
     if (token.type === 'func') {
       this.pos++;
-      if (this.peek()?.type !== 'lparen') throw new CalcError(`بعد از ${token.value} باید پرانتز بیاید`);
+      if (this.peek()?.type !== 'lparen')
+        throw new CalcError(`بعد از ${token.value} باید پرانتز بیاید`);
       this.pos++;
       const arg = this.parseExpr();
       if (this.peek()?.type !== 'rparen') throw new CalcError('پرانتز بسته گمشده است');

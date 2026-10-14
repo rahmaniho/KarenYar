@@ -46,11 +46,7 @@ export const TIER_LABELS: Record<LicenseTier, string> = {
 };
 
 /** قابلیت‌های قابل گیت‌کردن در اپ */
-export type Feature =
-  | 'pdf-export'
-  | 'backup'
-  | 'unlimited-products'
-  | 'unlimited-transactions';
+export type Feature = 'pdf-export' | 'backup' | 'unlimited-products' | 'unlimited-transactions';
 
 export const FEATURE_LABELS: Record<Feature, string> = {
   'pdf-export': 'خروجی PDF فاکتور و فیش حقوقی',

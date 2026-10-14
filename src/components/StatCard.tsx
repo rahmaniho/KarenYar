@@ -21,7 +21,12 @@ const TONES: Record<NonNullable<StatCardProps['tone']>, string> = {
 export function StatCard({ title, value, hint, icon: Icon, tone = 'navy' }: StatCardProps) {
   return (
     <Card className="flex items-center gap-3 p-4">
-      <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', TONES[tone])}>
+      <div
+        className={cn(
+          'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
+          TONES[tone],
+        )}
+      >
         <Icon className="h-5 w-5" />
       </div>
       <div className="min-w-0">

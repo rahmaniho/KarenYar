@@ -44,7 +44,12 @@ describe('مالیات بر ارزش افزوده', () => {
 describe('قیمت تمام‌شده و سود', () => {
   it('قیمت تمام‌شده = خرید + مالیات + حمل + سربار', () => {
     expect(
-      landedCost({ buyPrice: 100_000, taxPercent: 10, shippingPerUnit: 5_000, overheadPerUnit: 2_000 }),
+      landedCost({
+        buyPrice: 100_000,
+        taxPercent: 10,
+        shippingPerUnit: 5_000,
+        overheadPerUnit: 2_000,
+      }),
     ).toBe(117_000);
   });
 

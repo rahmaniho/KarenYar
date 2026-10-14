@@ -100,12 +100,7 @@ function render(size, variant) {
         a = 0;
       for (let sy = 0; sy < SS; sy++) {
         for (let sx = 0; sx < SS; sx++) {
-          const [pr, pg, pb, pa] = sample(
-            x + (sx + 0.5) / SS,
-            y + (sy + 0.5) / SS,
-            size,
-            variant,
-          );
+          const [pr, pg, pb, pa] = sample(x + (sx + 0.5) / SS, y + (sy + 0.5) / SS, size, variant);
           r += pr * pa;
           g += pg * pa;
           b += pb * pa;

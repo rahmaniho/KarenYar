@@ -70,7 +70,9 @@ describe('محاسبه حقوق — کارمند ارشد متأهل با دو �
   });
 
   it('خالص همیشه برابر ناخالص منهای کسورات است', () => {
-    expect(result.netPay).toBe(result.gross - result.insuranceEmployee - result.tax - result.otherDeductions);
+    expect(result.netPay).toBe(
+      result.gross - result.insuranceEmployee - result.tax - result.otherDeductions,
+    );
   });
 });
 
@@ -80,7 +82,9 @@ describe('عیدی و سنوات', () => {
   });
 
   it('عیدی از سقف ۹۰ روز حداقل مزد بیشتر نمی‌شود', () => {
-    expect(calculateEidi({ dailyWage: 2_000_000, daysWorkedInYear: 365 }, RATES)).toBe(90 * 346_366);
+    expect(calculateEidi({ dailyWage: 2_000_000, daysWorkedInYear: 365 }, RATES)).toBe(
+      90 * 346_366,
+    );
   });
 
   it('عیدی به نسبت روزهای کارکرد محاسبه می‌شود', () => {

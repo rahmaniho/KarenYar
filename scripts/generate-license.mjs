@@ -38,7 +38,9 @@ const payload = {
   tier,
   name,
   iat: now.toISOString().slice(0, 10),
-  exp: daysRaw ? new Date(now.getTime() + Number(daysRaw) * 86400000).toISOString().slice(0, 10) : null,
+  exp: daysRaw
+    ? new Date(now.getTime() + Number(daysRaw) * 86400000).toISOString().slice(0, 10)
+    : null,
 };
 const payloadB64 = b64url(JSON.stringify(payload));
 const sig = createHmac('sha256', LICENSE_HMAC_SECRET).update(payloadB64).digest();

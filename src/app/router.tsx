@@ -1,20 +1,48 @@
+import { lazy, type ComponentType } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppLayout } from '@/layouts/AppLayout';
-import { DashboardPage } from '@/pages/DashboardPage';
-import { ProductsPage } from '@/features/store/ProductsPage';
-import { InvoicesPage } from '@/features/store/InvoicesPage';
-import { NewInvoicePage } from '@/features/store/NewInvoicePage';
-import { InvoiceViewPage } from '@/features/store/InvoiceViewPage';
-import { StoreReportsPage } from '@/features/store/StoreReportsPage';
-import { TransactionsPage } from '@/features/personal/TransactionsPage';
-import { BudgetsPage } from '@/features/personal/BudgetsPage';
-import { DebtsPage } from '@/features/personal/DebtsPage';
-import { EmployeesPage } from '@/features/payroll/EmployeesPage';
-import { PayrollCalculatePage } from '@/features/payroll/PayrollCalculatePage';
-import { PayrollSettingsPage } from '@/features/payroll/PayrollSettingsPage';
-import { CalculatorPage } from '@/features/calculator/CalculatorPage';
-import { SettingsPage } from '@/pages/SettingsPage';
-import { NotFoundPage } from '@/pages/NotFoundPage';
+
+/**
+ * همه‌ی صفحه‌ها به‌صورت تنبل (Lazy) بارگذاری می‌شوند تا باندل اولیه سبک بماند
+ * و فقط کد همان بخش هنگام ورود دانلود/اجرا شود (مهم برای Lighthouse و موبایل).
+ */
+function lazyPage(loader: () => Promise<Record<string, ComponentType>>, exportName: string) {
+  return lazy(async () => ({ default: (await loader())[exportName] }));
+}
+
+const DashboardPage = lazyPage(() => import('@/pages/DashboardPage'), 'DashboardPage');
+const SettingsPage = lazyPage(() => import('@/pages/SettingsPage'), 'SettingsPage');
+const NotFoundPage = lazyPage(() => import('@/pages/NotFoundPage'), 'NotFoundPage');
+const ProductsPage = lazyPage(() => import('@/features/store/ProductsPage'), 'ProductsPage');
+const InvoicesPage = lazyPage(() => import('@/features/store/InvoicesPage'), 'InvoicesPage');
+const NewInvoicePage = lazyPage(() => import('@/features/store/NewInvoicePage'), 'NewInvoicePage');
+const InvoiceViewPage = lazyPage(
+  () => import('@/features/store/InvoiceViewPage'),
+  'InvoiceViewPage',
+);
+const StoreReportsPage = lazyPage(
+  () => import('@/features/store/StoreReportsPage'),
+  'StoreReportsPage',
+);
+const TransactionsPage = lazyPage(
+  () => import('@/features/personal/TransactionsPage'),
+  'TransactionsPage',
+);
+const BudgetsPage = lazyPage(() => import('@/features/personal/BudgetsPage'), 'BudgetsPage');
+const DebtsPage = lazyPage(() => import('@/features/personal/DebtsPage'), 'DebtsPage');
+const EmployeesPage = lazyPage(() => import('@/features/payroll/EmployeesPage'), 'EmployeesPage');
+const PayrollCalculatePage = lazyPage(
+  () => import('@/features/payroll/PayrollCalculatePage'),
+  'PayrollCalculatePage',
+);
+const PayrollSettingsPage = lazyPage(
+  () => import('@/features/payroll/PayrollSettingsPage'),
+  'PayrollSettingsPage',
+);
+const CalculatorPage = lazyPage(
+  () => import('@/features/calculator/CalculatorPage'),
+  'CalculatorPage',
+);
 
 export const router = createBrowserRouter([
   {

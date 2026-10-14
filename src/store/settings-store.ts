@@ -23,7 +23,9 @@ interface SettingsState {
   currencyRates: CurrencyRate[];
   setTheme: (theme: ThemeMode) => void;
   setCurrencyUnit: (unit: CurrencyUnit) => void;
-  updateShop: (patch: Partial<Pick<SettingsState, 'shopName' | 'shopPhone' | 'shopAddress'>>) => void;
+  updateShop: (
+    patch: Partial<Pick<SettingsState, 'shopName' | 'shopPhone' | 'shopAddress'>>,
+  ) => void;
   setInvoiceTaxPercent: (value: number) => void;
   setDefaultMinStock: (value: number) => void;
   setPayrollRates: (rates: PayrollRates) => void;
