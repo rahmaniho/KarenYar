@@ -72,7 +72,7 @@ export function StoreReportsPage() {
   );
   const lowStock = useMemo(() => lowStockProducts(products), [products]);
 
-  const marginPercent = totals.revenue > 0 ? (totals.grossProfit / totals.revenue) * 100 : 0;
+  const marginPercent = totals.netRevenue > 0 ? (totals.grossProfit / totals.netRevenue) * 100 : 0;
   const receivables = useMemo(() => totalReceivables(invoices, payments), [invoices, payments]);
 
   return (

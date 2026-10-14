@@ -339,7 +339,7 @@ export function NewInvoicePage() {
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                        <div className="grid grid-cols-3 items-end gap-2">
+                        <div className="grid grid-cols-[4.5rem_1fr_1fr] items-end gap-2 sm:grid-cols-3">
                           <div className="space-y-1">
                             <Label htmlFor={`qty-${index}`} className="text-xs">
                               تعداد
@@ -446,7 +446,7 @@ export function NewInvoicePage() {
                 dir="ltr"
                 className="text-left"
                 value={taxPercent || ''}
-                onChange={(e) => setTaxPercent(Number(e.target.value) || 0)}
+                onChange={(e) => setTaxPercent(Math.max(0, Number(e.target.value) || 0))}
               />
             </div>
 

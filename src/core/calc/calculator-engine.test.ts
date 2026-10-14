@@ -19,6 +19,13 @@ describe('ماشین‌حساب — چهار عمل اصلی و تقدم', () =>
     expect(evaluate('7/2')).toBe(3.5);
   });
 
+  it('درصدِ پسوندی: ۵۰٪ یعنی نصف و در ضرب اعمال می‌شود', () => {
+    expect(evaluate('50%')).toBe(0.5);
+    expect(evaluate('200*10%')).toBe(20);
+    expect(evaluate('50%+10')).toBe(10.5);
+    expect(evaluate('(20+30)%')).toBe(0.5);
+  });
+
   it('نمادهای فارسی و ارقام فارسی پذیرفته می‌شوند', () => {
     expect(evaluate('۶×۷')).toBe(42);
     expect(evaluate('۹÷۳')).toBe(3);

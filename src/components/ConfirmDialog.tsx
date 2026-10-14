@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -44,8 +45,13 @@ export function ConfirmDialog({
           <Button
             variant={destructive ? 'destructive' : 'default'}
             onClick={async () => {
-              await onConfirm();
-              onOpenChange(false);
+              try {
+                await onConfirm();
+                onOpenChange(false);
+              } catch {
+                // عملیات ناموفق بود: دیالوگ باز می‌ماند تا کاربر دوباره تلاش کند
+                toast.error('انجام عملیات با خطا مواجه شد. دوباره تلاش کنید.');
+              }
             }}
           >
             {confirmLabel}

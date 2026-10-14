@@ -1,6 +1,6 @@
 /**
  * موتور ماشین‌حساب علمی — تجزیه و ارزیابی امن عبارت ریاضی (بدون eval)
- * پشتیبانی: + − × ÷ توان، پرانتز، درصدِ باقیمانده (%)، فاکتوریل (!)،
+ * پشتیبانی: + − × ÷ توان، پرانتز، درصد (%) و باقیمانده، فاکتوریل (!)،
  * توابع sin cos tan asin acos atan log ln sqrt abs exp و ثابت‌های π و e
  * ارقام فارسی و نمادهای × ÷ − هم پذیرفته می‌شوند.
  */
@@ -116,19 +116,33 @@ class Parser {
     let value = this.parseFactor();
     for (;;) {
       const token = this.peek();
-      if (
-        token?.type === 'op' &&
-        (token.value === '*' || token.value === '/' || token.value === '%')
-      ) {
+      if (token?.type !== 'op') return value;
+      if (token.value === '%') {
+        // ٪ هوشمند: اگر بعدش مقداری بیاید «باقیمانده» است (10%3)،
+        // وگرنه درصدِ خود عدد است (50% ← ۰٫۵ و 200*10% ← ۲۰)
+        const after = this.tokens[this.pos + 1];
+        const followedByValue =
+          after?.type === 'number' ||
+          after?.type === 'const' ||
+          after?.type === 'lparen' ||
+          after?.type === 'func';
+        this.pos++;
+        if (!followedByValue) {
+          value = value / 100;
+          continue;
+        }
+        const rhs = this.parseFactor();
+        if (rhs === 0) throw new CalcError('تقسیم بر صفر ممکن نیست');
+        value %= rhs;
+        continue;
+      }
+      if (token.value === '*' || token.value === '/') {
         this.pos++;
         const rhs = this.parseFactor();
         if (token.value === '*') value *= rhs;
-        else if (token.value === '/') {
+        else {
           if (rhs === 0) throw new CalcError('تقسیم بر صفر ممکن نیست');
           value /= rhs;
-        } else {
-          if (rhs === 0) throw new CalcError('تقسیم بر صفر ممکن نیست');
-          value %= rhs;
         }
       } else return value;
     }

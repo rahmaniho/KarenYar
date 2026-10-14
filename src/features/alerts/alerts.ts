@@ -11,6 +11,7 @@ import type {
   Product,
   Transaction,
 } from '@/core/db/db';
+import { currentJalaliMonthKey } from '@/core/jalali/jalali';
 import { budgetStatus, debtStatus } from '@/features/personal/personal-calc';
 import { customerBalance } from '@/features/store/customers-calc';
 
@@ -117,8 +118,10 @@ export function computeAlerts(input: AlertsInput): AppAlert[] {
     }
   }
 
-  // بودجه‌ها
+  // بودجه‌ها — فقط بودجه‌ی ماه جاری هشدار می‌دهد (بودجه‌ی ماه‌های قبل تاریخ گذشته است)
+  const currentMonth = currentJalaliMonthKey();
   for (const budget of input.budgets) {
+    if (budget.month !== currentMonth) continue;
     const status = budgetStatus(budget, input.transactions);
     if (status.isOver) {
       alerts.push({

@@ -3,7 +3,7 @@ import { Delete, History, Sigma, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CalcError, evaluate, type AngleMode } from '@/core/calc/calculator-engine';
-import { formatDecimal, toFaDigits } from '@/core/currency/currency';
+import { formatDecimal, parseAmountInput, toEnDigits, toFaDigits } from '@/core/currency/currency';
 import { cn } from '@/lib/utils';
 
 interface HistoryEntry {
@@ -66,6 +66,8 @@ const SCIENTIFIC_KEYS: { label: string; value: string }[] = [
 export function ScientificCalculator() {
   const [expr, setExpr] = useState('');
   const [result, setResult] = useState<string | null>(null);
+  /** آخرین جواب عددی — برای ادامه‌ی محاسبه از روی نتیجه (ANS) */
+  const [ans, setAns] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [scientific, setScientific] = useState(false);
   const [angleMode, setAngleMode] = useState<AngleMode>('deg');
@@ -82,6 +84,7 @@ export function ScientificCalculator() {
     try {
       const value = evaluate(expr, angleMode);
       const formatted = formatDecimal(value, 10);
+      setAns(value);
       setResult(formatted);
       setError(null);
       persistHistory([{ expr, result: formatted }, ...history].slice(0, 20));
@@ -104,7 +107,14 @@ export function ScientificCalculator() {
         return;
       }
       if (value === 'negate') {
-        setExpr((prev) => (prev.startsWith('-') ? prev.slice(1) : `-${prev}`));
+        // ± روی کل عبارت اعمال می‌شود: «3+5» ← «-(3+5)» و برعکس
+        setExpr((prev) => {
+          if (!prev) return prev;
+          if (prev.startsWith('-(') && prev.endsWith(')')) return prev.slice(2, -1);
+          const hasBinaryOp = /[+*/%^!]/.test(prev) || prev.slice(1).includes('-');
+          if (hasBinaryOp) return `-(${prev})`;
+          return prev.startsWith('-') ? prev.slice(1) : `-${prev}`;
+        });
         return;
       }
       // اگر نتیجه نمایش داده شده و کلید عددی زده شد، از نو شروع کن
@@ -114,12 +124,14 @@ export function ScientificCalculator() {
         return;
       }
       if (result !== null && '+-*/^%!'.includes(value)) {
-        setExpr((prev) => prev); // از خود عبارت ادامه می‌دهد
+        // ادامه از روی جواب قبلی (ANS)، نه عبارت قدیمی
+        if (ans !== null) setExpr(`${ans}${value}`);
         setResult(null);
+        return;
       }
       setExpr((prev) => prev + value);
     },
-    [calculate, result],
+    [calculate, result, ans],
   );
 
   const backspace = useCallback(() => {
@@ -137,7 +149,7 @@ export function ScientificCalculator() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.target as HTMLElement)?.closest('input, textarea, select')) return;
-      const key = event.key;
+      const key = toEnDigits(event.key);
       if (/^[0-9.]$/.test(key)) press(key);
       else if ('+-*/%^!()'.includes(key)) press(key);
       else if (key === 'Enter' || key === '=') {
@@ -306,6 +318,7 @@ export function ScientificCalculator() {
                     onClick={() => {
                       setExpr(entry.expr);
                       setResult(entry.result);
+                      setAns(parseAmountInput(entry.result));
                       setError(null);
                     }}
                   >

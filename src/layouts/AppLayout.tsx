@@ -1,4 +1,4 @@
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Crown, Download, LockKeyhole, Menu, Moon, Sun, Wifi, WifiOff, X } from 'lucide-react';
@@ -14,23 +14,20 @@ import { KarenSoftCredit } from '@/components/KarenSoftCredit';
 import { GlobalSearch } from '@/components/GlobalSearch';
 import { useLockStore } from '@/store/lock-store';
 import { AlertsBell } from '@/components/AlertsBell';
-import { cn } from '@/lib/utils';
+import { assetUrl, cn } from '@/lib/utils';
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
     <Link to="/" className="flex items-center gap-2.5" aria-label="حساب‌یار کارن سافت — داشبورد">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-navy-900 shadow-glow dark:bg-navy-700">
-        <svg viewBox="0 0 64 64" className="h-7 w-7" aria-hidden>
-          <rect x="10" y="10" width="44" height="44" rx="11" fill="#39FF88" />
-          <path
-            d="M24 20v24M24 32l11-12M25.5 31L37 44"
-            stroke="#0B1B3A"
-            strokeWidth="5.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-        </svg>
+      {/* نشان اصلی کارن‌سافت (artwork واقعی برند، نه بازطراحی) */}
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-glow ring-1 ring-black/10">
+        <img
+          src={assetUrl('images/karensoft/mark.png')}
+          alt=""
+          width={256}
+          height={256}
+          className="h-full w-full object-cover"
+        />
       </span>
       {!compact && (
         <span className="leading-tight">
@@ -84,7 +81,7 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
           نسخه‌ی {TIER_LABELS[tier]}
           {tier === 'free' && <span className="ms-auto text-xs text-neon-400">ارتقا ←</span>}
         </Link>
-        <p className="px-2 pt-2 text-[11px] text-white/40">نسخه ۱٫۲٫۰ — کاملاً آفلاین</p>
+        <p className="px-2 pt-2 text-[11px] text-white/40">نسخه ۱٫۲٫۱ — کاملاً آفلاین</p>
         <KarenSoftCredit className="mt-1.5" />
       </div>
     </div>
@@ -93,6 +90,10 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AppLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const location = useLocation();
+  useEffect(() => {
+    if (!location.hash) window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+  }, [location.pathname, location.hash]);
   const online = useOnlineStatus();
   const { canInstall, promptInstall } = useInstallPrompt();
   const theme = useSettingsStore((s) => s.theme);
@@ -100,7 +101,6 @@ export function AppLayout() {
   const pinHash = useSettingsStore((s) => s.pinHash);
   const lock = useLockStore((s) => s.lock);
   const tier = useLicenseStore((s) => s.info.tier);
-  const location = useLocation();
 
   const systemDark =
     typeof window !== 'undefined' &&
@@ -134,7 +134,7 @@ export function AppLayout() {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'tween', duration: 0.22 }}
-              className="fixed inset-y-0 end-0 z-50 flex w-72 max-w-[85vw] flex-col bg-navy-900 text-white lg:hidden"
+              className="fixed inset-y-0 start-0 z-50 flex w-72 max-w-[85vw] flex-col bg-navy-900 text-white shadow-2xl lg:hidden"
               aria-label="منوی موبایل"
             >
               <div className="flex items-center justify-between border-b border-white/10 px-4 py-4 [&_span]:text-white [&_.text-muted-foreground]:text-white/50">

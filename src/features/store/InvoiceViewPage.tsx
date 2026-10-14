@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { assetUrl } from '@/lib/utils';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -28,6 +28,13 @@ export function InvoiceViewPage() {
   const shopAddress = useSettingsStore((s) => s.shopAddress);
   const can = useLicenseStore((s) => s.can);
   const printRef = useRef<HTMLDivElement>(null);
+  // useLiveQuery هنگام بارگذاری هم undefined برمی‌گرداند؛ تا مهلت کوتاه تمام نشود «پیدا نشد» نشان نمی‌دهیم
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
+  useEffect(() => {
+    setLoadTimedOut(false);
+    const timer = window.setTimeout(() => setLoadTimedOut(true), 600);
+    return () => window.clearTimeout(timer);
+  }, [invoiceId]);
   const [deleting, setDeleting] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
 
@@ -40,6 +47,15 @@ export function InvoiceViewPage() {
     [invoiceId],
     [] as InvoiceItem[],
   );
+
+  if (invoice === undefined && !loadTimedOut) {
+    return (
+      <div className="space-y-4" role="status" aria-label="در حال بارگذاری فاکتور">
+        <div className="h-8 w-64 animate-pulse rounded-lg bg-muted" />
+        <div className="mx-auto h-96 max-w-3xl animate-pulse rounded-2xl bg-muted" />
+      </div>
+    );
+  }
 
   if (invoice === undefined) {
     return (
@@ -135,7 +151,7 @@ export function InvoiceViewPage() {
           )}
         </p>
 
-        <table className="mt-4 w-full text-sm">
+        <table className="mt-4 w-full text-xs sm:text-sm">
           <thead>
             <tr className="border-b bg-navy-50 text-navy-700">
               <th className="px-2 py-2 text-start font-semibold">ردیف</th>

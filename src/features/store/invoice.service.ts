@@ -42,7 +42,7 @@ export function calculateInvoiceTotals(
   const subtotal = roundMoney(items.reduce((sum, i) => sum + i.qty * i.unitPrice, 0));
   const { discountAmount } = applyDiscount(subtotal, discountType, discountValue);
   const taxableBase = subtotal - discountAmount;
-  const taxAmount = vatAmount(taxableBase, taxPercent);
+  const taxAmount = vatAmount(taxableBase, Math.max(0, taxPercent));
   return {
     subtotal,
     discountAmount,

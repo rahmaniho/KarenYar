@@ -1,7 +1,7 @@
 {
   "name": "karenyar-hesabyar",
   "private": true,
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "حساب‌یار کارن سافت — اپلیکیشن جامع مالی فارسی (فروشگاهی، شخصی، دستمزد) آفلاین‌فرست",
   "type": "module",
   "scripts": {
