@@ -119,19 +119,19 @@ export function PayrollSettingsPage() {
   const reset = () => {
     setRates(DEFAULT_PAYROLL_RATES);
     setPayrollRates(DEFAULT_PAYROLL_RATES);
-    toast.success('نرخ‌ها به مقادیر پیش‌فرض قانون کار ۱۴۰۴ برگشت.');
+    toast.success('نرخ‌ها به مقادیر پیش‌فرض قانون کار ۱۴۰۵ برگشت.');
   };
 
   return (
     <div>
       <PageHeader
         title="تنظیمات دستمزد"
-        subtitle="نرخ‌های قانونی قابل ویرایش‌اند؛ با ابلاغ مصوبات جدید همین‌جا به‌روز کنید. پیش‌فرض‌ها مربوط به سال ۱۴۰۴ است."
+        subtitle="نرخ‌های قانونی قابل ویرایش‌اند؛ با ابلاغ مصوبات جدید همین‌جا به‌روز کنید. پیش‌فرض‌ها مربوط به سال ۱۴۰۵ است."
         actions={
           <>
             <Button variant="outline" onClick={reset}>
               <RotateCcw aria-hidden />
-              بازنشانی پیش‌فرض ۱۴۰۴
+              بازنشانی پیش‌فرض ۱۴۰۵
             </Button>
             <Button variant="neon" onClick={save}>
               <Save aria-hidden />

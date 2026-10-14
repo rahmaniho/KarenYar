@@ -4,6 +4,10 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main, 'arena/7c7cf0f8-karenyar']
+  # روزی دو بار نرخ‌های ارز/طلا/نقره تازه می‌شوند و سایت دوباره منتشر می‌شود (۱۰:۰۰ و ۱۷:۰۰ تهران)
+  schedule:
+    - cron: '30 6 * * *'
+    - cron: '30 13 * * *'
   workflow_dispatch:
 
 permissions:
@@ -27,6 +31,13 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      # نرخ‌های روز ارز/طلا/نقره/سکه را در بیلد تازه می‌کند؛ اگر منبع نرخ در دسترس نبود،
+      # با همان نرخ‌های داخل مخزن ادامه می‌دهیم تا انتشار متوقف نشود.
+      - name: Update live rates (currency, gold, silver)
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        run: node scripts/update-rates.mjs
 
       - name: Build for GitHub Pages subpath
         env:

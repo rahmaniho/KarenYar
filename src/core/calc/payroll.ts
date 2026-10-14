@@ -1,6 +1,6 @@
 /**
  * دستمزد‌یار — محاسبات حقوق و دستمزد طبق قانون کار جمهوری اسلامی ایران
- * همه‌ی نرخ‌ها قابل ویرایش‌اند (تنظیمات دستمزد). مقادیر پیش‌فرض: مصوبات سال ۱۴۰۴.
+ * همه‌ی نرخ‌ها قابل ویرایش‌اند (تنظیمات دستمزد). مقادیر پیش‌فرض: مصوبات سال ۱۴۰۵.
  * همه‌ی مبالغ به تومان هستند.
  */
 import { roundMoney } from '../currency/currency';
@@ -30,26 +30,27 @@ export interface PayrollRates {
 }
 
 /**
- * مقادیر پیش‌فرض سال ۱۴۰۴ (قابل ویرایش در تنظیمات):
- * حداقل مزد ماهانه ۱۰٬۳۹۰٬۹۶۸ تومان | مسکن ۹۰۰٬۰۰۰ | بن ۲٬۲۰۰٬۰۰۰ | اولاد ۱٬۰۳۹٬۰۹۷
- * معافیت مالیاتی ماهانه ۲۴٬۰۰۰٬۰۰۰ تومان و پله‌های ۱۰/۱۵/۲۰/۲۵/۳۰ درصد.
+ * مقادیر پیش‌فرض سال ۱۴۰۵ (قابل ویرایش در تنظیمات) — مصوبه‌ی شورای عالی کار و قانون بودجه‌ی ۱۴۰۵:
+ * حداقل مزد روزانه ۵۵۴٬۱۸۵ تومان (ماهانه‌ی ۳۰روزه ۱۶٬۶۲۵٬۵۵۰) | مسکن ۳٬۰۰۰٬۰۰۰ | بن ۲٬۲۰۰٬۰۰۰
+ * حق اولاد ۱٬۶۶۲٬۵۵۵ (۳ برابر مزد روزانه) | حق تأهل ۵۰۰٬۰۰۰ | پایه سنوات روزانه ۱۶٬۶۶۷ تومان (۱۶۶٬۶۶۷ ریال)
+ * معافیت مالیاتی ماهانه ۴۰٬۰۰۰٬۰۰۰ تومان (سالانه ۴۸۰ میلیون) و پله‌های ۱۰/۱۵/۲۰/۲۵/۳۰ درصد.
  */
 export const DEFAULT_PAYROLL_RATES: PayrollRates = {
-  minDailyWage: 346_366,
-  housingAllowance: 900_000,
+  minDailyWage: 554_185,
+  housingAllowance: 3_000_000,
   groceryAllowance: 2_200_000,
-  childAllowancePerChild: 1_039_097,
+  childAllowancePerChild: 1_662_555,
   marriageAllowance: 500_000,
-  seniorityDailyBase: 94_000,
+  seniorityDailyBase: 16_667,
   insuranceRatePercent: 7,
   overtimeFactor: 1.4,
   nightShiftRatePercent: 35,
   taxBrackets: [
-    { upTo: 24_000_000, ratePercent: 0 },
-    { upTo: 30_000_000, ratePercent: 10 },
-    { upTo: 38_000_000, ratePercent: 15 },
-    { upTo: 50_000_000, ratePercent: 20 },
-    { upTo: 66_666_667, ratePercent: 25 },
+    { upTo: 40_000_000, ratePercent: 0 },
+    { upTo: 80_000_000, ratePercent: 10 },
+    { upTo: 100_000_000, ratePercent: 15 },
+    { upTo: 120_000_000, ratePercent: 20 },
+    { upTo: 140_000_000, ratePercent: 25 },
     { upTo: null, ratePercent: 30 },
   ],
 };

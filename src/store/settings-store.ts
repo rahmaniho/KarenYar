@@ -57,7 +57,26 @@ export const useSettingsStore = create<SettingsState>()(
       setCurrencyRates: (currencyRates) => set({ currencyRates }),
       setPinHash: (pinHash) => set({ pinHash }),
     }),
-    { name: 'hesabyar-settings', version: 1 },
+    {
+      name: 'hesabyar-settings',
+      version: 2,
+      migrate: (persistedState, version) => {
+        if (version >= 2 || typeof persistedState !== 'object' || persistedState === null) {
+          return persistedState as SettingsState;
+        }
+        const state = persistedState as Partial<SettingsState>;
+        // کسی که نرخ‌های پیش‌فرض قبلی (۱۴۰۴) را دست نزده، خودکار نرخ‌های جاری را می‌گیرد؛
+        // نرخ‌های دستیِ کاربر هرگز بازنویسی نمی‌شوند.
+        if (state.payrollRates?.minDailyWage === 346_366) {
+          state.payrollRates = DEFAULT_PAYROLL_RATES;
+        }
+        const usd = state.currencyRates?.find((r) => r.code === 'USD');
+        if (usd?.rateToToman === 93_000) {
+          state.currencyRates = DEFAULT_CURRENCY_RATES;
+        }
+        return state as SettingsState;
+      },
+    },
   ),
 );
 
