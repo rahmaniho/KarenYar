@@ -403,8 +403,15 @@ export function PayrollCalculatePage() {
               </p>
             </div>
 
-            <p className="mt-6 border-t pt-3 text-center text-[11px] text-navy-400">
+            <p className="mt-6 flex items-center justify-center gap-1.5 border-t pt-3 text-center text-[11px] text-navy-400">
               صادرشده با دستمزد‌یار کارن سافت — {shopName}
+              <img
+                src="/images/karensoft/mark.png"
+                alt=""
+                width={256}
+                height={256}
+                className="h-4 w-4 object-contain"
+              />
             </p>
           </div>
         )}

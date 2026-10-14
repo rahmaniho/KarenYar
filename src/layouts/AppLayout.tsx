@@ -10,6 +10,7 @@ import { useSettingsStore } from '@/store/settings-store';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { useInstallPrompt } from '@/hooks/use-install-prompt';
 import { NAV_GROUPS, MOBILE_NAV } from './nav-items';
+import { KarenSoftCredit } from '@/components/KarenSoftCredit';
 import { cn } from '@/lib/utils';
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
@@ -81,6 +82,7 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
           {tier === 'free' && <span className="ms-auto text-xs text-neon-400">ارتقا ←</span>}
         </Link>
         <p className="px-2 pt-2 text-[11px] text-white/40">نسخه ۱٫۰٫۰ — کاملاً آفلاین</p>
+        <KarenSoftCredit className="mt-1.5" />
       </div>
     </div>
   );

@@ -179,8 +179,15 @@ export function InvoiceViewPage() {
           </dl>
         </div>
 
-        <p className="mt-8 border-t pt-4 text-center text-xs text-navy-500">
+        <p className="mt-8 flex items-center justify-center gap-1.5 border-t pt-4 text-center text-xs text-navy-500">
           از خرید شما سپاسگزاریم — صادرشده با حساب‌یار کارن سافت
+          <img
+            src="/images/karensoft/mark.png"
+            alt=""
+            width={256}
+            height={256}
+            className="h-4 w-4 object-contain"
+          />
         </p>
       </div>
 

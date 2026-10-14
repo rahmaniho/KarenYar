@@ -80,7 +80,7 @@ npm run test:e2e        # تست E2E — یک‌بار قبلش: npx playwright 
 npm run lint            # ESLint
 npm run typecheck       # فقط بررسی TypeScript
 npm run license:key -- --tier pro --name "نام مشتری" [--days 365]   # ساخت کلید لایسنس
-npm run icons           # بازتولید آیکون‌های PWA
+npm run icons           # بازسازی assetهای برند و آیکون‌های PWA از لوگوی اصلی (نیازمند Pillow)
 ```
 
 > نکته: اسکریپت `npm run dev` به‌صورت پیش‌فرض روی `localhost` اجراست؛ برای دسترسی از شبکه یا محیط‌های ابری، Vite در این پروژه روی همه‌ی هاست‌ها گوش می‌دهد.
@@ -171,6 +171,10 @@ KS1.eyJ2IjoxLCJ0aWVyIjoicHJvcGx1cyIsIm5hbWUiOiLZhdi02KrYsduMINmG2YXZiNmG2Ycg4oCU
 - برای امتیاز رسمی Lighthouse: نسخه‌ی `dist` را روی هاست HTTPS بالا بیاورید و در Chrome DevTools → Lighthouse اجرا کنید؛ ساختار (PWA آماده، باندل سبک، فونت محلی) برای امتیاز ۹۰+ طراحی شده است.
 
 ---
+
+## 🎨 assetهای برند کارن‌سافت
+
+نشان و وردمارک‌های داخل برنامه (سایدبار، فوتر با اعتبار متحرک «طراحی و توسعه توسط کارن سافت»، فاکتور و فیش، آیکون‌های PWA) همگی از **لوگوی اصلی کارن‌سافت** بریده شده‌اند — هرگز متن تایپ‌شده نیستند تا فونت و رنگ برند دقیق بماند. منبع در `scripts/karensoft-logo.png` است و با `scripts/build-brand-assets.py` به `public/images/karensoft/` و `public/icons/` ساخته می‌شوند.
 
 ## 🗂️ ساختار پروژه
 

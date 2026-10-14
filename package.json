@@ -16,7 +16,7 @@
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{ts,js,json,md}\"",
     "license:key": "node scripts/generate-license.mjs",
-    "icons": "node scripts/generate-icons.mjs",
+    "icons": "python3 scripts/build-brand-assets.py",
     "prepare": "husky"
   },
   "lint-staged": {

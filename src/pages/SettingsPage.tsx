@@ -535,6 +535,41 @@ export function SettingsPage() {
               ساخته‌شده با React و TypeScript — داده‌ها فقط روی دستگاه شما (IndexedDB) ذخیره
               می‌شوند.
             </p>
+            {/* قفل برند کارن‌سافت با artwork اصلی لوگو */}
+            <a
+              href="https://www.karen-soft.ir"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 flex items-center gap-3 rounded-xl border p-3 transition hover:bg-secondary/60"
+              aria-label="وب‌سایت کارن سافت"
+            >
+              <img
+                src="/images/karensoft/mark.png"
+                alt="نشان کارن سافت"
+                width={256}
+                height={256}
+                className="h-12 w-12 object-contain"
+              />
+              <span className="flex flex-col items-start gap-1">
+                <span className="inline-flex rounded-md bg-white px-2 py-1 ring-1 ring-border">
+                  <img
+                    src="/images/karensoft/wordmark-fa.png"
+                    alt="کارن سافت"
+                    width={383}
+                    height={96}
+                    className="h-5 w-auto"
+                  />
+                </span>
+                <img
+                  src="/images/karensoft/wordmark-en.png"
+                  alt="Karensoft"
+                  width={410}
+                  height={48}
+                  className="h-3 w-auto opacity-70 dark:invert"
+                />
+              </span>
+              <span className="ms-auto text-xs text-muted-foreground">karen-soft.ir ←</span>
+            </a>
           </CardContent>
         </Card>
       </div>
