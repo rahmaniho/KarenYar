@@ -117,7 +117,14 @@ export function InvoicesPage() {
                   <TableCell className="whitespace-nowrap">
                     {formatJalaliNumeric(new Date(invoice.date))}
                   </TableCell>
-                  <TableCell>{invoice.customerName ?? 'مشتری نقدی'}</TableCell>
+                  <TableCell>
+                    {invoice.customerName ?? 'مشتری نقدی'}
+                    {invoice.isCredit && (
+                      <span className="ms-2 inline-flex items-center rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning-foreground ring-1 ring-warning/40">
+                        نسیه
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell>{formatNumber(itemCounts.get(invoice.id!) ?? 0)} قلم</TableCell>
                   <TableCell className="font-bold">{formatMoney(invoice.total, unit)}</TableCell>
                   <TableCell>

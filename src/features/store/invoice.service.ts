@@ -14,6 +14,9 @@ export interface NewInvoiceItemInput {
 
 export interface NewInvoiceInput {
   customerName?: string;
+  customerId?: number | null;
+  /** فروش نسیه (افزودن به حساب مشتری) */
+  isCredit?: boolean;
   items: NewInvoiceItemInput[];
   discountType: 'percent' | 'amount';
   /** مقدار تخفیف به تومان (در حالت مبلغی) یا درصد (در حالت درصدی) — تومان داخلی */
@@ -93,6 +96,8 @@ export async function createInvoice(input: NewInvoiceInput): Promise<number> {
       number,
       date: now,
       customerName: input.customerName?.trim() ? input.customerName.trim() : undefined,
+      customerId: input.customerId ?? null,
+      isCredit: input.isCredit ?? false,
       subtotal: totals.subtotal,
       discountType: input.discountType,
       discountValue: input.discountValue,

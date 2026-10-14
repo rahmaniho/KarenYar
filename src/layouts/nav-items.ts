@@ -1,6 +1,7 @@
 import {
   Banknote,
   Calculator,
+  Contact,
   CreditCard,
   LayoutDashboard,
   Package,
@@ -36,6 +37,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/store/products', label: 'کالاها', icon: Package },
       { to: '/store/invoices', label: 'فاکتورها', icon: Receipt },
+      { to: '/store/customers', label: 'مشتریان و نسیه', icon: Contact },
       { to: '/store/reports', label: 'گزارش فروش', icon: TrendingUp },
     ],
   },

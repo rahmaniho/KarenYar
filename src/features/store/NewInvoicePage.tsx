@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { AlertTriangle, Plus, ReceiptText, Search, Trash2, User } from 'lucide-react';
+import { AlertTriangle, Plus, ReceiptText, ScanBarcode, Search, Trash2, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { db, type Product } from '@/core/db/db';
 import {
@@ -14,10 +14,12 @@ import {
 import { useSettingsStore } from '@/store/settings-store';
 import { PageHeader } from '@/components/PageHeader';
 import { AmountInput } from '@/components/AmountInput';
+import { BarcodeScannerDialog } from '@/components/BarcodeScannerDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -42,6 +44,10 @@ export function NewInvoicePage() {
   const products = useLiveQuery(() => db.products.orderBy('name').toArray(), [], [] as Product[]);
 
   const [customerName, setCustomerName] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('cash');
+  const [isCredit, setIsCredit] = useState(false);
+  const customers = useLiveQuery(() => db.customers.orderBy('name').toArray(), [], []);
+  const selectedCustomer = customers.find((c) => String(c.id) === selectedCustomerId) ?? null;
   const [lines, setLines] = useState<Line[]>([]);
   const [productSearch, setProductSearch] = useState('');
   const [manualName, setManualName] = useState('');
@@ -50,6 +56,18 @@ export function NewInvoicePage() {
   const [discountValue, setDiscountValue] = useState(0);
   const [taxPercent, setTaxPercent] = useState(defaultTax);
   const [saving, setSaving] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
+
+  const handleBarcode = (code: string) => {
+    const product = products.find((p) => p.barcode === code);
+    if (product) {
+      addProductLine(product);
+      toast.success(`«${product.name}» به فاکتور اضافه شد.`);
+    } else {
+      setProductSearch(code);
+      toast.error('کالایی با این بارکد در انبار نیست؛ می‌توانید قلم دستی اضافه کنید.');
+    }
+  };
 
   const searchResults = useMemo(() => {
     const query = productSearch.trim();
@@ -117,7 +135,9 @@ export function NewInvoicePage() {
     setSaving(true);
     try {
       const id = await createInvoice({
-        customerName: customerName || undefined,
+        customerName: selectedCustomer ? selectedCustomer.name : customerName || undefined,
+        customerId: selectedCustomer ? selectedCustomer.id! : null,
+        isCredit: selectedCustomer ? isCredit : false,
         items: lines.map((l) => ({
           productId: l.productId,
           name: l.name,
@@ -154,16 +174,47 @@ export function NewInvoicePage() {
                 مشخصات مشتری
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               <div className="space-y-1.5">
-                <Label htmlFor="inv-customer">نام مشتری (اختیاری)</Label>
-                <Input
-                  id="inv-customer"
-                  placeholder="مشتری نقدی"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                />
+                <Label htmlFor="inv-customer-select">مشتری</Label>
+                <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
+                  <SelectTrigger id="inv-customer-select" aria-label="انتخاب مشتری">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">مشتری نقدی (بدون حساب)</SelectItem>
+                    {customers.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>
+                        {c.name}
+                        {c.phone ? ` — ${c.phone}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {customers.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    برای فروش نسیه، اول از بخش «مشتریان و نسیه» مشتری ثبت کنید.
+                  </p>
+                )}
               </div>
+              {selectedCustomer ? (
+                <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
+                  <Label htmlFor="inv-credit" className="cursor-pointer">
+                    فروش نسیه (افزودن به حساب {selectedCustomer.name})
+                  </Label>
+                  <Switch id="inv-credit" checked={isCredit} onCheckedChange={setIsCredit} />
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <Label htmlFor="inv-customer">نام خریدار (اختیاری)</Label>
+                  <Input
+                    id="inv-customer"
+                    placeholder="مشتری نقدی"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -175,18 +226,28 @@ export function NewInvoicePage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="relative">
-                <Search
-                  className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden
-                />
-                <Input
-                  className="ps-9"
-                  placeholder="نام کالا یا بارکد را جستجو کنید…"
-                  value={productSearch}
-                  onChange={(e) => setProductSearch(e.target.value)}
-                  aria-label="جستجوی کالا برای فاکتور"
-                />
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search
+                    className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden
+                  />
+                  <Input
+                    className="ps-9"
+                    placeholder="نام کالا یا بارکد را جستجو کنید…"
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    aria-label="جستجوی کالا برای فاکتور"
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setScannerOpen(true)}
+                  aria-label="اسکن بارکد با دوربین"
+                >
+                  <ScanBarcode aria-hidden />
+                  اسکن
+                </Button>
               </div>
               {products.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
@@ -425,6 +486,12 @@ export function NewInvoicePage() {
           </CardContent>
         </Card>
       </div>
+
+      <BarcodeScannerDialog
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        onDetected={handleBarcode}
+      />
     </div>
   );
 }

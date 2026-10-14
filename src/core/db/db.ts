@@ -35,6 +35,10 @@ export interface Invoice {
   number: number;
   date: string; // ISO میلادی
   customerName?: string;
+  /** مشتری ثبت‌شده (دفتر مشتریان) — اختیاری */
+  customerId?: number | null;
+  /** فروش نسیه؟ (به مانده‌ی حساب مشتری اضافه می‌شود) */
+  isCredit?: boolean;
   subtotal: number;
   discountType: 'percent' | 'amount';
   discountValue: number;
@@ -122,6 +126,27 @@ export interface PayrollRecord {
   createdAt: string;
 }
 
+export interface Customer {
+  id?: number;
+  name: string;
+  phone?: string;
+  address?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+/** پرداخت مشتری بابت فروش‌های نسیه */
+export interface CustomerPayment {
+  id?: number;
+  customerId: number;
+  /** پرداخت مرتبط با فاکتور خاص (اختیاری) */
+  invoiceId?: number | null;
+  amount: number;
+  date: string; // ISO میلادی
+  note?: string;
+  createdAt: string;
+}
+
 export interface KeyValueRow {
   key: string;
   value: unknown;
@@ -136,6 +161,8 @@ export class HesabyarDB extends Dexie {
   debts!: EntityTable<Debt, 'id'>;
   employees!: EntityTable<Employee, 'id'>;
   payrolls!: EntityTable<PayrollRecord, 'id'>;
+  customers!: EntityTable<Customer, 'id'>;
+  customerPayments!: EntityTable<CustomerPayment, 'id'>;
   settings!: EntityTable<KeyValueRow, 'key'>;
   license!: EntityTable<KeyValueRow, 'key'>;
 
@@ -153,6 +180,12 @@ export class HesabyarDB extends Dexie {
       payrolls: '++id, employeeId, month',
       settings: 'key',
       license: 'key',
+    });
+    // نسخه‌ی ۲ — دفتر مشتریان، فروش نسیه و پرداخت‌های مشتری (داده‌های قبلی دست‌نخورده می‌مانند)
+    this.version(2).stores({
+      invoices: '++id, date, number, total, customerId',
+      customers: '++id, name, phone',
+      customerPayments: '++id, customerId, invoiceId, date',
     });
   }
 }

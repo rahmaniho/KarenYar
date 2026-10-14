@@ -24,6 +24,7 @@ const StoreReportsPage = lazyPage(
   () => import('@/features/store/StoreReportsPage'),
   'StoreReportsPage',
 );
+const CustomersPage = lazyPage(() => import('@/features/store/CustomersPage'), 'CustomersPage');
 const TransactionsPage = lazyPage(
   () => import('@/features/personal/TransactionsPage'),
   'TransactionsPage',
@@ -54,6 +55,7 @@ export const router = createBrowserRouter([
       { path: 'store/invoices/new', element: <NewInvoicePage /> },
       { path: 'store/invoices/:id', element: <InvoiceViewPage /> },
       { path: 'store/reports', element: <StoreReportsPage /> },
+      { path: 'store/customers', element: <CustomersPage /> },
       { path: 'personal/transactions', element: <TransactionsPage /> },
       { path: 'personal/budgets', element: <BudgetsPage /> },
       { path: 'personal/debts', element: <DebtsPage /> },

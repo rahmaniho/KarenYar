@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { AlertTriangle, Package, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { AlertTriangle, Package, Pencil, Plus, ScanBarcode, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { db, nowISO, type Product } from '@/core/db/db';
 import { FREE_LIMITS } from '@/core/license/license-core';
@@ -21,6 +22,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { FeatureGate } from '@/components/FeatureGate';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { AmountInput } from '@/components/AmountInput';
+import { BarcodeScannerDialog } from '@/components/BarcodeScannerDialog';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -64,12 +66,20 @@ export function ProductsPage() {
   const can = useLicenseStore((s) => s.can);
   const products = useLiveQuery(() => db.products.orderBy('name').toArray(), [], [] as Product[]);
 
+  const [searchParams] = useSearchParams();
   const [search, setSearch] = useState('');
+
+  // عبارت آمده از جستجوی سراسری (Ctrl+K)
+  useEffect(() => {
+    const q = searchParams.get('q');
+    if (q) setSearch(q);
+  }, [searchParams]);
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [lowOnly, setLowOnly] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState<Product | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   const categories = useMemo(
     () =>
@@ -134,6 +144,14 @@ export function ProductsPage() {
               aria-label="جستجوی کالا"
             />
           </div>
+          <Button
+            variant="outline"
+            onClick={() => setScannerOpen(true)}
+            aria-label="اسکن بارکد کالا"
+          >
+            <ScanBarcode aria-hidden />
+            اسکن بارکد
+          </Button>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger className="w-44" aria-label="فیلتر دسته‌بندی">
               <SelectValue placeholder="همه‌ی دسته‌ها" />
@@ -296,6 +314,17 @@ export function ProductsPage() {
           </ul>
         </Card>
       )}
+
+      <BarcodeScannerDialog
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        onDetected={(code) => {
+          setSearch(code);
+          const found = products.find((p) => p.barcode === code);
+          if (found) toast.success(`کالا یافت شد: «${found.name}»`);
+          else toast.error('کالایی با این بارکد ثبت نشده است.');
+        }}
+      />
 
       <ProductFormDialog
         open={dialogOpen}

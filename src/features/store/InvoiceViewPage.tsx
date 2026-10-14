@@ -127,6 +127,11 @@ export function InvoiceViewPage() {
 
         <p className="mt-4 text-sm">
           خریدار: <b>{invoice.customerName ?? 'مشتری نقدی'}</b>
+          {invoice.isCredit && (
+            <span className="ms-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800 ring-1 ring-amber-300">
+              فروش نسیه
+            </span>
+          )}
         </p>
 
         <table className="mt-4 w-full text-sm">

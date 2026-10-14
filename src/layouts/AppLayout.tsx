@@ -1,7 +1,7 @@
 import { Suspense, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Crown, Download, Menu, Moon, Sun, Wifi, WifiOff, X } from 'lucide-react';
+import { Crown, Download, LockKeyhole, Menu, Moon, Sun, Wifi, WifiOff, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TIER_LABELS } from '@/core/license/license-core';
@@ -11,6 +11,9 @@ import { useOnlineStatus } from '@/hooks/use-online-status';
 import { useInstallPrompt } from '@/hooks/use-install-prompt';
 import { NAV_GROUPS, MOBILE_NAV } from './nav-items';
 import { KarenSoftCredit } from '@/components/KarenSoftCredit';
+import { GlobalSearch } from '@/components/GlobalSearch';
+import { useLockStore } from '@/store/lock-store';
+import { AlertsBell } from '@/components/AlertsBell';
 import { cn } from '@/lib/utils';
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
@@ -81,7 +84,7 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
           نسخه‌ی {TIER_LABELS[tier]}
           {tier === 'free' && <span className="ms-auto text-xs text-neon-400">ارتقا ←</span>}
         </Link>
-        <p className="px-2 pt-2 text-[11px] text-white/40">نسخه ۱٫۰٫۰ — کاملاً آفلاین</p>
+        <p className="px-2 pt-2 text-[11px] text-white/40">نسخه ۱٫۱٫۰ — کاملاً آفلاین</p>
         <KarenSoftCredit className="mt-1.5" />
       </div>
     </div>
@@ -94,6 +97,8 @@ export function AppLayout() {
   const { canInstall, promptInstall } = useInstallPrompt();
   const theme = useSettingsStore((s) => s.theme);
   const setTheme = useSettingsStore((s) => s.setTheme);
+  const pinHash = useSettingsStore((s) => s.pinHash);
+  const lock = useLockStore((s) => s.lock);
   const tier = useLicenseStore((s) => s.info.tier);
   const location = useLocation();
 
@@ -167,6 +172,7 @@ export function AppLayout() {
               <BrandMark compact />
             </div>
             <div className="ms-auto flex items-center gap-1.5 sm:gap-2">
+              <GlobalSearch />
               <Badge variant={online ? 'success' : 'warning'} className="hidden sm:inline-flex">
                 {online ? (
                   <Wifi className="h-3 w-3" aria-hidden />
@@ -184,6 +190,12 @@ export function AppLayout() {
                 >
                   <Download className="h-4 w-4" />
                   نصب اپلیکیشن
+                </Button>
+              )}
+              <AlertsBell />
+              {pinHash && (
+                <Button variant="ghost" size="icon" aria-label="قفل‌کردن برنامه" onClick={lock}>
+                  <LockKeyhole className="h-5 w-5" />
                 </Button>
               )}
               <Button

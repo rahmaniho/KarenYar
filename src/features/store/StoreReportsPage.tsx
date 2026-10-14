@@ -1,8 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { AlertTriangle, Banknote, Receipt, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Banknote, HandCoins, Receipt, TrendingUp } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { db, type Invoice, type InvoiceItem, type Product } from '@/core/db/db';
+import {
+  db,
+  type CustomerPayment,
+  type Invoice,
+  type InvoiceItem,
+  type Product,
+} from '@/core/db/db';
 import { formatMoney, formatNumber, toFaDigits } from '@/core/currency/currency';
 import { currentJalaliMonthKey, jalaliMonthKey, jalaliMonthLabel } from '@/core/jalali/jalali';
 import { useSettingsStore } from '@/store/settings-store';
@@ -34,6 +40,7 @@ import {
   salesTotals,
   topProducts,
 } from './store-calc';
+import { totalReceivables } from './customers-calc';
 
 /** گزارش فروش روزانه/ماهانه، سود ناخالص، کالاهای پرفروش و کمبود موجودی */
 export function StoreReportsPage() {
@@ -41,6 +48,7 @@ export function StoreReportsPage() {
   const invoices = useLiveQuery(() => db.invoices.toArray(), [], [] as Invoice[]);
   const items = useLiveQuery(() => db.invoiceItems.toArray(), [], [] as InvoiceItem[]);
   const products = useLiveQuery(() => db.products.toArray(), [], [] as Product[]);
+  const payments = useLiveQuery(() => db.customerPayments.toArray(), [], [] as CustomerPayment[]);
   const [month, setMonth] = useState(currentJalaliMonthKey());
 
   const monthOptions = useMemo(() => {
@@ -65,6 +73,7 @@ export function StoreReportsPage() {
   const lowStock = useMemo(() => lowStockProducts(products), [products]);
 
   const marginPercent = totals.revenue > 0 ? (totals.grossProfit / totals.revenue) * 100 : 0;
+  const receivables = useMemo(() => totalReceivables(invoices, payments), [invoices, payments]);
 
   return (
     <div>
@@ -96,7 +105,7 @@ export function StoreReportsPage() {
         />
       ) : (
         <>
-          <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
             <StatCard
               title={`فروش ${jalaliMonthLabel(month)}`}
               value={formatMoney(totals.revenue, unit)}
@@ -121,6 +130,12 @@ export function StoreReportsPage() {
               value={`${formatNumber(totals.invoiceCount)} فاکتور`}
               icon={Receipt}
               tone="navy"
+            />
+            <StatCard
+              title="مطالبات مشتریان (نسیه)"
+              value={formatMoney(receivables, unit)}
+              icon={HandCoins}
+              tone="warning"
             />
           </div>
 

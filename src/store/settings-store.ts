@@ -21,6 +21,8 @@ interface SettingsState {
   defaultMinStock: number;
   payrollRates: PayrollRates;
   currencyRates: CurrencyRate[];
+  /** هش SHA-256 پین قفل برنامه — null یعنی قفل غیرفعال */
+  pinHash: string | null;
   setTheme: (theme: ThemeMode) => void;
   setCurrencyUnit: (unit: CurrencyUnit) => void;
   updateShop: (
@@ -30,6 +32,7 @@ interface SettingsState {
   setDefaultMinStock: (value: number) => void;
   setPayrollRates: (rates: PayrollRates) => void;
   setCurrencyRates: (rates: CurrencyRate[]) => void;
+  setPinHash: (pinHash: string | null) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -44,6 +47,7 @@ export const useSettingsStore = create<SettingsState>()(
       defaultMinStock: 5,
       payrollRates: DEFAULT_PAYROLL_RATES,
       currencyRates: DEFAULT_CURRENCY_RATES,
+      pinHash: null,
       setTheme: (theme) => set({ theme }),
       setCurrencyUnit: (currencyUnit) => set({ currencyUnit }),
       updateShop: (patch) => set(patch),
@@ -51,6 +55,7 @@ export const useSettingsStore = create<SettingsState>()(
       setDefaultMinStock: (defaultMinStock) => set({ defaultMinStock }),
       setPayrollRates: (payrollRates) => set({ payrollRates }),
       setCurrencyRates: (currencyRates) => set({ currencyRates }),
+      setPinHash: (pinHash) => set({ pinHash }),
     }),
     { name: 'hesabyar-settings', version: 1 },
   ),

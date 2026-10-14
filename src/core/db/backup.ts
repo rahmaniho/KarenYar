@@ -20,6 +20,8 @@ export interface BackupData {
     debts: unknown[];
     employees: unknown[];
     payrolls: unknown[];
+    customers: unknown[];
+    customerPayments: unknown[];
     settings: unknown[];
   };
 }
@@ -33,8 +35,13 @@ const TABLE_NAMES = [
   'debts',
   'employees',
   'payrolls',
+  'customers',
+  'customerPayments',
   'settings',
 ] as const;
+
+/** جدول‌هایی که در نسخه‌های قدیمی فایل پشتیبان نبودند و نبودنشان خطا نیست */
+const OPTIONAL_TABLES: ReadonlySet<string> = new Set(['customers', 'customerPayments']);
 
 export async function exportBackup(): Promise<BackupData> {
   const tables = {} as BackupData['tables'];
@@ -66,6 +73,10 @@ export function validateBackup(data: unknown): BackupData {
   }
   for (const name of TABLE_NAMES) {
     if (!Array.isArray(candidate.tables[name])) {
+      if (OPTIONAL_TABLES.has(name)) {
+        (candidate.tables as Record<string, unknown[]>)[name] = [];
+        continue;
+      }
       throw new Error(`جدول «${name}» در فایل پشتیبان یافت نشد.`);
     }
   }

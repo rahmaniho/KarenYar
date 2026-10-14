@@ -6,6 +6,8 @@ import {
   DatabaseBackup,
   Download,
   Info,
+  LockKeyhole,
+  Sparkles,
   Moon,
   MonitorSmartphone,
   Palette,
@@ -30,6 +32,8 @@ import { toFaDigits } from '@/core/currency/currency';
 import { useLicenseStore } from '@/store/license-store';
 import { useSettingsStore, type ThemeMode } from '@/store/settings-store';
 import { useInstallPrompt } from '@/hooks/use-install-prompt';
+import { hashPin, isValidPinFormat, verifyPin } from '@/core/utils/pin';
+import { seedDemoData } from '@/core/db/seed';
 import { PageHeader } from '@/components/PageHeader';
 import { FeatureGate } from '@/components/FeatureGate';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -66,6 +70,8 @@ function SectionTitle({ icon: Icon, children }: { icon: typeof Palette; children
 export function SettingsPage() {
   const location = useLocation();
   const settings = useSettingsStore();
+  const pinHash = settings.pinHash;
+  const setPinHash = settings.setPinHash;
   const licenseInfo = useLicenseStore((s) => s.info);
   const activate = useLicenseStore((s) => s.activate);
   const deactivate = useLicenseStore((s) => s.deactivate);
@@ -73,6 +79,11 @@ export function SettingsPage() {
   const { canInstall, isInstalled, promptInstall } = useInstallPrompt();
 
   const [licenseKey, setLicenseKey] = useState('');
+  const [pinCurrent, setPinCurrent] = useState('');
+  const [pinNew, setPinNew] = useState('');
+  const [pinBusy, setPinBusy] = useState(false);
+  const [seedOpen, setSeedOpen] = useState(false);
+  const [seeding, setSeeding] = useState(false);
   const [activating, setActivating] = useState(false);
   const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [wipeOpen, setWipeOpen] = useState(false);
@@ -136,6 +147,78 @@ export function SettingsPage() {
     }
   };
 
+  const enablePin = async () => {
+    if (!isValidPinFormat(pinNew)) {
+      toast.error('پین باید بین ۴ تا ۱۲ رقم باشد.');
+      return;
+    }
+    setPinBusy(true);
+    try {
+      setPinHash(await hashPin(pinNew));
+      setPinNew('');
+      toast.success('قفل برنامه فعال شد. از این پس ورود با پین انجام می‌شود.');
+    } catch {
+      toast.error('فعال‌سازی پین ناموفق بود.');
+    } finally {
+      setPinBusy(false);
+    }
+  };
+
+  const changePin = async () => {
+    if (!pinHash) return;
+    if (!isValidPinFormat(pinNew)) {
+      toast.error('پین جدید باید بین ۴ تا ۱۲ رقم باشد.');
+      return;
+    }
+    setPinBusy(true);
+    try {
+      if (!(await verifyPin(pinCurrent, pinHash))) {
+        toast.error('پین فعلی اشتباه است.');
+        return;
+      }
+      setPinHash(await hashPin(pinNew));
+      setPinCurrent('');
+      setPinNew('');
+      toast.success('پین تغییر کرد.');
+    } catch {
+      toast.error('تغییر پین ناموفق بود.');
+    } finally {
+      setPinBusy(false);
+    }
+  };
+
+  const disablePin = async () => {
+    if (!pinHash) return;
+    setPinBusy(true);
+    try {
+      if (!(await verifyPin(pinCurrent, pinHash))) {
+        toast.error('پین فعلی اشتباه است.');
+        return;
+      }
+      setPinHash(null);
+      setPinCurrent('');
+      toast.success('قفل برنامه غیرفعال شد.');
+    } catch {
+      toast.error('غیرفعال‌سازی قفل ناموفق بود.');
+    } finally {
+      setPinBusy(false);
+    }
+  };
+
+  const runSeed = async () => {
+    setSeeding(true);
+    try {
+      const result = await seedDemoData();
+      toast.success(
+        `داده‌ی نمایشی اضافه شد: ${toFaDigits(String(result.products))} کالا و ${toFaDigits(String(result.invoices))} فاکتور.`,
+      );
+    } catch {
+      toast.error('افزودن داده‌ی نمایشی ناموفق بود.');
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   const wipeAll = async () => {
     await db.transaction(
       'rw',
@@ -148,6 +231,8 @@ export function SettingsPage() {
         db.debts,
         db.employees,
         db.payrolls,
+        db.customers,
+        db.customerPayments,
         db.settings,
       ],
       async () => {
@@ -160,6 +245,8 @@ export function SettingsPage() {
           db.debts.clear(),
           db.employees.clear(),
           db.payrolls.clear(),
+          db.customers.clear(),
+          db.customerPayments.clear(),
           db.settings.clear(),
         ]);
       },
@@ -520,11 +607,106 @@ export function SettingsPage() {
 
         <Card>
           <CardHeader>
+            <SectionTitle icon={LockKeyhole}>امنیت — قفل برنامه با پین</SectionTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm leading-6 text-muted-foreground">
+              با فعال‌کردن قفل، هر بار بازکردن برنامه نیازمند واردکردن پین شماست. فقط هش پین روی
+              دستگاه می‌ماند و خود پین هرگز ذخیره نمی‌شود. اگر پین را فراموش کنید، تنها راه ورود،
+              پاک‌کردن همه‌ی داده‌ها از صفحه‌ی قفل است.
+            </p>
+            {pinHash ? (
+              <div className="space-y-3">
+                <p className="text-sm font-semibold text-success-foreground">قفل فعال است.</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="pin-current">پین فعلی</Label>
+                    <Input
+                      id="pin-current"
+                      type="password"
+                      inputMode="numeric"
+                      dir="ltr"
+                      maxLength={12}
+                      value={pinCurrent}
+                      onChange={(e) => setPinCurrent(e.target.value.replace(/[^\d]/g, ''))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="pin-new">پین جدید (برای تغییر)</Label>
+                    <Input
+                      id="pin-new"
+                      type="password"
+                      inputMode="numeric"
+                      dir="ltr"
+                      maxLength={12}
+                      value={pinNew}
+                      onChange={(e) => setPinNew(e.target.value.replace(/[^\d]/g, ''))}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="neon"
+                    onClick={changePin}
+                    disabled={pinBusy || pinNew.length < 4}
+                  >
+                    تغییر پین
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={disablePin}
+                    disabled={pinBusy || pinCurrent.length < 4}
+                  >
+                    غیرفعال‌کردن قفل
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="pin-set">پین دلخواه (۴ تا ۱۲ رقم)</Label>
+                  <Input
+                    id="pin-set"
+                    type="password"
+                    inputMode="numeric"
+                    dir="ltr"
+                    maxLength={12}
+                    value={pinNew}
+                    onChange={(e) => setPinNew(e.target.value.replace(/[^\d]/g, ''))}
+                  />
+                </div>
+                <Button variant="neon" onClick={enablePin} disabled={pinBusy || pinNew.length < 4}>
+                  <LockKeyhole aria-hidden />
+                  فعال‌کردن قفل
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <SectionTitle icon={Sparkles}>داده‌های نمایشی (دمو)</SectionTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm leading-6 text-muted-foreground">
+              برای آشنایی سریع با امکانات یا نمایش برنامه به مشتری، چند کالا، مشتری، فاکتور فروش
+              (نقدی و نسیه)، تراکنش، بودجه و کارمندِ نمونه با برچسب «نمایشی» اضافه می‌شود.
+            </p>
+            <Button variant="outline" onClick={() => setSeedOpen(true)} disabled={seeding}>
+              <Sparkles aria-hidden />
+              {seeding ? 'در حال افزودن…' : 'افزودن داده‌های نمایشی'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <SectionTitle icon={Info}>درباره‌ی حساب‌یار کارن سافت</SectionTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm leading-7 text-muted-foreground">
             <p>
-              <b className="text-foreground">حساب‌یار کارن سافت</b> — نسخه‌ی ۱٫۰٫۰
+              <b className="text-foreground">حساب‌یار کارن سافت</b> — نسخه‌ی ۱٫۱٫۰
             </p>
             <p>
               اپلیکیشن مالی فارسی و کاملاً آفلاین برای فروشگاه‌های کوچک، کارمندان و حسابداران:
@@ -574,6 +756,14 @@ export function SettingsPage() {
         </Card>
       </div>
 
+      <ConfirmDialog
+        open={seedOpen}
+        onOpenChange={setSeedOpen}
+        title="افزودن داده‌های نمایشی"
+        description="چند رکورد نمونه با برچسب «نمایشی» به داده‌های فعلی اضافه می‌شود. هر وقت خواستید می‌توانید از بخش «پشتیبان و داده» همه‌ی داده‌ها را پاک کنید. ادامه می‌دهید؟"
+        confirmLabel="بله، اضافه کن"
+        onConfirm={runSeed}
+      />
       <ConfirmDialog
         open={deactivateOpen}
         onOpenChange={setDeactivateOpen}
