@@ -45,15 +45,42 @@ describe('جمع‌های فاکتور', () => {
 
 describe('گزارش فروش', () => {
   it('مجموع فروش و سود ناخالص درست است', () => {
-    const inv = invoice({ id: 1, total: 3000 });
+    const inv = invoice({ id: 1, subtotal: 3000, total: 3000 });
     const totals = salesTotals(
       [inv],
       [item({ qty: 3, unitPrice: 1000, unitCost: 700, total: 3000 })],
     );
     expect(totals.revenue).toBe(3000);
+    expect(totals.netRevenue).toBe(3000);
     expect(totals.cost).toBe(2100);
     expect(totals.grossProfit).toBe(900);
     expect(totals.invoiceCount).toBe(1);
+  });
+
+  it('سود ناخالص تخفیف فاکتور را کم می‌کند و مالیات جزو فروش خالص نیست', () => {
+    // فاکتور ۱۰هزارتومانی با ۲۰٪ تخفیف و ۱۰٪ مالیات: فروش خالص ۸۰۰۰، سود = ۸۰۰۰ − بهای تمام‌شده
+    const inv = invoice({
+      id: 1,
+      subtotal: 10_000,
+      discountAmount: 2_000,
+      taxPercent: 10,
+      taxAmount: 800,
+      total: 8_800,
+    });
+    const totals = salesTotals(
+      [inv],
+      [item({ qty: 10, unitPrice: 1000, unitCost: 800, total: 10_000 })],
+    );
+    expect(totals.revenue).toBe(8_800);
+    expect(totals.netRevenue).toBe(8_000);
+    expect(totals.cost).toBe(8_000);
+    expect(totals.grossProfit).toBe(0);
+  });
+
+  it('مالیات منفی در محاسبه‌ی فاکتور صفر در نظر گرفته می‌شود', () => {
+    const totals = calculateInvoiceTotals([{ qty: 1, unitPrice: 1000 }], 'percent', 0, -10);
+    expect(totals.taxAmount).toBe(0);
+    expect(totals.total).toBe(1000);
   });
 
   it('سری روزانه‌ی مهر ۱۴۰۴ سی نقطه دارد و فروش روز ۱۴ را می‌شمارد', () => {

@@ -80,7 +80,8 @@ export function DebtsPage() {
   const paySimple = async () => {
     if (!payingDebt || paymentAmount <= 0) return;
     const remaining = payingDebt.amount - payingDebt.paidAmount;
-    const pay = Math.min(paymentAmount, remaining);
+    // مبلغ ورودی در واحد نمایشی است؛ مبنای محاسبه همیشه تومان داخلی است
+    const pay = Math.min(fromDisplayAmount(paymentAmount, unit), remaining);
     await db.debts.update(payingDebt.id!, { paidAmount: payingDebt.paidAmount + pay });
     toast.success('پرداخت ثبت شد.');
     setPayingDebt(null);

@@ -52,6 +52,23 @@ describe('computeAlerts', () => {
     expect(alerts[1]?.kind).toBe('debt-soon');
   });
 
+  it('بودجه‌ی ماه گذشته حتی اگر رد شده باشد هشدار نمی‌دهد', () => {
+    const alerts = computeAlerts({
+      ...base,
+      budgets: [{ month: '1404-01', category: 'خوراک', limit: 1_000 }],
+      transactions: [
+        {
+          date: new Date(2025, 2, 5).toISOString(),
+          type: 'expense',
+          category: 'خوراک',
+          amount: 5_000,
+          createdAt: '2025-03-05T00:00:00.000Z',
+        },
+      ],
+    });
+    expect(alerts.some((a) => a.kind === 'budget-over')).toBe(false);
+  });
+
   it('موجودی کم و بودجه‌ی ردشده را گزارش می‌کند', () => {
     const products: Product[] = [
       {

@@ -148,7 +148,9 @@
   }
   .print-area {
     position: absolute;
-    inset: 0;
+    top: 0;
+    right: 0;
+    left: 0;
     width: 100%;
     box-shadow: none !important;
   }

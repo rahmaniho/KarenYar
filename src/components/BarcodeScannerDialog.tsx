@@ -35,6 +35,11 @@ interface Props {
  * ورود دستی بارکد نمایش داده می‌شود تا قابلیت همیشه قابل استفاده باشد.
  */
 export function BarcodeScannerDialog({ open, onOpenChange, onDetected }: Props) {
+  // کالبک‌ها در ref نگه داشته می‌شوند تا رندر دوباره‌ی والد، دوربین را از نو راه نیندازد
+  const onDetectedRef = useRef(onDetected);
+  const onOpenChangeRef = useRef(onOpenChange);
+  onDetectedRef.current = onDetected;
+  onOpenChangeRef.current = onOpenChange;
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<number | null>(null);
@@ -86,8 +91,8 @@ export function BarcodeScannerDialog({ open, onOpenChange, onDetected }: Props) 
             const value = codes[0]?.rawValue?.trim();
             if (value) {
               stop();
-              onDetected(value);
-              onOpenChange(false);
+              onDetectedRef.current(value);
+              onOpenChangeRef.current(false);
             }
           } catch {
             // فریم نامناسب — ادامه‌ی اسکن
@@ -103,7 +108,8 @@ export function BarcodeScannerDialog({ open, onOpenChange, onDetected }: Props) 
       cancelled = true;
       stop();
     };
-  }, [open, onDetected, onOpenChange]);
+    // فقط با باز/بسته‌شدن دیالوگ اجرا می‌شود؛ کالبک‌ها از ref خوانده می‌شوند
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

@@ -22,7 +22,10 @@ export function itemsCost(items: InvoiceItem[]): number {
 }
 
 export interface SalesTotals {
+  /** جمع مبلغ فاکتورها (با مالیات) */
   revenue: number;
+  /** فروش خالص = جمع اقلام − تخفیف فاکتورها (بدون مالیات) — مبنای سود و حاشیه */
+  netRevenue: number;
   cost: number;
   grossProfit: number;
   invoiceCount: number;
@@ -33,10 +36,13 @@ export function salesTotals(invoices: Invoice[], items: InvoiceItem[]): SalesTot
   const scoped = items.filter((i) => invoiceIds.has(i.invoiceId));
   const cost = itemsCost(scoped);
   const revenue = invoices.reduce((sum, i) => sum + i.total, 0);
+  const netRevenue = invoices.reduce((sum, i) => sum + (i.subtotal - i.discountAmount), 0);
   return {
     revenue,
+    netRevenue,
     cost,
-    grossProfit: itemsGrossProfit(scoped),
+    // سود ناخالص واقعی: فروش خالص پس از تخفیف منهای بهای تمام‌شده (اقلام به‌تنهایی تخفیف فاکتور را ندارند)
+    grossProfit: netRevenue - cost,
     invoiceCount: invoices.length,
   };
 }

@@ -14,3 +14,8 @@ if (typeof window !== 'undefined') {
       dispatchEvent: () => false,
     }) as MediaQueryList;
 }
+
+// اسکرول صفحه در jsdom پیاده نشده است
+if (typeof window !== 'undefined') {
+  window.scrollTo = () => undefined;
+}

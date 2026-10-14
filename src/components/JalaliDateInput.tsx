@@ -29,7 +29,8 @@ export function JalaliDateInput({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (value) setText(toJalaliInputString(new Date(value)));
+    setText(value ? toJalaliInputString(new Date(value)) : '');
+    if (!value) setError(null);
   }, [value]);
 
   const commit = (raw: string) => {
