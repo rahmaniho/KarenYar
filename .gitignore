@@ -1,0 +1,22 @@
+# وابستگی‌ها و خروجی build
+node_modules/
+dist/
+dist-ssr/
+
+# محیط و لاگ‌ها
+.env
+.env.local
+*.log
+npm-debug.log*
+
+# ابزارها
+.vscode/*
+!.vscode/extensions.json
+.idea/
+coverage/
+test-results/
+playwright-report/
+
+# سیستم‌عامل
+.DS_Store
+Thumbs.db

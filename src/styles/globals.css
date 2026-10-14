@@ -1,0 +1,283 @@
+/* ——— فونت وزیرمتن (Self-Hosted از پوشه‌ی public/fonts — بدون CDN خارجی) ——— */
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('/fonts/Vazirmatn-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('/fonts/Vazirmatn-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('/fonts/Vazirmatn-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('/fonts/Vazirmatn-ExtraBold.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* حالت روشن — پس‌زمینه #F5F7FA */
+    --background: 220 24% 97%;
+    --foreground: 224 60% 13%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 60% 13%;
+    --primary: 224 73% 14%; /* سرمه‌ای #0B1B3A */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 30% 92%;
+    --secondary-foreground: 224 60% 20%;
+    --muted: 220 24% 93%;
+    --muted-foreground: 220 14% 42%;
+    --accent: 147 100% 61%; /* سبز نئونی #39FF88 */
+    --accent-foreground: 224 73% 14%;
+    --destructive: 0 76% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 64% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 45%;
+    --warning-foreground: 0 0% 100%;
+    --border: 220 22% 87%;
+    --input: 220 22% 84%;
+    --ring: 147 90% 45%;
+    --radius: 0.75rem; /* 12px */
+  }
+
+  .dark {
+    /* حالت تاریک — پس‌زمینه #0F172A */
+    --background: 222 47% 11%;
+    --foreground: 214 32% 91%;
+    --card: 217 33% 15%;
+    --card-foreground: 214 32% 91%;
+    --primary: 147 100% 61%;
+    --primary-foreground: 224 73% 14%;
+    --secondary: 217 33% 20%;
+    --secondary-foreground: 214 32% 91%;
+    --muted: 217 33% 18%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 147 100% 61%;
+    --accent-foreground: 224 73% 14%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 60% 45%;
+    --success-foreground: 222 47% 11%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 222 47% 11%;
+    --border: 217 33% 24%;
+    --input: 217 33% 26%;
+    --ring: 147 100% 61%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    font-feature-settings: 'ss01';
+  }
+
+  /* اسکرول‌بار ظریف */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-navy-300/60 dark:bg-navy-700;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* فوکوس قابل مشاهده برای دسترس‌پذیری با کیبورد */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+}
+
+@layer components {
+  .page-title {
+    @apply text-xl font-extrabold text-foreground sm:text-2xl;
+  }
+  .page-subtitle {
+    @apply mt-1 text-sm text-muted-foreground;
+  }
+  /* ناحیه‌ی قابل چاپ (فاکتور و فیش حقوقی) */
+  .print-area {
+    @apply bg-white text-navy-900;
+  }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    box-shadow: none !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* ——— اعتبار کارن‌سافت: انیمیشن دور نشان و روی متن ——— */
+.ks-mark-ring {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+}
+.ks-mark-ring::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 130deg,
+    #39ff88 190deg,
+    #38bdf8 250deg,
+    transparent 320deg
+  );
+  animation: ks-spin 4.5s linear infinite;
+}
+.ks-mark-ring::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: 9999px;
+  background: #0b1b3a;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+.ks-mark-img {
+  position: relative;
+  z-index: 1;
+  width: 30px;
+  height: 30px;
+  animation: ks-float 5s ease-in-out infinite;
+  transition: transform 0.3s ease;
+}
+a:hover .ks-mark-img {
+  transform: scale(1.12) rotate(-3deg);
+  animation-play-state: paused;
+}
+.ks-credit-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  background: linear-gradient(
+    90deg,
+    rgb(255 255 255 / 0.45) 20%,
+    #ffffff 40%,
+    #7dffb8 50%,
+    #ffffff 60%,
+    rgb(255 255 255 / 0.45) 80%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: ks-shimmer 4s linear infinite;
+}
+.ks-wordmark-chip {
+  position: relative;
+  display: inline-flex;
+  overflow: hidden;
+  border-radius: 7px;
+  background: linear-gradient(180deg, #ffffff, #eef3fb);
+  padding: 3px 7px;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.35);
+}
+.ks-wordmark-chip::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgb(255 255 255 / 0.75) 50%,
+    transparent 65%
+  );
+  transform: translateX(170%);
+  animation: ks-shine 3.8s ease-in-out infinite;
+}
+@keyframes ks-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ks-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -20% 0;
+  }
+}
+@keyframes ks-shine {
+  0% {
+    transform: translateX(170%);
+  }
+  35%,
+  100% {
+    transform: translateX(-170%);
+  }
+}
+@keyframes ks-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2.5px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ks-mark-ring::before,
+  .ks-mark-img,
+  .ks-credit-label,
+  .ks-wordmark-chip::after {
+    animation: none;
+  }
+}
