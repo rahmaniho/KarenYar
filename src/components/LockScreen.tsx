@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { assetUrl } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { LockKeyhole } from 'lucide-react';
 import { db } from '@/core/db/db';
@@ -64,7 +65,7 @@ export function LockScreen() {
         <div className="mb-5 flex flex-col items-center text-center">
           <span className="ks-mark-ring mb-3" aria-hidden>
             <img
-              src="/images/karensoft/mark.png"
+              src={assetUrl('images/karensoft/mark.png')}
               alt=""
               className="ks-mark-img"
               width={256}

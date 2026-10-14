@@ -50,7 +50,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
+import { assetUrl, cn } from '@/lib/utils';
 
 const PURCHASE_URL = import.meta.env.VITE_PURCHASE_URL ?? 'https://karensoft.ir/buy/hesabyar';
 const SUPPORT_PHONE = import.meta.env.VITE_SUPPORT_PHONE ?? '';
@@ -726,7 +726,7 @@ export function SettingsPage() {
               aria-label="وب‌سایت کارن سافت"
             >
               <img
-                src="/images/karensoft/mark.png"
+                src={assetUrl('images/karensoft/mark.png')}
                 alt="نشان کارن سافت"
                 width={256}
                 height={256}
@@ -735,7 +735,7 @@ export function SettingsPage() {
               <span className="flex flex-col items-start gap-1">
                 <span className="inline-flex rounded-md bg-white px-2 py-1 ring-1 ring-border">
                   <img
-                    src="/images/karensoft/wordmark-fa.png"
+                    src={assetUrl('images/karensoft/wordmark-fa.png')}
                     alt="کارن سافت"
                     width={383}
                     height={96}
@@ -743,7 +743,7 @@ export function SettingsPage() {
                   />
                 </span>
                 <img
-                  src="/images/karensoft/wordmark-en.png"
+                  src={assetUrl('images/karensoft/wordmark-en.png')}
                   alt="Karensoft"
                   width={410}
                   height={48}

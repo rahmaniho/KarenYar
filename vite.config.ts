@@ -4,7 +4,12 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vitest/config';
 
 // حساب‌یار کارن سافت — پیکربندی Vite + PWA + Vitest
+// برای نمایش روی GitHub Pages (ساب‌پث /KarenYar/) ورک‌فلو VITE_BASE را تنظیم می‌کند؛
+// در حالت عادی base همان '/' است و خروجی مثل قبل روی ریشه‌ی دامنه کار می‌کند.
+const base = process.env.VITE_BASE ?? '/';
+
 export default defineConfig({
+  base,
   plugins: [
     react(),
     VitePWA({
@@ -15,7 +20,7 @@ export default defineConfig({
       workbox: {
         // Cache-First برای همه‌ی assetهای build شده (آفلاین‌فرست)
         globPatterns: ['**/*.{js,css,html,woff2,png,svg,webmanifest,ico}'],
-        navigateFallback: '/index.html',
+        navigateFallback: `${base}index.html`,
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {

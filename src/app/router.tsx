@@ -45,27 +45,33 @@ const CalculatorPage = lazyPage(
   'CalculatorPage',
 );
 
-export const router = createBrowserRouter([
-  {
-    element: <AppLayout />,
-    children: [
-      { index: true, element: <DashboardPage /> },
-      { path: 'store/products', element: <ProductsPage /> },
-      { path: 'store/invoices', element: <InvoicesPage /> },
-      { path: 'store/invoices/new', element: <NewInvoicePage /> },
-      { path: 'store/invoices/:id', element: <InvoiceViewPage /> },
-      { path: 'store/reports', element: <StoreReportsPage /> },
-      { path: 'store/customers', element: <CustomersPage /> },
-      { path: 'personal/transactions', element: <TransactionsPage /> },
-      { path: 'personal/budgets', element: <BudgetsPage /> },
-      { path: 'personal/debts', element: <DebtsPage /> },
-      { path: 'payroll/employees', element: <EmployeesPage /> },
-      { path: 'payroll/calculate', element: <PayrollCalculatePage /> },
-      { path: 'payroll/settings', element: <PayrollSettingsPage /> },
-      { path: 'calculator', element: <CalculatorPage /> },
-      { path: 'settings', element: <SettingsPage /> },
-      { path: 'home', element: <Navigate to="/" replace /> },
-      { path: '*', element: <NotFoundPage /> },
-    ],
-  },
-]);
+// زیرمسیر استقرار (مثلاً /KarenYar/ در GitHub Pages)؛ در ریشه همان '/' است.
+const basename = import.meta.env.BASE_URL.replace(/\/$/, '') || '/';
+
+export const router = createBrowserRouter(
+  [
+    {
+      element: <AppLayout />,
+      children: [
+        { index: true, element: <DashboardPage /> },
+        { path: 'store/products', element: <ProductsPage /> },
+        { path: 'store/invoices', element: <InvoicesPage /> },
+        { path: 'store/invoices/new', element: <NewInvoicePage /> },
+        { path: 'store/invoices/:id', element: <InvoiceViewPage /> },
+        { path: 'store/reports', element: <StoreReportsPage /> },
+        { path: 'store/customers', element: <CustomersPage /> },
+        { path: 'personal/transactions', element: <TransactionsPage /> },
+        { path: 'personal/budgets', element: <BudgetsPage /> },
+        { path: 'personal/debts', element: <DebtsPage /> },
+        { path: 'payroll/employees', element: <EmployeesPage /> },
+        { path: 'payroll/calculate', element: <PayrollCalculatePage /> },
+        { path: 'payroll/settings', element: <PayrollSettingsPage /> },
+        { path: 'calculator', element: <CalculatorPage /> },
+        { path: 'settings', element: <SettingsPage /> },
+        { path: 'home', element: <Navigate to="/" replace /> },
+        { path: '*', element: <NotFoundPage /> },
+      ],
+    },
+  ],
+  { basename },
+);

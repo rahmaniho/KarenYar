@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { assetUrl } from '@/lib/utils';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Banknote, FileDown, Printer, Save, Users } from 'lucide-react';
@@ -406,7 +407,7 @@ export function PayrollCalculatePage() {
             <p className="mt-6 flex items-center justify-center gap-1.5 border-t pt-3 text-center text-[11px] text-navy-400">
               صادرشده با دستمزد‌یار کارن سافت — {shopName}
               <img
-                src="/images/karensoft/mark.png"
+                src={assetUrl('images/karensoft/mark.png')}
                 alt=""
                 width={256}
                 height={256}

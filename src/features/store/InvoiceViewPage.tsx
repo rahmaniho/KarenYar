@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { assetUrl } from '@/lib/utils';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ArrowRight, FileDown, Plus, Printer, Receipt, Trash2 } from 'lucide-react';
@@ -187,7 +188,7 @@ export function InvoiceViewPage() {
         <p className="mt-8 flex items-center justify-center gap-1.5 border-t pt-4 text-center text-xs text-navy-500">
           از خرید شما سپاسگزاریم — صادرشده با حساب‌یار کارن سافت
           <img
-            src="/images/karensoft/mark.png"
+            src={assetUrl('images/karensoft/mark.png')}
             alt=""
             width={256}
             height={256}

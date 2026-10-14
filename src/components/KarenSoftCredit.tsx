@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+import { assetUrl, cn } from '@/lib/utils';
 
 /**
  * اعتبار «طراحی و توسعه توسط کارن سافت» در نوار پایینی فوتر
@@ -22,7 +22,7 @@ export function KarenSoftCredit({ className }: { className?: string }) {
       {/* نشان اصلی با حلقه‌ی نور چرخان */}
       <span className="ks-mark-ring" aria-hidden>
         <img
-          src="/images/karensoft/mark.png"
+          src={assetUrl('images/karensoft/mark.png')}
           alt=""
           width={256}
           height={256}
@@ -34,7 +34,7 @@ export function KarenSoftCredit({ className }: { className?: string }) {
         {/* وردمارک اصلی روی چیپ روشن تا رنگ‌های دقیق برند روی فوتر تیره خوانا بماند */}
         <span className="ks-wordmark-chip">
           <img
-            src="/images/karensoft/wordmark-fa.png"
+            src={assetUrl('images/karensoft/wordmark-fa.png')}
             alt="کارن سافت"
             width={383}
             height={96}
