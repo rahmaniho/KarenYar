@@ -116,14 +116,29 @@ export interface CurrencyRate {
   rateToToman: number;
 }
 
-/** نرخ‌های پیش‌فرض — صرفاً نمونه و کاملاً قابل ویرایش دستی در ماشین‌حساب/تنظیمات */
+/** تاریخ آخرین به‌روزرسانی نرخ‌های پیش‌فرض زیر (برای نمایش در مبدل ارز) */
+export const CURRENCY_RATES_UPDATED_AT = '۲۳ مهر ۱۴۰۵';
+
+/**
+ * نرخ‌های پیش‌فرض (بازار آزاد، ۲۳ مهر ۱۴۰۵) — با اسکریپت `npm run rates:update` تازه می‌شوند
+ * و انتشار خودکار روزانه‌ی GitHub Pages هم آن‌ها را در نسخه‌ی زنده به‌روز نگه می‌دارد.
+ * برنامه آفلاین است؛ کاربر هر لحظه می‌تواند این نرخ‌ها را دستی ویرایش کند.
+ * برای فلزات، نرخ = قیمت «هر گرم» (سکه: هر قطعه) به تومان است.
+ */
 export const DEFAULT_CURRENCY_RATES: CurrencyRate[] = [
   { code: 'IRR-TMN', label: 'تومان ایران', rateToToman: 1 },
-  { code: 'USD', label: 'دلار آمریکا', rateToToman: 93_000 },
-  { code: 'EUR', label: 'یورو', rateToToman: 101_000 },
-  { code: 'GBP', label: 'پوند انگلیس', rateToToman: 121_000 },
-  { code: 'AED', label: 'درهم امارات', rateToToman: 25_300 },
-  { code: 'TRY', label: 'لیر ترکیه', rateToToman: 2_700 },
+  // <auto-rates> — این بخش با scripts/update-rates.mjs به‌روز می‌شود؛ دستی ویرایش نکنید.
+  { code: 'USD', label: 'دلار آمریکا', rateToToman: 263_900 },
+  { code: 'EUR', label: 'یورو', rateToToman: 294_330 },
+  { code: 'GBP', label: 'پوند انگلیس', rateToToman: 347_550 },
+  { code: 'AED', label: 'درهم امارات', rateToToman: 72_202 },
+  { code: 'CAD', label: 'دلار کانادا', rateToToman: 185_250 },
+  { code: 'TRY', label: 'لیر ترکیه', rateToToman: 5_340 },
+  { code: 'GOLD18', label: 'طلای ۱۸ عیار (هر گرم)', rateToToman: 26_038_800 },
+  { code: 'GOLD24', label: 'طلای ۲۴ عیار (هر گرم)', rateToToman: 34_718_100 },
+  { code: 'SILVER999', label: 'نقره ۹۹۹ (هر گرم)', rateToToman: 522_240 },
+  { code: 'SEKEE', label: 'سکه امامی', rateToToman: 267_090_000 },
+  // </auto-rates>
 ];
 
 export function convertCurrency(

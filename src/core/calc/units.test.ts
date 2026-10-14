@@ -30,13 +30,25 @@ describe('تبدیل واحد', () => {
 });
 
 describe('تبدیل ارز با نرخ دستی', () => {
-  it('دلار به تومان و برعکس', () => {
-    expect(convertCurrency(2, 'USD', 'IRR-TMN', DEFAULT_CURRENCY_RATES)).toBe(186_000);
-    expect(convertCurrency(93_000, 'IRR-TMN', 'USD', DEFAULT_CURRENCY_RATES)).toBe(1);
+  const rateOf = (code: string): number =>
+    DEFAULT_CURRENCY_RATES.find((r) => r.code === code)?.rateToToman ?? 0;
+
+  it('دلار به تومان و برعکس (با هر نرخ پیش‌فرض روزی)', () => {
+    const usd = rateOf('USD');
+    expect(usd).toBeGreaterThan(0);
+    expect(convertCurrency(2, 'USD', 'IRR-TMN', DEFAULT_CURRENCY_RATES)).toBe(2 * usd);
+    expect(convertCurrency(usd, 'IRR-TMN', 'USD', DEFAULT_CURRENCY_RATES)).toBe(1);
   });
 
   it('تبدیل دو ارز خارجی از مسیر تومان', () => {
     const eurInUsd = convertCurrency(1, 'EUR', 'USD', DEFAULT_CURRENCY_RATES);
-    expect(eurInUsd).toBeCloseTo(101_000 / 93_000, 6);
+    expect(eurInUsd).toBeCloseTo(rateOf('EUR') / rateOf('USD'), 6);
+  });
+
+  it('طلا و نقره هم نرخ پیش‌فرض دارند و تومان↔گرم تبدیل می‌شود', () => {
+    const gold = rateOf('GOLD18');
+    expect(gold).toBeGreaterThan(0);
+    expect(rateOf('SILVER999')).toBeGreaterThan(0);
+    expect(convertCurrency(gold, 'IRR-TMN', 'GOLD18', DEFAULT_CURRENCY_RATES)).toBe(1);
   });
 });

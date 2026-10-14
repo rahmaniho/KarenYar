@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { convertCurrency } from '@/core/calc/units';
+import { convertCurrency, CURRENCY_RATES_UPDATED_AT } from '@/core/calc/units';
 import { formatDecimal, formatNumber } from '@/core/currency/currency';
 import { useSettingsStore } from '@/store/settings-store';
 
@@ -97,8 +97,11 @@ export function CurrencyConverter() {
             </div>
           </div>
           <p className="text-xs leading-6 text-muted-foreground">
-            نرخ‌ها کاملاً دستی و آفلاین‌اند و از اینترنت خوانده نمی‌شوند؛ نرخ روز را خودتان در جدول
-            کناری وارد کنید.
+            آخرین به‌روزرسانی نرخ‌های پیش‌فرض:{' '}
+            <b className="text-foreground">{CURRENCY_RATES_UPDATED_AT}</b> (بازار آزاد). برنامه
+            آفلاین است و نرخ لحظه‌ای از اینترنت خوانده نمی‌شود؛ نرخ‌ها با هر انتشار تازه‌ی برنامه
+            به‌روز می‌شوند و هر وقت خواستید می‌توانید دستی در جدول کناری اصلاحشان کنید. نرخ طلا و
+            نقره برای «هر گرم» و سکه برای «هر قطعه» است.
           </p>
         </CardContent>
       </Card>

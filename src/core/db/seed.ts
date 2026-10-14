@@ -222,7 +222,7 @@ export async function seedDemoData(): Promise<{ products: number; invoices: numb
         {
           name: 'علی کریمی [نمایشی]',
           position: 'فروشنده',
-          baseSalary: 10600000,
+          baseSalary: 16625550, // حداقل مزد ماهانه‌ی ۱۴۰۵
           children: 1,
           married: true,
           seniorityYears: 3,
@@ -231,7 +231,7 @@ export async function seedDemoData(): Promise<{ products: number; invoices: numb
         {
           name: 'مریم احمدی [نمایشی]',
           position: 'حسابدار',
-          baseSalary: 14000000,
+          baseSalary: 32000000,
           children: 2,
           married: true,
           seniorityYears: 6,
