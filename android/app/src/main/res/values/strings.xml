@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">حساب‌یار کارن سافت</string>
+    <string name="title_activity_main">حساب‌یار کارن سافت</string>
+    <string name="package_name">ir.karensoft.hesabyar</string>
+    <string name="custom_url_scheme">ir.karensoft.hesabyar</string>
+</resources>

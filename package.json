@@ -1,13 +1,15 @@
 {
   "name": "karenyar-hesabyar",
   "private": true,
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "حساب‌یار کارن سافت — اپلیکیشن جامع مالی فارسی (فروشگاهی، شخصی، دستمزد) آفلاین‌فرست",
   "type": "module",
   "scripts": {
     "rates:update": "node scripts/update-rates.mjs",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "android:sync": "npm run build && npx cap sync android",
+    "android:open": "npx cap open android",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -30,6 +32,12 @@
     ]
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/filesystem": "^8.1.4",
+    "@capacitor/share": "^8.0.3",
+    "@capacitor/status-bar": "^8.0.4",
     "@fontsource/vazirmatn": "^5.1.0",
     "@hookform/resolvers": "^3.9.0",
     "@radix-ui/react-dialog": "^1.1.2",
@@ -58,6 +66,7 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
     "@eslint/js": "^9.13.0",
     "@playwright/test": "^1.48.1",
     "@testing-library/jest-dom": "^6.6.2",

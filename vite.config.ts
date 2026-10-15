@@ -14,6 +14,8 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // ثبت سرویس‌ورکر دستی در main.tsx انجام می‌شود تا در اپ بومی اندروید ثبت نشود
+      injectRegister: false,
       // مانیفست استاتیک در public/manifest.webmanifest قرار دارد (مطابق ساختار پروژه)
       manifest: false,
       includeAssets: ['icons/*.png', 'fonts/*.woff2', 'images/karensoft/*.png'],

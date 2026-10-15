@@ -1,3 +1,5 @@
+import { saveBlob } from './file-save';
+
 /**
  * خروجی CSV سازگار با اکسل (BOM + جداکننده‌ی کاما + escape نقل‌قول)
  */
@@ -15,12 +17,7 @@ export function buildCsv(rows: (string | number)[][]): string {
   return '\uFEFF' + body;
 }
 
-export function downloadCsv(fileName: string, rows: (string | number)[][]): void {
+export async function downloadCsv(fileName: string, rows: (string | number)[][]): Promise<void> {
   const blob = new Blob([buildCsv(rows)], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = fileName;
-  anchor.click();
-  URL.revokeObjectURL(url);
+  await saveBlob(fileName, blob);
 }

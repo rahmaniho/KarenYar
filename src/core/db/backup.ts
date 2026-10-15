@@ -3,6 +3,7 @@
  * جدول لایسنس عمداً در خروجی قرار نمی‌گیرد تا کلید فعال‌سازی قابل اشتراک‌گذاری نباشد.
  */
 import { db } from './db';
+import { saveBlob } from '../utils/file-save';
 
 export const BACKUP_FORMAT = 'karenyar-hesabyar-backup';
 export const BACKUP_VERSION = 1;
@@ -96,16 +97,11 @@ export async function importBackup(data: BackupData): Promise<void> {
   });
 }
 
-/** دانلود JSON در مرورگر */
-export function downloadBackupFile(backup: BackupData): void {
+/** ذخیره‌ی فایل JSON پشتیبان — وب: دانلود مرورگر، اپ بومی: اشتراک‌گذاری سیستمی */
+export async function downloadBackupFile(backup: BackupData): Promise<void> {
   const blob = new Blob([JSON.stringify(backup, null, 2)], {
     type: 'application/json;charset=utf-8',
   });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
   const date = new Date().toISOString().slice(0, 10);
-  anchor.href = url;
-  anchor.download = `hesabyar-backup-${date}.json`;
-  anchor.click();
-  URL.revokeObjectURL(url);
+  await saveBlob(`hesabyar-backup-${date}.json`, blob);
 }
