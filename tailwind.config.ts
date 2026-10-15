@@ -87,10 +87,16 @@ export default {
           from: { opacity: '0', transform: 'translateY(8px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
         },
+        // ورود دیالوگ: ترنسفورمِ وسط‌چین (-۵۰٪,-۵۰٪) داخل خود کی‌فریم است تا هیچ‌وقت از بین نرود
+        'dialog-pop': {
+          from: { opacity: '0', transform: 'translate(-50%, calc(-50% + 10px)) scale(0.98)' },
+          to: { opacity: '1', transform: 'translate(-50%, -50%) scale(1)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.25s ease both',
         'slide-up': 'slide-up 0.3s ease both',
+        'dialog-pop': 'dialog-pop 0.25s ease both',
       },
     },
   },

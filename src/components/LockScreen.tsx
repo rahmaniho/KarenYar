@@ -63,15 +63,13 @@ export function LockScreen() {
         className="w-full max-w-sm rounded-3xl bg-card p-6 shadow-soft sm:p-8"
       >
         <div className="mb-5 flex flex-col items-center text-center">
-          <span className="ks-mark-ring mb-3" aria-hidden>
-            <img
-              src={assetUrl('images/karensoft/mark.png')}
-              alt=""
-              className="ks-mark-img"
-              width={256}
-              height={256}
-            />
-          </span>
+          <img
+            src={assetUrl('images/karensoft/KarenYar.png')}
+            alt="لوگوی حساب‌یار"
+            width={512}
+            height={512}
+            className="mb-3 h-16 w-16 rounded-2xl object-cover shadow-glow ring-1 ring-black/10"
+          />
           <h1 className="text-xl font-extrabold">حساب‌یار قفل است</h1>
           <p className="mt-1 text-sm text-muted-foreground">برای ورود، پین خود را وارد کنید.</p>
         </div>

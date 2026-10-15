@@ -204,10 +204,10 @@ export function InvoiceViewPage() {
         <p className="mt-8 flex items-center justify-center gap-1.5 border-t pt-4 text-center text-xs text-navy-500">
           از خرید شما سپاسگزاریم — صادرشده با حساب‌یار کارن سافت
           <img
-            src={assetUrl('images/karensoft/mark.png')}
+            src={assetUrl('images/karensoft/KarenYar.png')}
             alt=""
-            width={256}
-            height={256}
+            width={512}
+            height={512}
             className="h-4 w-4 object-contain"
           />
         </p>

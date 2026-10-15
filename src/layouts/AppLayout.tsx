@@ -19,13 +19,13 @@ import { assetUrl, cn } from '@/lib/utils';
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
     <Link to="/" className="flex items-center gap-2.5" aria-label="حساب‌یار کارن سافت — داشبورد">
-      {/* نشان اصلی کارن‌سافت (artwork واقعی برند، نه بازطراحی) */}
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-glow ring-1 ring-black/10">
+      {/* لوگوی خودِ برنامه (حساب‌یار) */}
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-glow ring-1 ring-black/10">
         <img
-          src={assetUrl('images/karensoft/mark.png')}
+          src={assetUrl('images/karensoft/KarenYar.png')}
           alt=""
-          width={256}
-          height={256}
+          width={512}
+          height={512}
           className="h-full w-full object-cover"
         />
       </span>
@@ -81,7 +81,7 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
           نسخه‌ی {TIER_LABELS[tier]}
           {tier === 'free' && <span className="ms-auto text-xs text-neon-400">ارتقا ←</span>}
         </Link>
-        <p className="px-2 pt-2 text-[11px] text-white/40">نسخه ۱٫۲٫۱ — کاملاً آفلاین</p>
+        <p className="px-2 pt-2 text-[11px] text-white/40">نسخه ۱٫۲٫۲ — کاملاً آفلاین</p>
         <KarenSoftCredit className="mt-1.5" />
       </div>
     </div>
