@@ -25,7 +25,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Capacitor 8 به Node 22+ نیاز دارد
+          node-version: 22
           cache: npm
 
       - uses: actions/setup-java@v4
