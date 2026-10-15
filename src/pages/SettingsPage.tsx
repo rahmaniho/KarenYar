@@ -706,7 +706,7 @@ export function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-2 text-sm leading-7 text-muted-foreground">
             <p>
-              <b className="text-foreground">حساب‌یار کارن سافت</b> — نسخه‌ی ۱٫۲٫۲
+              <b className="text-foreground">حساب‌یار کارن سافت</b> — نسخه‌ی ۱٫۲٫۳
             </p>
             <p>
               اپلیکیشن مالی فارسی و کاملاً آفلاین برای فروشگاه‌های کوچک، کارمندان و حسابداران:

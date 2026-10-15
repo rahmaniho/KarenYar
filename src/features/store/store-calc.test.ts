@@ -105,6 +105,21 @@ describe('گزارش فروش', () => {
     expect(tops[1]).toMatchObject({ name: 'الف', qty: 3, revenue: 300 });
   });
 
+  it('تخفیف فاکتور به‌تناسب مبلغ قلم از سود کالاهای پرفروش کم می‌شود', () => {
+    // فاکتور ۳۰۰۰ با ۳۰۰ تخفیف: سهم اقلام ۱۰۰۰ و ۲۰۰۰ به‌ترتیب ۱۰۰ و ۲۰۰ است
+    const inv = invoice({ id: 1, subtotal: 3000, discountAmount: 300, total: 2700 });
+    const tops = topProducts(
+      [
+        item({ invoiceId: 1, name: 'الف', qty: 1, unitPrice: 1000, unitCost: 800, total: 1000 }),
+        item({ invoiceId: 1, name: 'ب', qty: 2, unitPrice: 1000, unitCost: 800, total: 2000 }),
+      ],
+      [inv],
+    );
+    // سود خام الف ۲۰۰ و ب ۴۰۰ بود؛ پس از تخفیف: ۱۰۰ و ۲۰۰
+    expect(tops.find((t) => t.name === 'الف')?.profit).toBe(100);
+    expect(tops.find((t) => t.name === 'ب')?.profit).toBe(200);
+  });
+
   it('کم‌موجودها تشخیص داده می‌شوند', () => {
     const low = lowStockProducts([
       {

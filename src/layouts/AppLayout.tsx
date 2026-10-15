@@ -81,7 +81,7 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
           نسخه‌ی {TIER_LABELS[tier]}
           {tier === 'free' && <span className="ms-auto text-xs text-neon-400">ارتقا ←</span>}
         </Link>
-        <p className="px-2 pt-2 text-[11px] text-white/40">نسخه ۱٫۲٫۲ — کاملاً آفلاین</p>
+        <p className="px-2 pt-2 text-[11px] text-white/40">نسخه ۱٫۲٫۳ — کاملاً آفلاین</p>
         <KarenSoftCredit className="mt-1.5" />
       </div>
     </div>

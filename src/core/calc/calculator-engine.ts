@@ -1,6 +1,7 @@
 /**
  * موتور ماشین‌حساب علمی — تجزیه و ارزیابی امن عبارت ریاضی (بدون eval)
  * پشتیبانی: + − × ÷ توان، پرانتز، درصد (%) و باقیمانده، فاکتوریل (!)،
+ * ضرب ضمنی (مثل 2(3+1) و 2π و ‎(1+1)(2+2)‎)،
  * توابع sin cos tan asin acos atan log ln sqrt abs exp و ثابت‌های π و e
  * ارقام فارسی و نمادهای × ÷ − هم پذیرفته می‌شوند.
  */
@@ -79,6 +80,28 @@ function factorial(n: number): number {
   if (n > 170) throw new CalcError('عدد برای فاکتوریل خیلی بزرگ است');
   let result = 1;
   for (let k = 2; k <= n; k++) result *= k;
+  return result;
+}
+
+/**
+ * ضرب ضمنی: بین دو توکنِ مقدار که پشت سر هم آمده‌اند (عدد/ثابت/پرانتز بسته/فاکتوریل
+ * و بعدش عدد/ثابت/پرانتز باز/تابع) یک «×» درج می‌شود؛ مثل 2(3+1) یا 3sin(90).
+ * روی % دست نمی‌زنیم تا باقیمانده‌ی 10%3 و درصدِ 50% سر جایشان بمانند.
+ */
+function insertImplicitMultiplication(tokens: Token[]): Token[] {
+  const endsValue = (t: Token): boolean =>
+    t.type === 'number' ||
+    t.type === 'const' ||
+    t.type === 'rparen' ||
+    (t.type === 'op' && t.value === '!');
+  const startsValue = (t: Token): boolean =>
+    t.type === 'number' || t.type === 'const' || t.type === 'lparen' || t.type === 'func';
+  const result: Token[] = [];
+  for (const token of tokens) {
+    const prev = result[result.length - 1];
+    if (prev && endsValue(prev) && startsValue(token)) result.push({ type: 'op', value: '*' });
+    result.push(token);
+  }
   return result;
 }
 
@@ -251,7 +274,7 @@ class Parser {
 
 /** ارزیابی عبارت ریاضی — در صورت خطا CalcError با پیام فارسی پرتاب می‌شود. */
 export function evaluate(expression: string, angleMode: AngleMode = 'deg'): number {
-  const result = new Parser(tokenize(expression), angleMode).parse();
+  const result = new Parser(insertImplicitMultiplication(tokenize(expression)), angleMode).parse();
   if (!Number.isFinite(result) || Number.isNaN(result)) {
     throw new CalcError('نتیجه‌ی محاسبه معتبر نیست');
   }

@@ -82,6 +82,15 @@ describe('تفاضل تاریخ (تاریخ‌شمار)', () => {
     const diff = diffJalali(from, to);
     expect(diff).toMatchObject({ years: 0, months: 3, days: 21 });
   });
+
+  it('تاریخ معکوس، تفاضل منفی و معنادار برمی‌گرداند (نه اعداد درهم)', () => {
+    const from = jalaliToDate({ jy: 1404, jm: 7, jd: 10 });
+    const to = jalaliToDate({ jy: 1404, jm: 3, jd: 20 });
+    const diff = diffJalali(from, to);
+    expect(diff).toMatchObject({ years: 0, months: -3, days: -21 });
+    expect(diff.totalDays).toBeLessThan(0);
+    expect(diffJalali(to, from).totalDays).toBe(-diff.totalDays);
+  });
 });
 
 describe('پارس تاریخ شمسی', () => {

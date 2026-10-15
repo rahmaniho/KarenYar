@@ -110,17 +110,35 @@ export interface TopProduct {
   profit: number;
 }
 
-/** پرفروش‌ترین کالاها بر اساس مبلغ فروش */
-export function topProducts(items: InvoiceItem[], limit = 10): TopProduct[] {
+/**
+ * پرفروش‌ترین کالاها بر اساس مبلغ فروش.
+ * اگر فاکتورها داده شوند، تخفیف هر فاکتور به‌تناسب مبلغ قلم بین اقلامش تقسیم می‌شود
+ * تا «سود» هر کالا با سود ناخالص گزارش فروش (پس از تخفیف) سازگار باشد.
+ */
+export function topProducts(
+  items: InvoiceItem[],
+  invoices: Invoice[] = [],
+  limit = 10,
+): TopProduct[] {
+  const invoiceById = new Map<number, Invoice>();
+  for (const inv of invoices) if (inv.id != null) invoiceById.set(inv.id, inv);
   const map = new Map<string, TopProduct>();
   for (const item of items) {
     const current = map.get(item.name) ?? { name: item.name, qty: 0, revenue: 0, profit: 0 };
     current.qty += item.qty;
     current.revenue += item.total;
-    current.profit += (item.unitPrice - item.unitCost) * item.qty;
+    const invoice = invoiceById.get(item.invoiceId);
+    const discountShare =
+      invoice && invoice.subtotal > 0
+        ? (item.total / invoice.subtotal) * invoice.discountAmount
+        : 0;
+    current.profit += (item.unitPrice - item.unitCost) * item.qty - discountShare;
     map.set(item.name, current);
   }
-  return [...map.values()].sort((a, b) => b.revenue - a.revenue).slice(0, limit);
+  return [...map.values()]
+    .map((p) => ({ ...p, profit: Math.round(p.profit) }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, limit);
 }
 
 /** کالاهای کم‌موجود یا ناموجود (موجودی ≤ حد هشدار) */

@@ -66,9 +66,10 @@ export function StoreReportsPage() {
     () =>
       topProducts(
         items.filter((i) => monthItemIds.has(i.invoiceId)),
+        monthInvoices,
         10,
       ),
-    [items, monthItemIds],
+    [items, monthItemIds, monthInvoices],
   );
   const lowStock = useMemo(() => lowStockProducts(products), [products]);
 

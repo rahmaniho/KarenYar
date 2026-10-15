@@ -425,6 +425,18 @@ function ProductFormDialog({
   const previewProfit = profitFromPrices(values.sellPrice || 0, previewCost);
 
   const onSubmit = async (v: ProductFormValues) => {
+    // بارکد باید یکتا باشد؛ وگرنه اسکنر همیشه اولین کالای هم‌بارکد را پیدا می‌کند
+    const barcode = v.barcode?.trim() ? v.barcode.trim() : undefined;
+    if (barcode) {
+      const duplicate = await db.products.where('barcode').equals(barcode).first();
+      if (duplicate && duplicate.id !== editing?.id) {
+        form.setError('barcode', {
+          type: 'manual',
+          message: `این بارکد قبلاً برای کالای «${duplicate.name}» ثبت شده است`,
+        });
+        return;
+      }
+    }
     const costPrice = landedCost({
       buyPrice: fromDisplayAmount(v.buyPrice, unit),
       taxPercent: v.buyTaxPercent,
