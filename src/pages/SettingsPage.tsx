@@ -52,7 +52,6 @@ import {
 } from '@/components/ui/select';
 import { assetUrl, cn } from '@/lib/utils';
 
-const PURCHASE_URL = import.meta.env.VITE_PURCHASE_URL ?? 'https://karensoft.ir/buy/hesabyar';
 const SUPPORT_PHONE = import.meta.env.VITE_SUPPORT_PHONE ?? '';
 
 const ALL_FEATURES = Object.keys(FEATURE_LABELS) as Feature[];
@@ -497,12 +496,6 @@ export function SettingsPage() {
                   <BadgeCheck aria-hidden />
                   {activating ? 'در حال بررسی…' : 'فعال‌سازی'}
                 </Button>
-                <Button asChild variant="outline">
-                  <a href={PURCHASE_URL} target="_blank" rel="noreferrer">
-                    <Crown aria-hidden />
-                    خرید نسخه‌ی حرفه‌ای
-                  </a>
-                </Button>
                 {SUPPORT_PHONE && (
                   <span className="self-center text-sm text-muted-foreground">
                     پشتیبانی فروش: <b dir="ltr">{SUPPORT_PHONE}</b>
@@ -706,7 +699,7 @@ export function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-2 text-sm leading-7 text-muted-foreground">
             <p>
-              <b className="text-foreground">حساب‌یار کارن سافت</b> — نسخه‌ی ۱٫۲٫۴
+              <b className="text-foreground">حساب‌یار کارن سافت</b> — نسخه‌ی ۱٫۲٫۵
             </p>
             <p>
               اپلیکیشن مالی فارسی و کاملاً آفلاین برای فروشگاه‌های کوچک، کارمندان و حسابداران:
