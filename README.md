@@ -242,7 +242,7 @@ hesabyar/
 
 ## ⚙️ متغیرهای محیطی
 
-فایل `.env.example` را ببینید — همه اختیاری‌اند (`VITE_PURCHASE_URL`, `VITE_SUPPORT_PHONE`, `VITE_LICENSE_SECRET`).
+فایل `.env.example` را ببینید — همه اختیاری‌اند (`VITE_SUPPORT_PHONE`, `VITE_LICENSE_SECRET`).
 
 ---
 
