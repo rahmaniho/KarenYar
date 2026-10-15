@@ -1,6 +1,7 @@
 name: Deploy to GitHub Pages
 
-# نمایش زنده‌ی برنامه روی https://rahmaniho.github.io/KarenYar/
+# نمایش زنده‌ی برنامه روی زیردامنه‌ی اختصاصی: https://hesabyar.karen-soft.ir
+# (دامنه از فایل public/CNAME خوانده می‌شود؛ DNS آن در پنل ثبت‌کننده به rahmaniho.github.io اشاره می‌کند)
 on:
   push:
     branches: [main, 'arena/7c7cf0f8-karenyar']
@@ -39,9 +40,9 @@ jobs:
         continue-on-error: true
         run: node scripts/update-rates.mjs
 
-      - name: Build for GitHub Pages subpath
+      - name: Build for custom subdomain (site root)
         env:
-          VITE_BASE: /KarenYar/
+          VITE_BASE: /
         run: npm run build
 
       # ترفند SPA روی GitHub Pages: مسیرهای ناشناخته index.html را می‌گیرند

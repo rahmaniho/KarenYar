@@ -116,6 +116,16 @@ npm run icons           # بازسازی assetهای برند و آیکون‌ه
 
 خروجی `npm run build` یک پوشه‌ی `dist` کاملاً استاتیک است؛ هیچ سروری لازم نیست.
 
+### زیردامنه‌ی اختصاصی روی GitHub Pages (آدرس فعلی: hesabyar.karen-soft.ir)
+
+سایت همین حالا طوری تنظیم شده که روی `https://hesabyar.karen-soft.ir` منتشر شود:
+
+1. در پنل ثبت‌کننده‌ی دامنه (همان‌جا که DNSهای `karen-soft.ir` مدیریت می‌شود) یک رکورد بسازید: نوع `CNAME` — نام `hesabyar` — مقدار `rahmaniho.github.io` (با نقطه‌ی انتهایی اگر پنل خواست: `rahmaniho.github.io.`) و TTL پیش‌فرض.
+2. انتشار رکورد را در [dnschecker.org](https://dnschecker.org/#CNAME/hesabyar.karen-soft.ir) بررسی کنید؛ سپس انتشار خودکار GitHub Pages خودش دامنه را (از فایل `public/CNAME`) تشخیص داده و گواهی HTTPS صادر می‌کند. در آخر از `Settings → Pages` گزینه‌ی **Enforce HTTPS** را روشن کنید.
+3. بیلد انتشار از ریشه‌ی دامنه ساخته می‌شود (`VITE_BASE=/`) و شارژ روزانه‌ی نرخ‌ها هم روی همین آدرس می‌نشیند.
+
+> نکته: داده‌ی برنامه روی هر آدرس جدا ذخیره می‌شود؛ برای انتقال از آدرس قبلی، «فایل پشتیبان» بگیرید و در آدرس جدید «بازیابی از فایل» کنید.
+
 ### Netlify
 
 1. پوشه‌ی `dist` را Drag & Drop کنید یا ریپو را وصل کنید (Build command: `npm run build` — Publish: `dist`).
