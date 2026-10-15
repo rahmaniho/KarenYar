@@ -54,6 +54,22 @@ describe('ماشین‌حساب — توابع علمی', () => {
     expect(evaluate('pi')).toBeCloseTo(Math.PI, 12);
     expect(evaluate('2*pi')).toBeCloseTo(2 * Math.PI, 10);
   });
+
+  it('ضرب ضمنی: عدد و پرانتز و ثابت و تابعِ چسبیده به هم ضرب می‌شوند', () => {
+    expect(evaluate('2(3+1)')).toBe(8);
+    expect(evaluate('(1+1)(2+2)')).toBe(8);
+    expect(evaluate('2π')).toBeCloseTo(2 * Math.PI, 10);
+    expect(evaluate('3sin(90)')).toBe(3);
+    expect(evaluate('(2+3)2')).toBe(10);
+    expect(evaluate('3!2')).toBe(12);
+    expect(evaluate('2(3)(4)')).toBe(24);
+  });
+
+  it('ضرب ضمنی با درصد و باقیمانده تداخل ندارد', () => {
+    expect(evaluate('50%')).toBe(0.5);
+    expect(evaluate('10%3')).toBe(1);
+    expect(evaluate('50%(2+1)')).toBe(2); // باقیمانده‌ی ۵۰ بر ۳
+  });
 });
 
 describe('ماشین‌حساب — خطاها با پیام فارسی', () => {

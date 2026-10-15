@@ -152,9 +152,18 @@ export interface JalaliDiff {
   totalDays: number;
 }
 
-/** تفاضل دو تاریخ شمسی به‌صورت سال/ماه/روز + مجموع روزها (برای «تاریخ‌شمار») */
+/** تفاضل دو تاریخ شمسی به‌صورت سال/ماه/روز + مجموع روزها (برای «تاریخ‌شمار») — اگر تاریخ دوم زودتر باشد، همه‌ی اجزا منفی برمی‌گردند */
 export function diffJalali(from: Date, to: Date): JalaliDiff {
   const totalDays = daysDiff(from, to);
+  if (totalDays < 0) {
+    const positive = diffJalali(to, from);
+    return {
+      years: -positive.years || 0,
+      months: -positive.months || 0,
+      days: -positive.days || 0,
+      totalDays,
+    };
+  }
   const a = dateToJalali(from);
   const b = dateToJalali(to);
   let years = b.jy - a.jy;
