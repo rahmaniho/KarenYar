@@ -1,4 +1,4 @@
-package com.getcapacitor.myapp;
+package ir.karensoft.hesabyar;
 
 import static org.junit.Assert.*;
 
