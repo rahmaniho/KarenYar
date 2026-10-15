@@ -125,7 +125,7 @@ export function SettingsPage() {
   const handleExport = async () => {
     try {
       const backup = await exportBackup();
-      downloadBackupFile(backup);
+      await downloadBackupFile(backup);
       toast.success('فایل پشتیبان دانلود شد. آن را در جای امنی نگه دارید.');
     } catch {
       toast.error('ساخت فایل پشتیبان با خطا مواجه شد.');
@@ -706,7 +706,7 @@ export function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-2 text-sm leading-7 text-muted-foreground">
             <p>
-              <b className="text-foreground">حساب‌یار کارن سافت</b> — نسخه‌ی ۱٫۲٫۳
+              <b className="text-foreground">حساب‌یار کارن سافت</b> — نسخه‌ی ۱٫۲٫۴
             </p>
             <p>
               اپلیکیشن مالی فارسی و کاملاً آفلاین برای فروشگاه‌های کوچک، کارمندان و حسابداران:

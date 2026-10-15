@@ -179,7 +179,7 @@ export function TransactionsPage() {
     setDialogOpen(true);
   }
 
-  const exportCsv = () => {
+  const exportCsv = async (): Promise<void> => {
     const rows: (string | number)[][] = [
       ['تاریخ', 'نوع', 'دسته‌بندی', 'مبلغ (تومان)', 'توضیحات'],
       ...filtered.map((t) => [
@@ -190,8 +190,8 @@ export function TransactionsPage() {
         t.description ?? '',
       ]),
     ];
-    downloadCsv('karenyar-transactions.csv', rows);
-    toast.success('فایل CSV تراکنش‌ها دانلود شد.');
+    await downloadCsv('karenyar-transactions.csv', rows);
+    toast.success('فایل CSV تراکنش‌ها آماده شد.');
   };
 
   return (

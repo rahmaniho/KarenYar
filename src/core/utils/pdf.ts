@@ -4,6 +4,7 @@
  */
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import { saveBlob } from './file-save';
 
 export async function exportElementToPdf(element: HTMLElement, fileName: string): Promise<void> {
   const canvas = await html2canvas(element, {
@@ -35,5 +36,5 @@ export async function exportElementToPdf(element: HTMLElement, fileName: string)
       heightLeft -= pageHeight - margin * 2;
     }
   }
-  pdf.save(fileName);
+  await saveBlob(fileName, pdf.output('blob'));
 }
