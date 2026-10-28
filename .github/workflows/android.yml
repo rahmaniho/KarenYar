@@ -1,27 +1,59 @@
 name: Build Android APK
 
-# ساخت نسخه‌ی اندرویدی (Capacitor) — خروجی APK از بخش Artifacts همین اجرا قابل دانلود است.
-# اجرا: تب Actions → Build Android APK → Run workflow
+# اجرا: Actions → Build Android APK → Run workflow
+# انتشار فروشگاهی پیش‌فرض است؛ نسخه‌ی Debug فقط با غیرفعال‌کردن release ساخته می‌شود.
 on:
-  # با هر تگ نسخه (مثل v1.2.5) بیلد گرفته و APK به GitHub Release همان تگ ضمیمه می‌شود
+  # تگ‌های نسخه فقط با کلید خصوصی Release ساخته و منتشر می‌شوند، نه با کلید Debug.
   push:
     tags:
       - 'v*'
   workflow_dispatch:
     inputs:
       release:
-        description: 'بیلد انتشار امضاشده (AAB + APK) — نیازمند Secrets کلید امضا'
+        description: 'بیلد انتشار امضاشده برای بازار (APK + AAB) — نیازمند Secrets کلید امضا'
         type: boolean
-        default: false
+        default: true
 
 permissions:
-  contents: write # برای ساخت Release و ضمیمه‌کردن APK در بیلدهای تگی
+  contents: write # برای ساخت Release و ضمیمه‌کردن خروجی امضاشده در بیلدهای تگی
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate and decode release signing key
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Required signing secret is missing: $name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "::error::Configure the four Android signing secrets before building a store release. No debug fallback is allowed."
+            exit 1
+          fi
+          umask 077
+          if ! printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not valid Base64."
+            exit 1
+          fi
+          if [ ! -s "$RUNNER_TEMP/release.jks" ]; then
+            echo "::error::The decoded release keystore is empty."
+            exit 1
+          fi
+          echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
 
       - uses: actions/setup-node@v4
         with:
@@ -44,65 +76,73 @@ jobs:
 
       - run: npm ci
 
+      - name: Test release APK verification
+        run: npm run test:android-release
+
       - name: Build web app + sync into Android
         run: |
           npm run build
           npx cap sync android
 
-      - name: Build debug APK
+      - name: Build debug APK (testing only)
+        if: github.event_name == 'workflow_dispatch' && !inputs.release && !startsWith(github.ref, 'refs/tags/v')
         working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
-      - name: Upload debug APK
+      - name: Upload debug APK (not for stores)
+        if: github.event_name == 'workflow_dispatch' && !inputs.release && !startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
-          name: hesabyar-android-debug
+          name: hesabyar-android-debug-NOT-FOR-STORES
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
           retention-days: 30
 
-      # انتشار عمومی قابل دانلود: در بیلد تگی، APK در Releases گیت‌هاب قرار می‌گیرد
-      - name: Publish APK to GitHub Release (tag builds)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: android/app/build/outputs/apk/debug/app-debug.apk
-          name: حساب‌یار اندروید ${{ github.ref_name }}
-          body: |
-            نسخه‌ی اندرویدی «حساب‌یار کارن سافت» — فایل APK را دانلود و روی گوشی نصب کنید.
-            حداقل نسخه‌ی اندروید: ۷ (API 24) — کاملاً آفلاین.
-          fail_on_unmatched_files: true
-
-      # انتشار امضاشده فقط وقتی ورودی release فعال است و Secrets ست شده‌اند:
-      # ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD
-      - name: Decode signing key (release only)
-        if: inputs.release
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
-            echo "::error::Secret ANDROID_KEYSTORE_BASE64 ست نشده است — از بیلد انتشار صرف‌نظر شد."
-            exit 1
-          fi
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
-          echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
-
-      - name: Build signed release (AAB + APK)
-        if: inputs.release
+      - name: Build signed release (APK + AAB)
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
         working-directory: android
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew assembleRelease bundleRelease --no-daemon
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease bundleRelease --no-daemon
 
-      - name: Upload release artifacts
-        if: inputs.release
+      - name: Verify release signature and non-debuggable APK
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
+        run: >-
+          npm run android:verify --
+          android/app/build/outputs/apk/release/app-release.apk
+          "$ANDROID_HOME/build-tools/36.0.0"
+
+      - name: Upload signed release artifacts (for stores)
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
         uses: actions/upload-artifact@v4
         with:
           name: hesabyar-android-release
           path: |
             android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
           retention-days: 90
+
+      - name: Publish signed APK and AAB to GitHub Release (tag builds)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab
+          name: حساب‌یار اندروید ${{ github.ref_name }}
+          body: |
+            نسخه‌ی انتشار امضاشده‌ی «حساب‌یار کارن سافت» — برای بارگذاری در بازار، app-release.apk را دریافت کنید.
+            حداقل نسخه‌ی اندروید: ۷ (API 24) — کاملاً آفلاین.
+          fail_on_unmatched_files: true
+
+      - name: Remove temporary signing key
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/release.jks"

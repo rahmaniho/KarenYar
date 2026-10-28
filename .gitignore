@@ -9,6 +9,16 @@ dist-ssr/
 *.log
 npm-debug.log*
 
+# کلیدها و اطلاعات خصوصی امضای اندروید
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.jks.base64
+*.keystore.base64
+keystore.properties
+key.properties
+
 # ابزارها
 .vscode/*
 !.vscode/extensions.json
