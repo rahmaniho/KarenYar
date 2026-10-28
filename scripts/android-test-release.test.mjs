@@ -60,6 +60,20 @@ test('version tags always select signed release, including a manual tag run', ()
     );
 });
 
+test('automatic publication requires both the allowed branch and an explicit testing commit', () => {
+  const automatic = { ...env, GITHUB_EVENT_NAME: 'push', ANDROID_TEST_PUSH: 'true' };
+  assert.equal(resolveBuildTarget(automatic), 'github-test');
+  assert.throws(
+    () => resolveBuildTarget({ ...automatic, GITHUB_REF: 'refs/heads/main' }),
+    /Select/,
+  );
+  assert.throws(() => resolveBuildTarget({ ...automatic, ANDROID_TEST_PUSH: 'false' }), /Select/);
+  assert.equal(
+    resolveBuildTarget({ ...automatic, GITHUB_REF: 'refs/tags/v1.3.0' }),
+    'signed-release',
+  );
+});
+
 test('legacy UI and API inputs remain safe and compatible', () => {
   assert.equal(resolveBuildTarget({ ...env, ANDROID_LEGACY_RELEASE: 'true' }), 'signed-release');
   assert.equal(

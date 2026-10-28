@@ -10,6 +10,12 @@ const commandOptions = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] };
 /** Version tags always require a real release key, regardless of manual inputs. */
 export function resolveBuildTarget(env) {
   if (env.GITHUB_REF?.startsWith('refs/tags/v')) return 'signed-release';
+  if (
+    env.GITHUB_EVENT_NAME === 'push' &&
+    env.GITHUB_REF === 'refs/heads/arena/da58321a-karenyar' &&
+    env.ANDROID_TEST_PUSH === 'true'
+  )
+    return 'github-test';
   if (env.GITHUB_EVENT_NAME === 'workflow_dispatch') {
     if (env.ANDROID_LEGACY_RELEASE === 'true') return 'signed-release';
     if (![undefined, '', 'false'].includes(env.ANDROID_LEGACY_RELEASE))
@@ -179,6 +185,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     }
   } catch (error) {
     console.error(`Android testing publication failed: ${error.message}`);
+    if (process.env.GITHUB_ACTIONS === 'true') {
+      const message = error.message
+        .replaceAll('%', '%25')
+        .replaceAll('\r', '%0D')
+        .replaceAll('\n', '%0A');
+      console.error(`::error::${message}`);
+    }
     process.exitCode = 1;
   }
 }
