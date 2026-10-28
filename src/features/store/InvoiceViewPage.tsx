@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { assetUrl } from '@/lib/utils';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ArrowRight, FileDown, Plus, Printer, Receipt, Trash2 } from 'lucide-react';
+import { ArrowRight, FileDown, Plus, Printer, Receipt, Undo2, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
 import { db, type Invoice, type InvoiceItem } from '@/core/db/db';
-import { formatMoney, formatNumber, toFaDigits } from '@/core/currency/currency';
+import { formatDecimal, formatMoney, toFaDigits } from '@/core/currency/currency';
 import { formatJalaliLong } from '@/core/jalali/jalali';
 import { exportElementToPdf } from '@/core/utils/pdf';
 import { useLicenseStore } from '@/store/license-store';
@@ -13,9 +13,9 @@ import { useSettingsStore } from '@/store/settings-store';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { FeatureGate } from '@/components/FeatureGate';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
-import { deleteInvoice } from './invoice.service';
+import { VoidInvoiceDialog } from './VoidInvoiceDialog';
+import { invoicePaymentMethod, PAYMENT_LABELS } from './payment';
 
 /** مشاهده و چاپ فاکتور — ناحیه‌ی چاپ با شناسه‌ی print-area */
 export function InvoiceViewPage() {
@@ -97,6 +97,12 @@ export function InvoiceViewPage() {
               بازگشت
             </Button>
             <Button asChild variant="outline">
+              <Link to="/store/pos">
+                <ShoppingCart aria-hidden />
+                صندوق فروش
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
               <Link to="/store/invoices/new">
                 <Plus aria-hidden />
                 فاکتور جدید
@@ -114,10 +120,12 @@ export function InvoiceViewPage() {
               <FileDown aria-hidden />
               {pdfLoading ? 'در حال ساخت…' : 'دریافت PDF'}
             </Button>
-            <Button variant="destructive" onClick={() => setDeleting(true)}>
-              <Trash2 aria-hidden />
-              حذف
-            </Button>
+            {invoice.status !== 'voided' && (
+              <Button variant="destructive" onClick={() => setDeleting(true)}>
+                <Undo2 aria-hidden />
+                ابطال فروش
+              </Button>
+            )}
           </>
         }
       />
@@ -128,6 +136,16 @@ export function InvoiceViewPage() {
         ref={printRef}
         className="print-area mx-auto max-w-3xl rounded-2xl border bg-white p-6 text-navy-900 shadow-card sm:p-8"
       >
+        {invoice.status === 'voided' && (
+          <div className="mb-5 rounded-xl border-2 border-red-300 bg-red-50 p-4 text-red-800">
+            <p className="font-extrabold">باطل‌شده — این سند فروش معتبر نیست</p>
+            <p className="mt-1 text-xs">
+              {invoice.voidReason}
+              {invoice.voidedAt ? ` · ${formatJalaliLong(new Date(invoice.voidedAt))}` : ''}
+            </p>
+            <p className="mt-1 text-xs">موجودی و درآمد خودکار این فروش اصلاح شده‌اند.</p>
+          </div>
+        )}
         {/* سربرگ فاکتور */}
         <div className="flex items-start justify-between border-b-2 border-navy-900 pb-4">
           <div>
@@ -143,7 +161,7 @@ export function InvoiceViewPage() {
         </div>
 
         <p className="mt-4 text-sm">
-          خریدار: <b>{invoice.customerName ?? 'مشتری نقدی'}</b>
+          خریدار: <b>{invoice.customerName ?? 'مشتری گذری'}</b>
           {invoice.isCredit && (
             <span className="ms-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800 ring-1 ring-amber-300">
               فروش نسیه
@@ -151,6 +169,15 @@ export function InvoiceViewPage() {
           )}
         </p>
 
+        <p className="mt-2 text-xs text-navy-600">
+          روش پرداخت: <b>{PAYMENT_LABELS[invoicePaymentMethod(invoice)]}</b>
+          {invoice.source === 'pos' ? ' · فروش صندوق' : ''}
+        </p>
+        {invoice.note && (
+          <p className="mt-2 rounded-lg bg-navy-50 px-3 py-2 text-xs text-navy-700">
+            یادداشت: {invoice.note}
+          </p>
+        )}
         <table className="mt-4 w-full text-xs sm:text-sm">
           <thead>
             <tr className="border-b bg-navy-50 text-navy-700">
@@ -166,7 +193,7 @@ export function InvoiceViewPage() {
               <tr key={item.id} className="border-b last:border-0">
                 <td className="px-2 py-2">{toFaDigits(String(i + 1))}</td>
                 <td className="px-2 py-2 font-medium">{item.name}</td>
-                <td className="px-2 py-2">{formatNumber(item.qty)}</td>
+                <td className="px-2 py-2">{formatDecimal(item.qty, 6)}</td>
                 <td className="px-2 py-2">{formatMoney(item.unitPrice, unit)}</td>
                 <td className="px-2 py-2 font-semibold">{formatMoney(item.total, unit)}</td>
               </tr>
@@ -195,9 +222,27 @@ export function InvoiceViewPage() {
               </div>
             )}
             <div className="flex justify-between border-t-2 border-navy-900 pt-2 text-base font-extrabold">
-              <dt>مبلغ قابل پرداخت</dt>
+              <dt>
+                {invoice.status === 'voided'
+                  ? 'مبلغ سند باطل‌شده'
+                  : invoice.isCredit
+                    ? 'مبلغ نسیه'
+                    : 'مبلغ فروش'}
+              </dt>
               <dd>{formatMoney(invoice.total, unit)}</dd>
             </div>
+            {invoice.cashTendered !== undefined && invoice.status !== 'voided' && (
+              <>
+                <div className="flex justify-between text-navy-600">
+                  <dt>وجه نقد دریافتی</dt>
+                  <dd>{formatMoney(invoice.cashTendered, unit)}</dd>
+                </div>
+                <div className="flex justify-between font-bold">
+                  <dt>باقی پول مشتری</dt>
+                  <dd>{formatMoney(invoice.changeAmount ?? 0, unit)}</dd>
+                </div>
+              </>
+            )}
           </dl>
         </div>
 
@@ -213,19 +258,7 @@ export function InvoiceViewPage() {
         </p>
       </div>
 
-      <ConfirmDialog
-        open={deleting}
-        onOpenChange={setDeleting}
-        title={`حذف فاکتور شماره ${toFaDigits(String(invoice.number))}`}
-        description="فاکتور حذف و موجودی کالاهای آن به انبار برمی‌گردد. ادامه می‌دهید؟"
-        confirmLabel="حذف فاکتور"
-        destructive
-        onConfirm={async () => {
-          await deleteInvoice(invoice.id!);
-          toast.success('فاکتور حذف شد.');
-          navigate('/store/invoices');
-        }}
-      />
+      <VoidInvoiceDialog invoice={deleting ? invoice : null} onOpenChange={setDeleting} />
     </div>
   );
 }

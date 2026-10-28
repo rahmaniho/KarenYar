@@ -5,8 +5,8 @@ import { AlertTriangle, Plus, ReceiptText, ScanBarcode, Search, Trash2, User } f
 import { toast } from 'sonner';
 import { db, type Product } from '@/core/db/db';
 import {
+  formatDecimal,
   formatMoney,
-  formatNumber,
   fromDisplayAmount,
   toDisplayAmount,
   toFaDigits,
@@ -14,6 +14,7 @@ import {
 import { useSettingsStore } from '@/store/settings-store';
 import { PageHeader } from '@/components/PageHeader';
 import { AmountInput } from '@/components/AmountInput';
+import { DecimalInput } from '@/components/DecimalInput';
 import { BarcodeScannerDialog } from '@/components/BarcodeScannerDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { emptySale } from '@/store/pos-store';
 import { calculateInvoiceTotals, createInvoice, type NewInvoiceItemInput } from './invoice.service';
 
 interface Line extends NewInvoiceItemInput {
@@ -56,6 +58,7 @@ export function NewInvoicePage() {
   const [discountValue, setDiscountValue] = useState(0);
   const [taxPercent, setTaxPercent] = useState(defaultTax);
   const [saving, setSaving] = useState(false);
+  const [checkoutKey] = useState(() => emptySale().checkoutKey);
   const [scannerOpen, setScannerOpen] = useState(false);
 
   const handleBarcode = (code: string) => {
@@ -135,6 +138,7 @@ export function NewInvoicePage() {
     setSaving(true);
     try {
       const id = await createInvoice({
+        checkoutKey,
         customerName: selectedCustomer ? selectedCustomer.name : customerName || undefined,
         customerId: selectedCustomer ? selectedCustomer.id! : null,
         isCredit: selectedCustomer ? isCredit : false,
@@ -149,7 +153,7 @@ export function NewInvoicePage() {
           discountType === 'amount' ? fromDisplayAmount(discountValue, unit) : discountValue,
         taxPercent,
       });
-      toast.success('فاکتور با موفقیت صادر شد.');
+      toast.success('فاکتور صادر شد؛ موجودی و درآمد به‌روز شدند.');
       navigate(`/store/invoices/${id}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'خطا در صدور فاکتور');
@@ -266,7 +270,7 @@ export function NewInvoicePage() {
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-semibold">{p.name}</span>
                           <span className="block text-xs text-muted-foreground">
-                            موجودی: {formatNumber(p.stock)} {p.unit}
+                            موجودی: {formatDecimal(p.stock, 6)} {p.unit}
                             {p.stock <= 0 && ' — ناموجود'}
                           </span>
                         </span>
@@ -344,15 +348,13 @@ export function NewInvoicePage() {
                             <Label htmlFor={`qty-${index}`} className="text-xs">
                               تعداد
                             </Label>
-                            <Input
+                            <DecimalInput
                               id={`qty-${index}`}
-                              inputMode="numeric"
+                              inputMode="decimal"
                               dir="ltr"
                               className="text-left"
-                              value={line.qty || ''}
-                              onChange={(e) =>
-                                updateLine(index, { qty: Math.max(0, Number(e.target.value) || 0) })
-                              }
+                              value={line.qty}
+                              onChange={(qty) => updateLine(index, { qty })}
                             />
                           </div>
                           <div className="space-y-1">
@@ -379,7 +381,7 @@ export function NewInvoicePage() {
                             role="alert"
                           >
                             <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
-                            موجودی کافی نیست (موجودی: {formatNumber(line.stock!)} {line.unit})
+                            موجودی کافی نیست (موجودی: {formatDecimal(line.stock!, 6)} {line.unit})
                           </p>
                         )}
                       </li>
@@ -420,13 +422,13 @@ export function NewInvoicePage() {
                     : `مبلغ تخفیف (${unit === 'toman' ? 'تومان' : 'ریال'})`}
                 </Label>
                 {discountType === 'percent' ? (
-                  <Input
+                  <DecimalInput
                     id="inv-disc-value"
                     inputMode="decimal"
                     dir="ltr"
                     className="text-left"
-                    value={discountValue || ''}
-                    onChange={(e) => setDiscountValue(Number(e.target.value) || 0)}
+                    value={discountValue}
+                    onChange={setDiscountValue}
                   />
                 ) : (
                   <AmountInput
@@ -440,13 +442,13 @@ export function NewInvoicePage() {
 
             <div className="space-y-1.5">
               <Label htmlFor="inv-tax">مالیات بر ارزش افزوده (٪)</Label>
-              <Input
+              <DecimalInput
                 id="inv-tax"
                 inputMode="decimal"
                 dir="ltr"
                 className="text-left"
-                value={taxPercent || ''}
-                onChange={(e) => setTaxPercent(Math.max(0, Number(e.target.value) || 0))}
+                value={taxPercent}
+                onChange={setTaxPercent}
               />
             </div>
 

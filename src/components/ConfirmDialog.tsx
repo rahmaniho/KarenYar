@@ -1,3 +1,4 @@
+import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,6 +19,7 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   destructive?: boolean;
   onConfirm: () => void | Promise<void>;
+  children?: ReactNode;
 }
 
 /** دیالوگ تأیید عملیات حساس (حذف و…) */
@@ -30,31 +32,42 @@ export function ConfirmDialog({
   cancelLabel = 'انصراف',
   destructive = false,
   onConfirm,
+  children,
 }: ConfirmDialogProps) {
+  const [pending, setPending] = useState(false);
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(next) => !pending && onOpenChange(next)}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
+        {children}
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" disabled={pending} onClick={() => onOpenChange(false)}>
             {cancelLabel}
           </Button>
           <Button
             variant={destructive ? 'destructive' : 'default'}
+            disabled={pending}
             onClick={async () => {
+              if (pending) return;
+              setPending(true);
               try {
                 await onConfirm();
                 onOpenChange(false);
-              } catch {
-                // عملیات ناموفق بود: دیالوگ باز می‌ماند تا کاربر دوباره تلاش کند
-                toast.error('انجام عملیات با خطا مواجه شد. دوباره تلاش کنید.');
+              } catch (error) {
+                toast.error(
+                  error instanceof Error
+                    ? error.message
+                    : 'انجام عملیات با خطا مواجه شد. دوباره تلاش کنید.',
+                );
+              } finally {
+                setPending(false);
               }
             }}
           >
-            {confirmLabel}
+            {pending ? 'در حال انجام…' : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -10,7 +10,7 @@ import { FREE_LIMITS } from '@/core/license/license-core';
 import { landedCost, profitFromPrices } from '@/core/calc/finance';
 import {
   formatMoney,
-  formatNumber,
+  formatDecimal,
   fromDisplayAmount,
   toDisplayAmount,
   toFaDigits,
@@ -53,6 +53,7 @@ import {
 import { DEFAULT_PRODUCT_CATEGORIES, PRODUCT_UNITS, mergeCategories } from '../personal/categories';
 import { productSchema, type ProductFormValues } from './schemas';
 import { cn } from '@/lib/utils';
+import { saveProduct, deleteProduct } from './inventory.service';
 
 function stockBadge(product: Product) {
   if (product.stock <= 0) return <Badge variant="destructive">ناموجود</Badge>;
@@ -236,7 +237,7 @@ export function ProductsPage() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        {formatNumber(p.stock)} {p.unit}
+                        {formatDecimal(p.stock, 6)} {p.unit}
                       </TableCell>
                       <TableCell>{stockBadge(p)}</TableCell>
                       <TableCell>
@@ -279,7 +280,7 @@ export function ProductsPage() {
                   {stockBadge(p)}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {p.category} — موجودی: {formatNumber(p.stock)} {p.unit}
+                  {p.category} — موجودی: {formatDecimal(p.stock, 6)} {p.unit}
                 </p>
                 <div className="flex items-center justify-between text-sm">
                   <span>
@@ -342,7 +343,7 @@ export function ProductsPage() {
         destructive
         onConfirm={async () => {
           if (deleting?.id != null) {
-            await db.products.delete(deleting.id);
+            await deleteProduct(deleting.id);
             toast.success('کالا حذف شد.');
           }
         }}
@@ -458,14 +459,18 @@ function ProductFormDialog({
       minStock: v.minStock,
       updatedAt: nowISO(),
     };
-    if (editing?.id != null) {
-      await db.products.update(editing.id, payload);
-      toast.success('کالا ویرایش شد.');
-    } else {
-      await db.products.add({ ...payload, createdAt: nowISO() });
-      toast.success('کالا ثبت شد.');
+    try {
+      if (editing?.id != null) {
+        await saveProduct(payload, editing.id, editing.stock);
+        toast.success('کالا ویرایش شد.');
+      } else {
+        await saveProduct(payload);
+        toast.success('کالا ثبت شد.');
+      }
+      onOpenChange(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'ذخیرهٔ کالا ناموفق بود.');
     }
-    onOpenChange(false);
   };
 
   const errors = form.formState.errors;
@@ -608,7 +613,7 @@ function ProductFormDialog({
               <Label htmlFor="p-stock">موجودی فعلی *</Label>
               <Input
                 id="p-stock"
-                inputMode="numeric"
+                inputMode="decimal"
                 dir="ltr"
                 className="text-left"
                 {...form.register('stock', { valueAsNumber: true })}
@@ -619,7 +624,7 @@ function ProductFormDialog({
               <Label htmlFor="p-min">حد هشدار موجودی</Label>
               <Input
                 id="p-min"
-                inputMode="numeric"
+                inputMode="decimal"
                 dir="ltr"
                 className="text-left"
                 {...form.register('minStock', { valueAsNumber: true })}

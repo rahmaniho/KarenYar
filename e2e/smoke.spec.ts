@@ -6,11 +6,14 @@ test.describe('حساب‌یار کارن سافت — سناریوهای اصل
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.locator('html')).toHaveAttribute('lang', 'fa');
     await expect(page.getByRole('heading', { name: /داشبورد/ })).toBeVisible();
-    await expect(page.getByText('ماشین‌حساب حرفه‌ای').first()).toBeVisible();
+    await expect(
+      page.getByRole('main').getByRole('link', { name: 'ماشین‌حساب', exact: true }),
+    ).toBeVisible();
   });
 
   test('ماشین‌حساب: ۲+۳×۴ برابر ۱۴ می‌شود', async ({ page }) => {
     await page.goto('/calculator');
+    await expect(page.getByRole('heading', { name: 'ماشین‌حساب حرفه‌ای' })).toBeVisible();
     await page.keyboard.type('2+3*4');
     await page.keyboard.press('Enter');
     await expect(page.getByText('۱۴', { exact: true }).first()).toBeVisible();

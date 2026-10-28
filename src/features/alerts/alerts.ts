@@ -11,7 +11,7 @@ import type {
   Product,
   Transaction,
 } from '@/core/db/db';
-import { currentJalaliMonthKey } from '@/core/jalali/jalali';
+import { jalaliMonthKey } from '@/core/jalali/jalali';
 import { budgetStatus, debtStatus } from '@/features/personal/personal-calc';
 import { customerBalance } from '@/features/store/customers-calc';
 
@@ -87,7 +87,7 @@ export function computeAlerts(input: AlertsInput): AppAlert[] {
     const { balance } = customerBalance(customer.id, input.invoices, input.customerPayments);
     if (balance <= 0) continue;
     const creditInvoices = input.invoices
-      .filter((inv) => inv.customerId === customer.id && inv.isCredit)
+      .filter((inv) => inv.customerId === customer.id && inv.isCredit && inv.status !== 'voided')
       .sort((a, b) => a.date.localeCompare(b.date));
     const oldest = creditInvoices[0];
     if (!oldest) continue;
@@ -119,7 +119,7 @@ export function computeAlerts(input: AlertsInput): AppAlert[] {
   }
 
   // بودجه‌ها — فقط بودجه‌ی ماه جاری هشدار می‌دهد (بودجه‌ی ماه‌های قبل تاریخ گذشته است)
-  const currentMonth = currentJalaliMonthKey();
+  const currentMonth = jalaliMonthKey(now);
   for (const budget of input.budgets) {
     if (budget.month !== currentMonth) continue;
     const status = budgetStatus(budget, input.transactions);

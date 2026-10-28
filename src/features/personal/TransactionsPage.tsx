@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -82,6 +82,7 @@ import {
 import { categoryTotals, monthlySeries, sumTransactions } from './personal-calc';
 import { transactionSchema, type TransactionFormValues } from './schemas';
 import { cn } from '@/lib/utils';
+import { saveManualTransaction, deleteManualTransaction } from './transaction.service';
 
 const PIE_COLORS = [
   '#0B1B3A',
@@ -98,16 +99,25 @@ const PIE_COLORS = [
 
 type TypeFilter = 'all' | 'income' | 'expense';
 
-export function TransactionsPage() {
+export function TransactionsPage({ businessOnly = false }: { businessOnly?: boolean }) {
   const unit = useSettingsStore((s) => s.currencyUnit);
   const can = useLicenseStore((s) => s.can);
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const transactions = useLiveQuery(
+  const allTransactions = useLiveQuery(
     () => db.transactions.orderBy('date').reverse().toArray(),
     [],
     [] as Transaction[],
   );
+
+  const transactions = useMemo(
+    () =>
+      businessOnly
+        ? allTransactions.filter((t) => t.source === 'sale' || t.source === 'business')
+        : allTransactions,
+    [allTransactions, businessOnly],
+  );
+  const [sourceFilter, setSourceFilter] = useState('all');
 
   const [monthFilter, setMonthFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
@@ -136,32 +146,30 @@ export function TransactionsPage() {
 
   const filtered = useMemo(() => {
     return transactions.filter((t) => {
+      if (sourceFilter !== 'all' && (t.source ?? 'manual') !== sourceFilter) return false;
       if (monthFilter !== 'all' && jalaliMonthKey(new Date(t.date)) !== monthFilter) return false;
       if (typeFilter !== 'all' && t.type !== typeFilter) return false;
       if (search && !`${t.category} ${t.description ?? ''}`.includes(search)) return false;
       return true;
     });
-  }, [transactions, monthFilter, typeFilter, search]);
+  }, [transactions, monthFilter, typeFilter, sourceFilter, search]);
 
-  const monthTotals = useMemo(() => {
-    const source =
-      monthFilter === 'all'
-        ? transactions
-        : transactions.filter((t) => jalaliMonthKey(new Date(t.date)) === monthFilter);
-    return sumTransactions(source);
-  }, [transactions, monthFilter]);
-
-  const series = useMemo(() => monthlySeries(transactions, 6), [transactions]);
-  const expensePie = useMemo(() => {
-    const source =
-      monthFilter === 'all'
-        ? transactions
-        : transactions.filter((t) => jalaliMonthKey(new Date(t.date)) === monthFilter);
-    return categoryTotals(source, 'expense').slice(0, 8);
-  }, [transactions, monthFilter]);
+  const monthTotals = useMemo(() => sumTransactions(filtered), [filtered]);
+  const series = useMemo(
+    () =>
+      monthlySeries(
+        transactions.filter(
+          (t) => sourceFilter === 'all' || (t.source ?? 'manual') === sourceFilter,
+        ),
+        6,
+      ),
+    [transactions, sourceFilter],
+  );
+  const expensePie = useMemo(() => categoryTotals(filtered, 'expense').slice(0, 8), [filtered]);
 
   const atFreeLimit =
-    !can('unlimited-transactions') && transactions.length >= FREE_LIMITS.transactions;
+    !can('unlimited-transactions') &&
+    allTransactions.filter((t) => t.source !== 'sale').length >= FREE_LIMITS.transactions;
 
   function openCreate() {
     if (atFreeLimit) {
@@ -175,19 +183,24 @@ export function TransactionsPage() {
   }
 
   function openEdit(t: Transaction) {
+    if (t.source === 'sale') {
+      toast.error('درآمد فروش فقط از طریق فاکتور اصلاح می‌شود.');
+      return;
+    }
     setEditing(t);
     setDialogOpen(true);
   }
 
   const exportCsv = async (): Promise<void> => {
     const rows: (string | number)[][] = [
-      ['تاریخ', 'نوع', 'دسته‌بندی', 'مبلغ (تومان)', 'توضیحات'],
+      ['تاریخ', 'نوع', 'دسته‌بندی', 'مبلغ (تومان)', 'توضیحات', 'منشأ'],
       ...filtered.map((t) => [
         formatJalaliNumeric(new Date(t.date)),
         t.type === 'income' ? 'درآمد' : 'هزینه',
         t.category,
         t.type === 'income' ? t.amount : -t.amount,
         t.description ?? '',
+        t.source === 'sale' ? 'فروش خودکار' : t.source === 'business' ? 'کسب‌وکار' : 'دستی',
       ]),
     ];
     await downloadCsv('karenyar-transactions.csv', rows);
@@ -197,8 +210,12 @@ export function TransactionsPage() {
   return (
     <div>
       <PageHeader
-        title="تراکنش‌های شخصی"
-        subtitle="ثبت و مدیریت درآمدها و هزینه‌ها با دسته‌بندی و گزارش تصویری"
+        title={businessOnly ? 'دفتر مالی کسب‌وکار' : 'درآمد و هزینه‌ها'}
+        subtitle={
+          businessOnly
+            ? 'درآمد فروش‌ها به‌صورت خودکار ثبت می‌شود؛ هزینه‌ها و درآمدهای جانبی را اینجا مدیریت کنید.'
+            : 'همهٔ درآمدها، هزینه‌ها و فروش‌های ثبت‌شده در یک دفتر مالی با منشأ مشخص'
+        }
         actions={
           <>
             <Button variant="outline" onClick={exportCsv} disabled={filtered.length === 0}>
@@ -236,6 +253,13 @@ export function TransactionsPage() {
         />
       </div>
 
+      <p className="mb-4 rounded-xl border border-success/20 bg-success/5 p-3 text-xs leading-6 text-muted-foreground">
+        درآمد فروش جدید، شامل مبلغ فاکتور و مالیات، خودکار ثبت می‌شود و فقط از طریق ابطال فاکتور
+        قابل اصلاح است. فروش نسیه درآمد محسوب می‌شود، نه وجه دریافت‌شده؛ وصول نسیه دوباره درآمد ثبت
+        نمی‌کند. «مانده» تراز درآمد و هزینه است، نه موجودی واقعی نقد و بانک یا سود خالص پس از بهای
+        تمام‌شده.
+      </p>
+
       {/* فیلترها */}
       <Card className="mb-5 p-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -252,6 +276,17 @@ export function TransactionsPage() {
               aria-label="جستجوی تراکنش"
             />
           </div>
+          <Select value={sourceFilter} onValueChange={setSourceFilter}>
+            <SelectTrigger className="w-40" aria-label="منشأ تراکنش">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">همهٔ منشأها</SelectItem>
+              <SelectItem value="sale">فروش خودکار</SelectItem>
+              <SelectItem value="business">کسب‌وکار</SelectItem>
+              {!businessOnly && <SelectItem value="manual">دستی / شخصی</SelectItem>}
+            </SelectContent>
+          </Select>
           <Select value={monthFilter} onValueChange={setMonthFilter}>
             <SelectTrigger className="w-44" aria-label="فیلتر ماه">
               <SelectValue placeholder="همه‌ی ماه‌ها" />
@@ -372,7 +407,11 @@ export function TransactionsPage() {
                   {t.type === 'income' ? '+' : '−'}{' '}
                   {formatMoney(t.amount, unit, { withUnit: false })}
                 </span>
-                <RowActions onEdit={() => openEdit(t)} onDelete={() => setDeletingId(t.id!)} />
+                <RowActions
+                  transaction={t}
+                  onEdit={() => openEdit(t)}
+                  onDelete={() => setDeletingId(t.id!)}
+                />
               </li>
             ))}
           </ul>
@@ -466,14 +505,26 @@ export function TransactionsPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         editing={editing}
+        source={businessOnly ? 'business' : 'manual'}
         existingCategories={[
           ...mergeCategories(
-            DEFAULT_EXPENSE_CATEGORIES,
+            businessOnly
+              ? [
+                  'خرید کالا',
+                  'اجاره و شارژ',
+                  'حقوق کارکنان',
+                  'قبوض و اینترنت',
+                  'حمل و ارسال',
+                  'بازاریابی',
+                  'تعمیر و نگهداری',
+                  'سایر هزینه‌های کسب‌وکار',
+                ]
+              : DEFAULT_EXPENSE_CATEGORIES,
             transactions.filter((t) => t.type === 'expense').map((t) => t.category),
           ),
         ]}
         incomeCategories={mergeCategories(
-          DEFAULT_INCOME_CATEGORIES,
+          businessOnly ? ['خدمات', 'درآمد جانبی', 'فروش دارایی'] : DEFAULT_INCOME_CATEGORIES,
           transactions.filter((t) => t.type === 'income').map((t) => t.category),
         )}
       />
@@ -487,7 +538,7 @@ export function TransactionsPage() {
         destructive
         onConfirm={async () => {
           if (deletingId != null) {
-            await db.transactions.delete(deletingId);
+            await deleteManualTransaction(deletingId);
             toast.success('تراکنش حذف شد.');
           }
         }}
@@ -496,7 +547,21 @@ export function TransactionsPage() {
   );
 }
 
-function RowActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
+function RowActions({
+  transaction,
+  onEdit,
+  onDelete,
+}: {
+  transaction: Transaction;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  if (transaction.source === 'sale')
+    return (
+      <Button variant="ghost" size="sm" asChild>
+        <Link to={`/store/invoices/${transaction.invoiceId}`}>فاکتور ←</Link>
+      </Button>
+    );
   return (
     <span className="flex shrink-0 items-center gap-1">
       <Button
@@ -540,7 +605,15 @@ function TransactionRow({
           {t.type === 'income' ? 'درآمد' : 'هزینه'}
         </Badge>
       </TableCell>
-      <TableCell className="font-medium">{t.category}</TableCell>
+      <TableCell className="font-medium">
+        {t.category}
+        {t.source === 'sale' && (
+          <span className="mt-1 block text-[10px] font-normal text-success">ثبت خودکار فروش</span>
+        )}
+        {t.source === 'business' && (
+          <span className="mt-1 block text-[10px] font-normal text-muted-foreground">کسب‌وکار</span>
+        )}
+      </TableCell>
       <TableCell className="max-w-56 truncate text-muted-foreground">
         {t.description ?? '—'}
       </TableCell>
@@ -553,7 +626,7 @@ function TransactionRow({
         {t.type === 'income' ? '+' : '−'} {formatMoney(t.amount, unit)}
       </TableCell>
       <TableCell>
-        <RowActions onEdit={onEdit} onDelete={onDelete} />
+        <RowActions transaction={t} onEdit={onEdit} onDelete={onDelete} />
       </TableCell>
     </TableRow>
   );
@@ -565,12 +638,14 @@ function TransactionFormDialog({
   editing,
   existingCategories,
   incomeCategories,
+  source,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editing: Transaction | null;
   existingCategories: string[];
   incomeCategories: string[];
+  source: 'manual' | 'business';
 }) {
   const unit = useSettingsStore((s) => s.currencyUnit);
   const form = useForm<TransactionFormValues>({
@@ -615,14 +690,19 @@ function TransactionFormDialog({
       date: values.date,
       description: values.description?.trim() ? values.description.trim() : undefined,
     };
-    if (editing?.id != null) {
-      await db.transactions.update(editing.id, payload);
-      toast.success('تراکنش ویرایش شد.');
-    } else {
-      await db.transactions.add({ ...payload, createdAt: new Date().toISOString() });
-      toast.success(values.type === 'income' ? 'درآمد ثبت شد.' : 'هزینه ثبت شد.');
+    try {
+      await saveManualTransaction({ ...payload, source }, editing?.id);
+      toast.success(
+        editing
+          ? 'تراکنش ویرایش شد.'
+          : values.type === 'income'
+            ? 'درآمد ثبت شد.'
+            : 'هزینه ثبت شد.',
+      );
+      onOpenChange(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'ثبت تراکنش ناموفق بود.');
     }
-    onOpenChange(false);
   };
 
   const errors = form.formState.errors;

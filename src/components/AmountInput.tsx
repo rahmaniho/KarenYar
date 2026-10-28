@@ -49,10 +49,11 @@ export function AmountInput({
       className={cn('text-left', className)}
       placeholder={placeholder}
       value={text}
-      onFocus={() => {
+      onFocus={(event) => {
         focusedRef.current = true;
-        // هنگام ویرایش، عدد خام بدون جداکننده نشان داده می‌شود
-        if (value) setText(String(value));
+        // تغییر value در رویداد focus، انتخاب متن هنگام paste/fill را از بین می‌برد
+        // و مبلغ تازه را به مبلغ قبلی می‌چسباند. فقط متن فعلی را انتخاب می‌کنیم.
+        event.currentTarget.select();
       }}
       onBlur={() => {
         focusedRef.current = false;
