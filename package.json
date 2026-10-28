@@ -11,7 +11,7 @@
     "android:sync": "npm run build && npx cap sync android",
     "android:open": "npx cap open android",
     "android:verify": "node scripts/verify-android-release.mjs",
-    "test:android-release": "node --test scripts/verify-android-release.test.mjs",
+    "test:android-release": "node --test scripts/verify-android-release.test.mjs scripts/android-test-release.test.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -22,7 +22,8 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{ts,js,json,md}\"",
     "license:key": "node scripts/generate-license.mjs",
     "icons": "python3 scripts/build-brand-assets.py",
-    "prepare": "husky"
+    "prepare": "husky",
+    "android:publish-test": "node scripts/android-test-release.mjs publish"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

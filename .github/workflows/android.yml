@@ -1,7 +1,7 @@
 name: Build Android APK
 
 # اجرا: Actions → Build Android APK → Run workflow
-# انتشار فروشگاهی پیش‌فرض است؛ نسخه‌ی Debug فقط با غیرفعال‌کردن release ساخته می‌شود.
+# انتخاب دستی github-test یک APK آزمایشی عمومی می‌سازد؛ تگ‌های v* همیشه Release واقعی‌اند.
 on:
   # تگ‌های نسخه فقط با کلید خصوصی Release ساخته و منتشر می‌شوند، نه با کلید Debug.
   push:
@@ -9,10 +9,18 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
+      build_type:
+        description: 'github-test: انتشار آزمایشی در GitHub | test-apk: فقط فایل تست | signed-release: بازار با کلید خصوصی'
+        type: choice
+        options:
+          - github-test
+          - test-apk
+          - signed-release
+        default: github-test
       release:
-        description: 'بیلد انتشار امضاشده برای بازار (APK + AAB) — نیازمند Secrets کلید امضا'
+        description: 'سازگاری قدیمی: Release با کلید خصوصی؛ برای APK آزمایشی خاموش بماند'
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: write # برای ساخت Release و ضمیمه‌کردن خروجی امضاشده در بیلدهای تگی
@@ -23,8 +31,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Select Android build target
+        id: target
+        env:
+          ANDROID_BUILD_TYPE: ${{ inputs.build_type }}
+          ANDROID_LEGACY_RELEASE: ${{ inputs.release }}
+        run: node scripts/android-test-release.mjs target
+
       - name: Validate and decode release signing key
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
+        if: steps.target.outputs.build_type == 'signed-release'
         shell: bash
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -76,7 +91,7 @@ jobs:
 
       - run: npm ci
 
-      - name: Test release APK verification
+      - name: Test Android publication guards
         run: npm run test:android-release
 
       - name: Build web app + sync into Android
@@ -85,14 +100,14 @@ jobs:
           npx cap sync android
 
       - name: Build debug APK (testing only)
-        if: github.event_name == 'workflow_dispatch' && !inputs.release && !startsWith(github.ref, 'refs/tags/v')
+        if: steps.target.outputs.build_type == 'github-test' || steps.target.outputs.build_type == 'test-apk'
         working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
       - name: Upload debug APK (not for stores)
-        if: github.event_name == 'workflow_dispatch' && !inputs.release && !startsWith(github.ref, 'refs/tags/v')
+        if: steps.target.outputs.build_type == 'github-test' || steps.target.outputs.build_type == 'test-apk'
         uses: actions/upload-artifact@v4
         with:
           name: hesabyar-android-debug-NOT-FOR-STORES
@@ -100,8 +115,19 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - name: Publish verified testing APK to GitHub prerelease
+        if: steps.target.outputs.build_type == 'github-test'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ANDROID_BUILD_TYPE: ${{ inputs.build_type }}
+          ANDROID_LEGACY_RELEASE: ${{ inputs.release }}
+        run: >-
+          npm run android:publish-test --
+          android/app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/36.0.0"
+
       - name: Build signed release (APK + AAB)
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
+        if: steps.target.outputs.build_type == 'signed-release'
         working-directory: android
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -112,14 +138,14 @@ jobs:
           ./gradlew assembleRelease bundleRelease --no-daemon
 
       - name: Verify release signature and non-debuggable APK
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
+        if: steps.target.outputs.build_type == 'signed-release'
         run: >-
           npm run android:verify --
           android/app/build/outputs/apk/release/app-release.apk
           "$ANDROID_HOME/build-tools/36.0.0"
 
       - name: Upload signed release artifacts (for stores)
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
+        if: steps.target.outputs.build_type == 'signed-release'
         uses: actions/upload-artifact@v4
         with:
           name: hesabyar-android-release
