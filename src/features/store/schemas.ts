@@ -17,10 +17,23 @@ export const productSchema = z.object({
     .positive('قیمت فروش باید بیشتر از صفر باشد.'),
   stock: z
     .number({ invalid_type_error: 'موجودی را وارد کنید.' })
-    .int('موجودی عدد صحیح باشد.')
-    .min(0, 'موجودی منفی نمی‌شود.'),
+    .finite('موجودی معتبر نیست.')
+    .max(1_000_000_000, 'موجودی بیش از حد مجاز است.')
+    .min(0, 'موجودی منفی نمی‌شود.')
+    .refine(
+      (value) => Math.abs(value - Math.round(value * 1_000_000) / 1_000_000) <= 1e-10,
+      'حداکثر شش رقم اعشار مجاز است.',
+    ),
   unit: z.string().trim().min(1, 'واحد کالا را انتخاب کنید.'),
-  minStock: z.number().int().min(0, 'حد هشدار نامعتبر است.'),
+  minStock: z
+    .number()
+    .finite()
+    .min(0, 'حد هشدار نامعتبر است.')
+    .max(1_000_000_000)
+    .refine(
+      (value) => Math.abs(value - Math.round(value * 1_000_000) / 1_000_000) <= 1e-10,
+      'حداکثر شش رقم اعشار مجاز است.',
+    ),
 });
 export type ProductFormValues = z.infer<typeof productSchema>;
 

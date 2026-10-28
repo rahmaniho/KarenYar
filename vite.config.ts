@@ -81,7 +81,12 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      include: ['src/core/**/*.ts', 'src/features/**/calc*.ts'],
+      include: [
+        'src/core/**/*.ts',
+        'src/features/**/*-calc.ts',
+        'src/features/**/*.service.ts',
+        'src/features/store/payment.ts',
+      ],
       thresholds: { lines: 70, functions: 70, branches: 60, statements: 70 },
     },
   },

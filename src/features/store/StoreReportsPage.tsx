@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { AlertTriangle, Banknote, HandCoins, Receipt, TrendingUp } from 'lucide-react';
+import { toast } from 'sonner';
+import { downloadCsv } from '@/core/utils/csv';
+import { Button } from '@/components/ui/button';
+import { AlertTriangle, Banknote, HandCoins, Receipt, TrendingUp, Download } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import {
   db,
@@ -9,8 +12,13 @@ import {
   type InvoiceItem,
   type Product,
 } from '@/core/db/db';
-import { formatMoney, formatNumber, toFaDigits } from '@/core/currency/currency';
-import { currentJalaliMonthKey, jalaliMonthKey, jalaliMonthLabel } from '@/core/jalali/jalali';
+import { formatDecimal, formatMoney, formatNumber, toFaDigits } from '@/core/currency/currency';
+import {
+  currentJalaliMonthKey,
+  jalaliMonthKey,
+  jalaliMonthLabel,
+  formatJalaliNumeric,
+} from '@/core/jalali/jalali';
 import { useSettingsStore } from '@/store/settings-store';
 import { PageHeader } from '@/components/PageHeader';
 import { StatCard } from '@/components/StatCard';
@@ -41,6 +49,7 @@ import {
   topProducts,
 } from './store-calc';
 import { totalReceivables } from './customers-calc';
+import { invoicePaymentMethod, PAYMENT_LABELS, settlementBreakdown } from './payment';
 
 /** گزارش فروش روزانه/ماهانه، سود ناخالص، کالاهای پرفروش و کمبود موجودی */
 export function StoreReportsPage() {
@@ -49,6 +58,7 @@ export function StoreReportsPage() {
   const items = useLiveQuery(() => db.invoiceItems.toArray(), [], [] as InvoiceItem[]);
   const products = useLiveQuery(() => db.products.toArray(), [], [] as Product[]);
   const payments = useLiveQuery(() => db.customerPayments.toArray(), [], [] as CustomerPayment[]);
+  const transactions = useLiveQuery(() => db.transactions.toArray(), [], []);
   const [month, setMonth] = useState(currentJalaliMonthKey());
 
   const monthOptions = useMemo(() => {
@@ -75,6 +85,53 @@ export function StoreReportsPage() {
 
   const marginPercent = totals.netRevenue > 0 ? (totals.grossProfit / totals.netRevenue) * 100 : 0;
   const receivables = useMemo(() => totalReceivables(invoices, payments), [invoices, payments]);
+  const settlements = useMemo(() => settlementBreakdown(monthInvoices), [monthInvoices]);
+  const businessExpenses = useMemo(
+    () =>
+      transactions
+        .filter(
+          (t) =>
+            t.source === 'business' &&
+            t.type === 'expense' &&
+            jalaliMonthKey(new Date(t.date)) === month,
+        )
+        .reduce((sum, t) => sum + t.amount, 0),
+    [transactions, month],
+  );
+  const creditReceipts = useMemo(
+    () =>
+      payments
+        .filter((p) => jalaliMonthKey(new Date(p.date)) === month)
+        .reduce((sum, p) => sum + p.amount, 0),
+    [payments, month],
+  );
+  const exportSales = async () => {
+    try {
+      await downloadCsv(`karenyar-sales-${month}.csv`, [
+        [
+          'شماره فاکتور',
+          'تاریخ',
+          'مشتری',
+          'روش پرداخت',
+          'فروش خالص (تومان)',
+          'مالیات (تومان)',
+          'مبلغ کل (تومان)',
+        ],
+        ...monthInvoices.map((i) => [
+          i.number,
+          formatJalaliNumeric(new Date(i.date)),
+          i.customerName ?? 'مشتری گذری',
+          PAYMENT_LABELS[invoicePaymentMethod(i)],
+          i.subtotal - i.discountAmount,
+          i.taxAmount,
+          i.total,
+        ]),
+      ]);
+      toast.success('گزارش فروش آماده شد.');
+    } catch {
+      toast.error('ساخت گزارش ناموفق بود.');
+    }
+  };
 
   return (
     <div>
@@ -82,19 +139,29 @@ export function StoreReportsPage() {
         title="گزارش فروش"
         subtitle="فروش روزانه و ماهانه، سود ناخالص و کالاهای پرفروش فروشگاه"
         actions={
-          <Select value={month} onValueChange={setMonth}>
-            <SelectTrigger className="w-48" aria-label="انتخاب ماه گزارش">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {monthOptions.map((key) => (
-                <SelectItem key={key} value={key}>
-                  {jalaliMonthLabel(key)}
-                  {key === currentJalaliMonthKey() ? ' (جاری)' : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <>
+            <Button
+              variant="outline"
+              onClick={() => void exportSales()}
+              disabled={!monthInvoices.length}
+            >
+              <Download />
+              خروجی فروش
+            </Button>
+            <Select value={month} onValueChange={setMonth}>
+              <SelectTrigger className="w-48" aria-label="انتخاب ماه گزارش">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {monthOptions.map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {jalaliMonthLabel(key)}
+                    {key === currentJalaliMonthKey() ? ' (جاری)' : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
         }
       />
 
@@ -140,6 +207,42 @@ export function StoreReportsPage() {
             />
           </div>
 
+          <Card className="mb-5 p-4">
+            <h2 className="mb-3 text-sm font-bold">روش تسویهٔ فاکتورهای این ماه</h2>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {settlements.map((row) => (
+                <div key={row.method} className="rounded-xl bg-muted/50 p-3">
+                  <p className="text-xs text-muted-foreground">
+                    {PAYMENT_LABELS[row.method]} · {formatNumber(row.count)} فاکتور
+                  </p>
+                  <p className="mt-2 font-extrabold">{formatMoney(row.total, unit)}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 grid gap-3 border-t pt-4 text-xs sm:grid-cols-3">
+              <p>
+                هزینه‌های ثبت‌شدهٔ کسب‌وکار: <b>{formatMoney(businessExpenses, unit)}</b>
+              </p>
+              <p>
+                سود پس از این هزینه‌ها:{' '}
+                <b
+                  className={
+                    totals.grossProfit - businessExpenses >= 0 ? 'text-success' : 'text-destructive'
+                  }
+                >
+                  {formatMoney(totals.grossProfit - businessExpenses, unit)}
+                </b>
+              </p>
+              <p>
+                وصول نسیه در این ماه: <b>{formatMoney(creditReceipts, unit)}</b>
+              </p>
+            </div>
+            <p className="mt-3 text-[11px] leading-6 text-muted-foreground">
+              فروش شامل نسیه است؛ وصول نسیه دوباره فروش یا درآمد محسوب نمی‌شود. سود ناخالص، پس از
+              تخفیف و کسر بهای تمام‌شده و بدون مالیات فروش محاسبه می‌شود. ابطال‌ها از فروش معتبر
+              کنار گذاشته می‌شوند.
+            </p>
+          </Card>
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
@@ -230,7 +333,7 @@ export function StoreReportsPage() {
                       {tops.map((p) => (
                         <TableRow key={p.name}>
                           <TableCell className="font-medium">{p.name}</TableCell>
-                          <TableCell>{formatNumber(p.qty)}</TableCell>
+                          <TableCell>{formatDecimal(p.qty, 6)}</TableCell>
                           <TableCell>{formatMoney(p.revenue, unit)}</TableCell>
                           <TableCell className="text-success">
                             {formatMoney(p.profit, unit)}
@@ -262,11 +365,11 @@ export function StoreReportsPage() {
                         <span className="min-w-0">
                           <span className="block truncate text-sm font-semibold">{p.name}</span>
                           <span className="block text-xs text-muted-foreground">
-                            حد هشدار: {formatNumber(p.minStock)} {p.unit}
+                            حد هشدار: {formatDecimal(p.minStock, 6)} {p.unit}
                           </span>
                         </span>
                         <Badge variant={p.stock <= 0 ? 'destructive' : 'warning'}>
-                          {formatNumber(p.stock)} {p.unit}
+                          {formatDecimal(p.stock, 6)} {p.unit}
                         </Badge>
                       </li>
                     ))}

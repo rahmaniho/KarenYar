@@ -2,6 +2,7 @@
  * محاسبات خالص دفتر مشتریان — مانده حساب، مطالبات و صورت‌حساب مشتری
  */
 import type { CustomerPayment, Invoice } from '@/core/db/db';
+import { isActiveInvoice } from './store-calc';
 
 export interface CustomerBalance {
   /** جمع فروش‌های نسیه */
@@ -20,7 +21,9 @@ export function customerBalance(
   invoices: Invoice[],
   payments: CustomerPayment[],
 ): CustomerBalance {
-  const creditInvoices = invoices.filter((i) => i.customerId === customerId && i.isCredit);
+  const creditInvoices = invoices.filter(
+    (i) => i.customerId === customerId && i.isCredit && isActiveInvoice(i),
+  );
   const creditTotal = creditInvoices.reduce((s, i) => s + i.total, 0);
   const paidTotal = payments
     .filter((p) => p.customerId === customerId)
@@ -36,7 +39,8 @@ export function customerBalance(
 /** جمع کل مطالبات فروشگاه از همه‌ی مشتریان (فقط مانده‌های مثبت) */
 export function totalReceivables(invoices: Invoice[], payments: CustomerPayment[]): number {
   const ids = new Set<number>();
-  for (const i of invoices) if (i.customerId != null && i.isCredit) ids.add(i.customerId);
+  for (const i of invoices)
+    if (i.customerId != null && i.isCredit && isActiveInvoice(i)) ids.add(i.customerId);
   let total = 0;
   for (const id of ids) {
     const { balance } = customerBalance(id, invoices, payments);
@@ -57,7 +61,7 @@ export function customerStatement(
 ): (StatementRow & { runningBalance: number })[] {
   const rows: StatementRow[] = [
     ...invoices
-      .filter((i) => i.customerId === customerId && i.isCredit)
+      .filter((i) => i.customerId === customerId && i.isCredit && isActiveInvoice(i))
       .map((i): StatementRow => ({
         kind: 'invoice',
         date: i.date,

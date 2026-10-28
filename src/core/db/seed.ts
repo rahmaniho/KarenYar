@@ -91,6 +91,7 @@ export async function seedDemoData(): Promise<{ products: number; invoices: numb
     'rw',
     [
       db.products,
+      db.stockMovements,
       db.customers,
       db.invoices,
       db.invoiceItems,
@@ -103,7 +104,18 @@ export async function seedDemoData(): Promise<{ products: number; invoices: numb
     async () => {
       const productIds: number[] = [];
       for (const product of DEMO_PRODUCTS) {
-        productIds.push((await db.products.add(product)) as number);
+        const productId = (await db.products.add(product)) as number;
+        productIds.push(productId);
+        await db.stockMovements.add({
+          productId,
+          productName: product.name,
+          type: 'opening',
+          quantity: product.stock,
+          stockBefore: 0,
+          stockAfter: product.stock,
+          note: '[نمایشی] موجودی اولیه',
+          createdAt: now,
+        });
       }
 
       const customerIds: number[] = [];
@@ -139,6 +151,9 @@ export async function seedDemoData(): Promise<{ products: number; invoices: numb
           customerName:
             sale.customerIdx !== null ? DEMO_CUSTOMERS[sale.customerIdx]?.name : undefined,
           isCredit: sale.credit,
+          status: 'completed',
+          source: 'pos',
+          paymentMethod: sale.credit ? 'credit' : 'card',
           subtotal: lineTotal,
           discountType: 'amount',
           discountValue: 0,
@@ -158,6 +173,27 @@ export async function seedDemoData(): Promise<{ products: number; invoices: numb
           total: lineTotal,
         });
         await db.products.update(product.id, { stock: product.stock - qty, updatedAt: now });
+        await db.stockMovements.add({
+          productId: product.id,
+          productName: product.name,
+          invoiceId,
+          type: 'sale',
+          quantity: -qty,
+          stockBefore: product.stock,
+          stockAfter: product.stock - qty,
+          note: '[نمایشی] فروش نمونه',
+          createdAt: new Date(daysAgo(sale.day) + 'T12:00:00').toISOString(),
+        });
+        await db.transactions.add({
+          type: 'income',
+          source: 'sale',
+          invoiceId,
+          amount: lineTotal,
+          category: 'فروش فروشگاه',
+          description: `[نمایشی] فاکتور ${nextNumber - 1}`,
+          date: daysAgo(sale.day),
+          createdAt: now,
+        });
         invoiceCount++;
       }
 

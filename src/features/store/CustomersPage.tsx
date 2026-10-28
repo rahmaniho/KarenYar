@@ -230,13 +230,17 @@ export function CustomersPage() {
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         title={`حذف مشتری «${deleting?.name}»`}
-        description="مشتری و پرداخت‌هایش حذف می‌شود؛ فاکتورهای قبلی نام مشتری را نزد خود نگه می‌دارند. اگر مانده بدهی دارد، اول تسویه کنید. ادامه می‌دهید؟"
+        description="فقط مشتری بدون سابقهٔ فاکتور یا پرداخت قابل حذف است؛ سوابق مالی مشتریان حفظ می‌شوند. ادامه می‌دهید؟"
         confirmLabel="حذف مشتری"
         destructive
         onConfirm={async () => {
           if (deleting?.id != null) {
-            await db.transaction('rw', db.customers, db.customerPayments, async () => {
-              await db.customerPayments.where('customerId').equals(deleting.id!).delete();
+            await db.transaction('rw', db.customers, db.customerPayments, db.invoices, async () => {
+              if (
+                (await db.invoices.where('customerId').equals(deleting.id!).count()) ||
+                (await db.customerPayments.where('customerId').equals(deleting.id!).count())
+              )
+                throw new Error('مشتری سابقهٔ مالی دارد و قابل حذف نیست.');
               await db.customers.delete(deleting.id!);
             });
             toast.success('مشتری حذف شد.');
@@ -360,6 +364,7 @@ function StatementDialog({
   const payments = useLiveQuery(() => db.customerPayments.toArray(), [], [] as CustomerPayment[]);
   const [payAmount, setPayAmount] = useState(0);
   const [payNote, setPayNote] = useState('');
+  const [paying, setPaying] = useState(false);
 
   const statement = useMemo(
     () => customerStatement(customer.id!, invoices, payments),
@@ -368,20 +373,29 @@ function StatementDialog({
   const balance = statement.length ? statement[statement.length - 1].runningBalance : 0;
 
   const addPayment = async () => {
-    if (payAmount <= 0) {
+    if (paying) return;
+    const amount = fromDisplayAmount(payAmount, unit);
+    if (!Number.isSafeInteger(amount) || amount <= 0) {
       toast.error('مبلغ پرداخت را وارد کنید.');
       return;
     }
-    await db.customerPayments.add({
-      customerId: customer.id!,
-      amount: fromDisplayAmount(payAmount, unit),
-      date: nowISO(),
-      note: payNote.trim() ? payNote.trim() : undefined,
-      createdAt: nowISO(),
-    });
-    setPayAmount(0);
-    setPayNote('');
-    toast.success('پرداخت مشتری ثبت شد.');
+    setPaying(true);
+    try {
+      await db.customerPayments.add({
+        customerId: customer.id!,
+        amount,
+        date: nowISO(),
+        note: payNote.trim() ? payNote.trim() : undefined,
+        createdAt: nowISO(),
+      });
+      setPayAmount(0);
+      setPayNote('');
+      toast.success('پرداخت ثبت شد؛ مبلغ فروش قبلاً در درآمد ثبت شده و دوباره اضافه نمی‌شود.');
+    } catch {
+      toast.error('ثبت پرداخت ناموفق بود.');
+    } finally {
+      setPaying(false);
+    }
   };
 
   return (
@@ -469,7 +483,7 @@ function StatementDialog({
                   placeholder="مثلاً کارت‌به‌کارت"
                 />
               </div>
-              <Button variant="neon" onClick={() => void addPayment()}>
+              <Button variant="neon" disabled={paying} onClick={() => void addPayment()}>
                 <HandCoins aria-hidden />
                 ثبت پرداخت
               </Button>

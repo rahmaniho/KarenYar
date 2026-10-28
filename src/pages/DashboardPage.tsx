@@ -11,12 +11,13 @@ import {
   Package,
   Plus,
   Receipt,
+  ShoppingCart,
   TrendingUp,
   Wallet,
 } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { db, type Debt, type Invoice, type Product, type Transaction } from '@/core/db/db';
-import { formatMoney, formatNumber, toFaDigits } from '@/core/currency/currency';
+import { formatDecimal, formatMoney, formatNumber, toFaDigits } from '@/core/currency/currency';
 import {
   currentJalaliMonthKey,
   formatJalaliFull,
@@ -74,16 +75,34 @@ export function DashboardPage() {
         </p>
       </div>
 
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-success/20 bg-success/5 p-4">
+        <div>
+          <p className="font-bold">فروش، انبار و حساب‌ها؛ هماهنگ در یک جا</p>
+          <p className="mt-1 text-xs leading-6 text-muted-foreground">
+            با ثبت فروش در صندوق، موجودی به‌روز و درآمد به‌صورت خودکار ثبت می‌شود؛ بدون ورود دوبارهٔ
+            اطلاعات.
+          </p>
+        </div>
+        <Button asChild variant="outline" size="sm">
+          <Link to="/store/inventory">مشاهده گردش انبار ←</Link>
+        </Button>
+      </div>
       {/* اقدام‌های سریع */}
       <div className="mb-5 flex flex-wrap gap-2">
         <Button asChild variant="neon">
-          <Link to="/store/invoices/new">
-            <Receipt aria-hidden /> فاکتور جدید
+          <Link to="/store/pos">
+            <ShoppingCart aria-hidden /> صندوق فروش
           </Link>
         </Button>
         <Button asChild variant="outline">
-          <Link to="/personal/transactions?new=1">
-            <Plus aria-hidden /> ثبت تراکنش
+          <Link to="/store/invoices/new">
+            <Receipt aria-hidden />
+            فاکتور جدید
+          </Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link to="/store/finance">
+            <Plus aria-hidden /> دفتر مالی کسب‌وکار
           </Link>
         </Button>
         <Button asChild variant="outline">
@@ -112,13 +131,13 @@ export function DashboardPage() {
           tone="navy"
         />
         <StatCard
-          title={`درآمد شخصی این ماه`}
+          title={`درآمد ثبت‌شدهٔ این ماه`}
           value={formatMoney(totals.income, unit)}
           icon={ArrowDownCircle}
           tone="success"
         />
         <StatCard
-          title={`هزینه‌ی شخصی این ماه`}
+          title={`هزینه‌های این ماه`}
           value={formatMoney(totals.expense, unit)}
           icon={ArrowUpCircle}
           tone="danger"
@@ -128,7 +147,7 @@ export function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">درآمد و هزینه‌ی شخصی — ۶ ماه اخیر</CardTitle>
+            <CardTitle className="text-base">درآمد و هزینه — ۶ ماه اخیر</CardTitle>
           </CardHeader>
           <CardContent>
             {transactions.length === 0 ? (
@@ -227,7 +246,7 @@ export function DashboardPage() {
                     <li key={p.id} className="flex items-center justify-between gap-2 py-2">
                       <span className="truncate text-sm font-semibold">{p.name}</span>
                       <Badge variant={p.stock <= 0 ? 'destructive' : 'warning'}>
-                        {formatNumber(p.stock)} {p.unit}
+                        {formatDecimal(p.stock, 6)} {p.unit}
                       </Badge>
                     </li>
                   ))}
@@ -246,7 +265,7 @@ export function DashboardPage() {
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle className="flex items-center gap-2 text-base">
             <Wallet className="h-5 w-5 text-primary dark:text-neon-400" aria-hidden />
-            آخرین تراکنش‌های شخصی
+            آخرین گردش‌های مالی
           </CardTitle>
           <Button asChild variant="ghost" size="sm">
             <Link to="/personal/transactions">مشاهده‌ی همه</Link>
@@ -279,6 +298,7 @@ export function DashboardPage() {
                     <span className="block text-xs text-muted-foreground">
                       {formatJalaliNumeric(new Date(t.date))}
                       {t.description ? ` — ${t.description}` : ''}
+                      {t.source === 'sale' ? ' · فروش خودکار' : ''}
                     </span>
                   </span>
                   <span

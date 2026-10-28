@@ -8,6 +8,8 @@ import {
   PiggyBank,
   Receipt,
   Settings,
+  ShoppingCart,
+  Warehouse,
   SlidersHorizontal,
   TrendingUp,
   Users,
@@ -35,16 +37,19 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     title: 'حساب‌یار فروشگاهی',
     items: [
+      { to: '/store/pos', label: 'صندوقدار', icon: ShoppingCart },
       { to: '/store/products', label: 'کالاها', icon: Package },
+      { to: '/store/inventory', label: 'انبار و گردش کالا', icon: Warehouse },
+      { to: '/store/finance', label: 'دفتر مالی کسب‌وکار', icon: Banknote },
       { to: '/store/invoices', label: 'فاکتورها', icon: Receipt },
       { to: '/store/customers', label: 'مشتریان و نسیه', icon: Contact },
       { to: '/store/reports', label: 'گزارش فروش', icon: TrendingUp },
     ],
   },
   {
-    title: 'حساب‌یار شخصی',
+    title: 'مدیریت مالی',
     items: [
-      { to: '/personal/transactions', label: 'تراکنش‌ها', icon: Wallet },
+      { to: '/personal/transactions', label: 'درآمد و هزینه‌ها', icon: Wallet },
       { to: '/personal/budgets', label: 'بودجه‌بندی', icon: PiggyBank },
       { to: '/personal/debts', label: 'بدهی و اقساط', icon: CreditCard },
     ],
@@ -69,8 +74,8 @@ export const NAV_GROUPS: NavGroup[] = [
 /** ناوبری پایینی موبایل — مهم‌ترین بخش‌ها */
 export const MOBILE_NAV: NavItem[] = [
   { to: '/', label: 'داشبورد', icon: LayoutDashboard, end: true },
-  { to: '/store/products', label: 'کالاها', icon: Package },
-  { to: '/personal/transactions', label: 'تراکنش‌ها', icon: Wallet },
+  { to: '/store/pos', label: 'صندوق', icon: ShoppingCart },
+  { to: '/personal/transactions', label: 'درآمد و هزینه‌ها', icon: Wallet },
   { to: '/calculator', label: 'ماشین‌حساب', icon: Calculator },
   { to: '/settings', label: 'تنظیمات', icon: Settings },
 ];

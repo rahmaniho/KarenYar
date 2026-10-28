@@ -13,6 +13,12 @@ function lazyPage(loader: () => Promise<Record<string, ComponentType>>, exportNa
 const DashboardPage = lazyPage(() => import('@/pages/DashboardPage'), 'DashboardPage');
 const SettingsPage = lazyPage(() => import('@/pages/SettingsPage'), 'SettingsPage');
 const NotFoundPage = lazyPage(() => import('@/pages/NotFoundPage'), 'NotFoundPage');
+const PosPage = lazyPage(() => import('@/features/store/PosPage'), 'PosPage');
+const InventoryPage = lazyPage(() => import('@/features/store/InventoryPage'), 'InventoryPage');
+const BusinessFinancePage = lazyPage(
+  () => import('@/features/store/BusinessFinancePage'),
+  'BusinessFinancePage',
+);
 const ProductsPage = lazyPage(() => import('@/features/store/ProductsPage'), 'ProductsPage');
 const InvoicesPage = lazyPage(() => import('@/features/store/InvoicesPage'), 'InvoicesPage');
 const NewInvoicePage = lazyPage(() => import('@/features/store/NewInvoicePage'), 'NewInvoicePage');
@@ -54,6 +60,9 @@ export const router = createBrowserRouter(
       element: <AppLayout />,
       children: [
         { index: true, element: <DashboardPage /> },
+        { path: 'store/pos', element: <PosPage /> },
+        { path: 'store/inventory', element: <InventoryPage /> },
+        { path: 'store/finance', element: <BusinessFinancePage /> },
         { path: 'store/products', element: <ProductsPage /> },
         { path: 'store/invoices', element: <InvoicesPage /> },
         { path: 'store/invoices/new', element: <NewInvoicePage /> },

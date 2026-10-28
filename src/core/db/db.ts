@@ -29,6 +29,8 @@ export interface Product {
   updatedAt: string;
 }
 
+export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'credit';
+
 export interface Invoice {
   id?: number;
   /** شماره‌ی فاکتور (ترتیبی) */
@@ -46,6 +48,18 @@ export interface Invoice {
   taxPercent: number;
   taxAmount: number;
   total: number;
+  /** فاکتورهای قدیمی بدون status معتبر و فعال هستند. */
+  status?: 'completed' | 'voided';
+  source?: 'pos' | 'invoice';
+  paymentMethod?: PaymentMethod;
+  cashTendered?: number;
+  changeAmount?: number;
+  note?: string;
+  /** شناسه‌ی ثابت هر سبد برای جلوگیری از ثبت دوباره‌ی یک فروش */
+  checkoutKey?: string;
+  checkoutSignature?: string;
+  voidedAt?: string;
+  voidReason?: string;
   createdAt: string;
 }
 
@@ -70,6 +84,50 @@ export interface Transaction {
   category: string;
   amount: number;
   description?: string;
+  /** فروش خودکار فقط از طریق فاکتور قابل اصلاح است. */
+  source?: 'manual' | 'business' | 'sale';
+  invoiceId?: number;
+  createdAt: string;
+}
+
+export type StockMovementType = 'opening' | 'sale' | 'void' | 'restock' | 'adjustment';
+
+export interface StockMovement {
+  id?: number;
+  productId: number;
+  productName: string;
+  invoiceId?: number;
+  type: StockMovementType;
+  /** مقدار علامت‌دار: ورود مثبت، خروج منفی */
+  quantity: number;
+  stockBefore: number;
+  stockAfter: number;
+  note?: string;
+  createdAt: string;
+}
+
+export interface SaleDraftItem {
+  productId: number | null;
+  name: string;
+  qty: number;
+  /** همیشه تومان داخلی، مستقل از واحد نمایشی */
+  unitPrice: number;
+}
+
+export interface SaleDraft {
+  items: SaleDraftItem[];
+  customerId: number | null;
+  customerName: string;
+  discountType: 'percent' | 'amount';
+  discountValue: number;
+  taxPercent: number;
+  note: string;
+  checkoutKey: string;
+}
+
+export interface HeldSale extends SaleDraft {
+  id?: number;
+  label: string;
   createdAt: string;
 }
 
@@ -165,9 +223,11 @@ export class HesabyarDB extends Dexie {
   customerPayments!: EntityTable<CustomerPayment, 'id'>;
   settings!: EntityTable<KeyValueRow, 'key'>;
   license!: EntityTable<KeyValueRow, 'key'>;
+  stockMovements!: EntityTable<StockMovement, 'id'>;
+  heldSales!: EntityTable<HeldSale, 'id'>;
 
-  constructor() {
-    super('karenyar-hesabyar');
+  constructor(name = 'karenyar-hesabyar') {
+    super(name);
     // نسخه‌ی ۱ — اسکیمای اولیه. نسخه‌های بعدی با upgrade امن اضافه می‌شوند.
     this.version(1).stores({
       products: '++id, name, barcode, category, stock',
@@ -187,6 +247,32 @@ export class HesabyarDB extends Dexie {
       customers: '++id, name, phone',
       customerPayments: '++id, customerId, invoiceId, date',
     });
+    // نسخه‌ی ۳ — صندوق فروش، دفتر درآمد و گردش انبار؛ داده‌های نسخه‌های قبلی حفظ می‌شوند.
+    this.version(3)
+      .stores({
+        invoices: '++id, date, number, total, customerId, status, &checkoutKey',
+        transactions: '++id, date, type, category, amount, source, invoiceId, &[source+invoiceId]',
+        stockMovements: '++id, productId, invoiceId, type, createdAt',
+        heldSales: '++id, createdAt',
+      })
+      .upgrade(async (tx) => {
+        const products = await tx.table<Product>('products').toArray();
+        const createdAt = new Date().toISOString();
+        const opening = products
+          .filter((p) => p.stock > 0)
+          .map((p) => ({
+            productId: p.id!,
+            productName: p.name,
+            type: 'opening',
+            quantity: p.stock,
+            stockBefore: 0,
+            stockAfter: p.stock,
+            note: 'موجودی مبنا هنگام ارتقای برنامه؛ بدون تغییر موجودی واقعی',
+            createdAt,
+          }));
+        if (opening.length) await tx.table('stockMovements').bulkAdd(opening);
+        // درآمد فاکتورهای قدیمی را حدس نمی‌زنیم؛ ممکن است قبلاً دستی ثبت شده باشد.
+      });
   }
 }
 

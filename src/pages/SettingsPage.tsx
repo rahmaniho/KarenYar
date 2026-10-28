@@ -17,6 +17,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePosStore } from '@/store/pos-store';
 import { db } from '@/core/db/db';
 import { downloadBackupFile, exportBackup, importBackup, validateBackup } from '@/core/db/backup';
 import {
@@ -138,6 +139,7 @@ export function SettingsPage() {
       const parsed: unknown = JSON.parse(text);
       const valid = validateBackup(parsed);
       await importBackup(valid);
+      usePosStore.getState().reset(settings.invoiceTaxPercent);
       toast.success('داده‌ها با موفقیت بازیابی شد.');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'بازیابی فایل ناموفق بود.');
@@ -233,6 +235,8 @@ export function SettingsPage() {
         db.customers,
         db.customerPayments,
         db.settings,
+        db.stockMovements,
+        db.heldSales,
       ],
       async () => {
         await Promise.all([
@@ -247,9 +251,12 @@ export function SettingsPage() {
           db.customers.clear(),
           db.customerPayments.clear(),
           db.settings.clear(),
+          db.stockMovements.clear(),
+          db.heldSales.clear(),
         ]);
       },
     );
+    usePosStore.getState().reset();
     toast.success('همه‌ی داده‌ها پاک شد. برنامه مثل روز اول شد.');
   };
 

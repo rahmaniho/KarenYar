@@ -12,6 +12,8 @@ import {
 } from '@/core/jalali/jalali';
 import { toFaDigits } from '@/core/currency/currency';
 
+export const isActiveInvoice = (invoice: Invoice): boolean => invoice.status !== 'voided';
+
 /** سود ناخالص یک مجموعه قلم فاکتور = (قیمت فروش − تمام‌شده) × تعداد */
 export function itemsGrossProfit(items: InvoiceItem[]): number {
   return items.reduce((sum, i) => sum + (i.unitPrice - i.unitCost) * i.qty, 0);
@@ -32,6 +34,7 @@ export interface SalesTotals {
 }
 
 export function salesTotals(invoices: Invoice[], items: InvoiceItem[]): SalesTotals {
+  invoices = invoices.filter(isActiveInvoice);
   const invoiceIds = new Set(invoices.map((i) => i.id));
   const scoped = items.filter((i) => invoiceIds.has(i.invoiceId));
   const cost = itemsCost(scoped);
@@ -48,7 +51,9 @@ export function salesTotals(invoices: Invoice[], items: InvoiceItem[]): SalesTot
 }
 
 export function filterInvoicesByMonth(invoices: Invoice[], monthKey: string): Invoice[] {
-  return invoices.filter((i) => jalaliMonthKey(new Date(i.date)) === monthKey);
+  return invoices.filter(
+    (i) => isActiveInvoice(i) && jalaliMonthKey(new Date(i.date)) === monthKey,
+  );
 }
 
 export interface DailySalesPoint {
@@ -121,22 +126,24 @@ export function topProducts(
   limit = 10,
 ): TopProduct[] {
   const invoiceById = new Map<number, Invoice>();
-  for (const inv of invoices) if (inv.id != null) invoiceById.set(inv.id, inv);
+  for (const inv of invoices)
+    if (inv.id != null && isActiveInvoice(inv)) invoiceById.set(inv.id, inv);
   const map = new Map<string, TopProduct>();
   for (const item of items) {
+    if (invoices.length && !invoiceById.has(item.invoiceId)) continue;
     const current = map.get(item.name) ?? { name: item.name, qty: 0, revenue: 0, profit: 0 };
     current.qty += item.qty;
-    current.revenue += item.total;
     const invoice = invoiceById.get(item.invoiceId);
     const discountShare =
       invoice && invoice.subtotal > 0
         ? (item.total / invoice.subtotal) * invoice.discountAmount
         : 0;
+    current.revenue += item.total - discountShare;
     current.profit += (item.unitPrice - item.unitCost) * item.qty - discountShare;
     map.set(item.name, current);
   }
   return [...map.values()]
-    .map((p) => ({ ...p, profit: Math.round(p.profit) }))
+    .map((p) => ({ ...p, revenue: Math.round(p.revenue), profit: Math.round(p.profit) }))
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, limit);
 }
@@ -149,7 +156,13 @@ export function lowStockProducts(products: Product[]): Product[] {
 /** فروش امروز (از نیمه‌شب امروز به بعد) */
 export function todaySales(invoices: Invoice[], now: Date = new Date()): number {
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
   return invoices
-    .filter((i) => new Date(i.date).getTime() >= start)
+    .filter(
+      (i) =>
+        isActiveInvoice(i) &&
+        new Date(i.date).getTime() >= start &&
+        new Date(i.date).getTime() < end,
+    )
     .reduce((sum, i) => sum + i.total, 0);
 }
