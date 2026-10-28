@@ -29,6 +29,8 @@ android {
     }
     buildTypes {
         release {
+            // خروجی فروشگاهی نباید debuggable باشد یا از signingConfigs.debug استفاده کند.
+            debuggable false
             signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

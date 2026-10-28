@@ -105,9 +105,11 @@ npm run icons           # بازسازی assetهای برند و آیکون‌ه
 
 همان برنامه با **Capacitor 8** به اپ بومی اندروید تبدیل شده (شناسه: `ir.karensoft.hesabyar`، حداقل اندروید ۷ / API 24). آیکن لانچر و اسپلش از لوگوی خود برنامه ساخته می‌شوند (`python3 scripts/build-android-icons.py`).
 
-- **دریافت APK آماده (بدون نصب هیچ ابزاری):** در گیت‌هاب از تب **Actions** ورک‌فلوی **Build Android APK** را اجرا کنید؛ فایل `hesabyar-android-debug.apk` در بخش Artifacts همان اجرا آماده‌ی دانلود و نصب است.
-- **ساخت محلی:** Android Studio + JDK 21 لازم است؛ سپس `npm run android:sync` و `npm run android:open` و از داخل استودیو Run/Build APK.
-- **انتشار فروشگاهی (AAB امضاشده):** چهار Secret مخزن را ست کنید (`ANDROID_KEYSTORE_BASE64`، `ANDROID_KEYSTORE_PASSWORD`، `ANDROID_KEY_ALIAS`، `ANDROID_KEY_PASSWORD`) و همان ورک‌فلو را با ورودی `release` فعال اجرا کنید تا APK و AAB امضاشده ساخته شود.
+- **انتشار در بازار:** فایل لازم **`app-release.apk` امضاشده با کلید خصوصی Release** است. لایسنس فعال‌سازی داخل برنامه جای امضای اندروید را نمی‌گیرد؛ فایل `app-debug.apk` برای فروشگاه مناسب نیست.
+- **دریافت خروجی انتشار از GitHub Actions:** چهار Secret مخزن را تنظیم کنید (`ANDROID_KEYSTORE_BASE64`، `ANDROID_KEYSTORE_PASSWORD`، `ANDROID_KEY_ALIAS`، `ANDROID_KEY_PASSWORD`) و ورک‌فلوی **Build Android APK** را با ورودی `release` فعال (پیش‌فرض) اجرا کنید. از Artifact با نام **`hesabyar-android-release`**، فایل `app-release.apk` را برای بازار بردارید؛ AAB امضاشده هم در همان بسته است. بدون Secrets معتبر، انتشار متوقف می‌شود و به Debug برنمی‌گردد.
+- **فقط برای تست شخصی:** ورودی `release` را غیرفعال کنید؛ خروجی در Artifact با نام `hesabyar-android-debug-NOT-FOR-STORES` قرار می‌گیرد. تگ‌های نسخه (`v*`) فقط خروجی امضاشده‌ی Release را در GitHub Releases منتشر می‌کنند.
+- **ساخت محلی:** Node.js 22+، Android Studio، JDK 21 و Android SDK 36 لازم است؛ سپس `npm run android:sync` و `npm run android:open`. برای فروشگاه از **Build → Generate Signed App Bundle / APK → APK → release** استفاده کنید، نه Run/Build APK معمولی.
+- **راهنمای مرحله‌به‌مرحله:** [امضای Release و انتشار در بازار](docs/android-release.md) — تنظیم Secrets، استفاده از Keystore قبلی، بررسی امضا و نکات به‌روزرسانی.
 - در نسخه‌ی بومی، دانلودها (پشتیبان، CSV، PDF) از پنجره‌ی ذخیره/اشتراک‌گذاری سیستم انجام می‌شوند، دکمه‌ی برگشت اندروید داخل برنامه کار می‌کند و سرویس‌ورکر PWA غیرفعال است تا به‌روزرسانی APK همیشه نسخه‌ی تازه را نشان دهد.
 
 ---
