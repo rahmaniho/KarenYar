@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ادمین حساب‌یار</string>
+    <string name="auth_title">ورود به پنل ادمین</string>
+    <string name="auth_message">برای ورود به %1$s، نام کاربری و رمز Directory Privacy را وارد کن.</string>
+    <string name="username">نام کاربری</string>
+    <string name="password">رمز عبور</string>
+    <string name="login">ورود</string>
+    <string name="cancel">انصراف</string>
+    <string name="retry">تلاش دوباره</string>
+    <string name="error_title">اتصال برقرار نشد</string>
+    <string name="error_offline">اینترنت دستگاه را بررسی کن و دوباره تلاش کن. داشبورد ادمین برای نمایش اطلاعات به اتصال زنده نیاز دارد.</string>
+    <string name="error_ssl">خطای امنیتی SSL. اتصال متوقف شد.</string>
+    <string name="open_external_failed">مرورگری برای باز کردن این لینک پیدا نشد.</string>
+    <string name="auth_required">برای ادامه باید وارد شوی.</string>
+</resources>
