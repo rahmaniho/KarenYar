@@ -156,7 +156,14 @@ function refresh_test_wait_for_lock(array $worker): void
         if (!proc_get_status($worker['process'])['running']) { break; }
         usleep(20000);
     } while (microtime(true) < $deadline);
-    throw new RuntimeException('InnoDB did not observe the refresh worker waiting for the held license lock');
+    $transactions = $server->query('SELECT trx_mysql_thread_id, trx_state, trx_query FROM information_schema.INNODB_TRX')->fetchAll();
+    throw new RuntimeException('InnoDB did not observe the refresh worker waiting for the held license lock: ' . json_encode([
+        'connection' => $connectionId,
+        'transactions' => $transactions,
+        'trace' => refresh_test_trace($worker),
+        'output' => @file_get_contents($worker['base'] . '.out'),
+        'errors' => @file_get_contents($worker['base'] . '.err'),
+    ], JSON_THROW_ON_ERROR));
 }
 function refresh_test_finish(array $worker): array
 {
