@@ -28,7 +28,7 @@
 - اجرای CI: https://github.com/rahmaniho/KarenYar/actions/runs/41279043096
 - اعمال روی هاست staging: انجام شده؛ `v1/license-encoding.php` ساخته شده و `activations.php` و `refresh.php` به decoder مشترک متصل شده‌اند.
 - تست قرارداد محافظت‌شده در staging: در ۲۰۲۶-۱۱-۰۱ هم تست سمت سرور و هم تست زندهٔ POST با `OVERALL PASS` تأیید شد.
-- فایل تست موقت `admin/license-encoding-test.php`: از مخزن حذف شد؛ حذف آن از هاست منتظر تأیید کاربر است.
+- فایل تست موقت `admin/license-encoding-test.php`: از مخزن حذف شد؛ کاربر حذف آن از هاست را در ۲۰۲۶-۱۱-۰۱ تأیید کرد.
 - آزمون واقعی فعال‌سازی و تمدید روی هاست: انجام نشده.
 - production: دست‌نخورده.
 - گزارش audit وابستگی‌ها در CI تولید می‌شود؛ advisoryهای قبلی هنوز باز هستند و ارتقای وابستگی مرحلهٔ جداگانه دارد.
