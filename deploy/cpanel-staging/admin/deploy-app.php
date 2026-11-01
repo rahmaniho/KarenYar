@@ -38,7 +38,7 @@ function karen_deploy_e($value): string
     return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
-$releaseUrl = 'https://github.com/rahmaniho/KarenYar/releases/download/staging-web-20261101/hesabyar-staging-web.zip';
+$releaseUrl = 'https://raw.githubusercontent.com/rahmaniho/KarenYar/arena/1bdeff0a-karenyar/deploy/cpanel-staging/artifacts/hesabyar-staging-web.zip';
 $expectedSha256 = 'd5830fc0d9d4af0e67784a34255af0944dc4cc821a975b089abe9b6778952125';
 $targetDir = dirname(__DIR__) . '/app';
 $error = '';
