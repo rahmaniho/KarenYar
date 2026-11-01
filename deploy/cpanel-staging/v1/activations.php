@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/license-encoding.php';
 require '/home/karensof/private/karen-staging/bootstrap.php';
 
 header('Cache-Control: no-store');
@@ -69,9 +70,9 @@ try {
         karen_fail(400, 'invalid_device_key_id');
     }
 
-    $devicePublicKey = base64_decode($devicePublicKeyB64, true);
+    $devicePublicKey = karen_license_decode_key_material($devicePublicKeyB64, 32);
 
-    if ($devicePublicKey === false || strlen($devicePublicKey) !== 32) {
+    if ($devicePublicKey === null) {
         karen_fail(400, 'invalid_device_public_key');
     }
 

@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/license-encoding.php';
 require '/home/karensof/private/karen-staging/bootstrap.php';
 
 header('Cache-Control: no-store');
@@ -104,9 +105,9 @@ try {
         karen_fail(400, 'invalid_nonce');
     }
 
-    $signature = base64_decode($signatureB64, true);
+    $signature = karen_license_decode_key_material($signatureB64, 64);
 
-    if ($signature === false || strlen($signature) !== 64) {
+    if ($signature === null) {
         karen_fail(400, 'invalid_signature');
     }
 

@@ -1,0 +1,58 @@
+name: Quality checks
+
+on:
+  pull_request:
+  push:
+    branches: [main, 'arena/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-and-license:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: sodium, mbstring, pdo_mysql, openssl
+          coverage: none
+          tools: none
+
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run test:license-backend
+      - run: npm run build
+        env:
+          VITE_BASE: /
+
+      # Dependency upgrades are a separate tracked stage. Publish the audit
+      # result now so advisories cannot disappear from review unnoticed.
+      - name: Production dependency audit report
+        if: always()
+        run: npm audit --omit=dev --json > npm-audit-production.json
+        continue-on-error: true
+
+      - name: Upload dependency audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-production
+          path: npm-audit-production.json
+          if-no-files-found: ignore
+          retention-days: 30
