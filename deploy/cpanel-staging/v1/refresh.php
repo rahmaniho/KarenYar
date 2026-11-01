@@ -128,42 +128,82 @@ try {
         karen_fail($status, $error);
     };
 
+    // Locate only; do not start a REPEATABLE READ snapshot before waiting for locks.
+    $stmt = $pdo->prepare(<<<'SQL'
+SELECT license_id
+FROM license_devices
+WHERE device_key_id = :device_key_id
+LIMIT 1
+SQL
+    );
+    $stmt->bindValue(':device_key_id', $deviceKeyId, PDO::PARAM_STR);
+    $stmt->execute();
+    $licenseId = (int) $stmt->fetchColumn();
+
+    if ($licenseId <= 0) {
+        $abort(404, 'device_or_license_invalid');
+    }
+
     $pdo->beginTransaction();
 
+    // Lock the license by primary key before any device lock, as admin/activation do.
     $stmt = $pdo->prepare(<<<'SQL'
-SELECT
-    d.*,
-    l.public_id,
-    l.product_id,
-    l.customer_id,
-    l.plan,
-    l.max_devices,
-    l.expires_at,
-    p.code AS product_code,
-    c.reference_code AS customer_reference
-FROM license_devices d
-INNER JOIN licenses l ON l.id = d.license_id
-INNER JOIN products p ON p.id = l.product_id
-INNER JOIN customers c ON c.id = l.customer_id
-WHERE d.device_key_id = :device_key_id
-  AND d.status = 'active'
-  AND l.status = 'active'
-  AND p.status = 'active'
-  AND c.status = 'active'
-  AND (l.expires_at IS NULL OR l.expires_at > UTC_TIMESTAMP())
+SELECT public_id, product_id, customer_id, plan, max_devices, expires_at
+FROM licenses
+WHERE id = :license_id
+  AND status = 'active'
+  AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())
 LIMIT 1
 FOR UPDATE
 SQL
     );
-
-    $stmt->bindValue(':device_key_id', $deviceKeyId, PDO::PARAM_STR);
+    $stmt->bindValue(':license_id', $licenseId, PDO::PARAM_INT);
     $stmt->execute();
+    $license = $stmt->fetch();
 
-    $row = $stmt->fetch();
-
-    if (!$row) {
+    if (!$license) {
         $abort(404, 'device_or_license_invalid');
     }
+
+    // Keep shared product/customer locks before the device, like activation's join.
+    $stmt = $pdo->prepare(<<<'SQL'
+SELECT p.code AS product_code, c.reference_code AS customer_reference
+FROM products p
+INNER JOIN customers c ON c.id = :customer_id
+WHERE p.id = :product_id
+  AND p.status = 'active'
+  AND c.status = 'active'
+LIMIT 1
+FOR UPDATE
+SQL
+    );
+    $stmt->bindValue(':product_id', (int) $license['product_id'], PDO::PARAM_INT);
+    $stmt->bindValue(':customer_id', (int) $license['customer_id'], PDO::PARAM_INT);
+    $stmt->execute();
+    $account = $stmt->fetch();
+
+    if (!$account) {
+        $abort(404, 'device_or_license_invalid');
+    }
+
+    $stmt = $pdo->prepare(<<<'SQL'
+SELECT *
+FROM license_devices
+WHERE device_key_id = :device_key_id
+LIMIT 1
+FOR UPDATE
+SQL
+    );
+    $stmt->bindValue(':device_key_id', $deviceKeyId, PDO::PARAM_STR);
+    $stmt->execute();
+    $device = $stmt->fetch();
+
+    // The locator is untrusted until the locked device's binding/status are rechecked.
+    if (!$device || (int) $device['license_id'] !== $licenseId || $device['status'] !== 'active') {
+        $abort(404, 'device_or_license_invalid');
+    }
+
+    $row = array_merge($device, $license, $account);
 
     if ((string) $row['product_code'] !== $productCode) {
         $abort(400, 'product_mismatch');

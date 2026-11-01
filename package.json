@@ -15,6 +15,7 @@
     "test:android-release": "node --test scripts/verify-android-release.test.mjs scripts/android-test-release.test.mjs",
     "test:license-encoding": "node scripts/test-license-backend.mjs --encoding-only",
     "test:license-backend": "node scripts/test-license-backend.mjs",
+    "test:license-transactions": "php scripts/test-license-refresh-transactions.php",
     "test:license-build": "node --test scripts/license-build.test.mjs",
     "test:staging-app-deploy": "php scripts/test-staging-app-deploy.php",
     "preview": "vite preview",

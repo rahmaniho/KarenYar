@@ -59,3 +59,43 @@ jobs:
           path: npm-audit-production.json
           if-no-files-found: ignore
           retention-days: 30
+
+  license-transactions:
+    name: License transactions (${{ matrix.engine }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - engine: MySQL 8.0
+            image: mysql:8.0
+          - engine: MariaDB 10.11
+            image: mariadb:10.11
+    services:
+      database:
+        image: ${{ matrix.image }}
+        env:
+          MYSQL_ROOT_PASSWORD: isolated-ci-only
+          MYSQL_ROOT_HOST: '%'
+        ports:
+          - 3306/tcp
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pisolated-ci-only --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: sodium, pdo_mysql
+          coverage: none
+          tools: none
+      - name: Refresh locking, replay and rollback on an isolated database
+        run: php scripts/test-license-refresh-transactions.php
+        env:
+          KAREN_LICENSE_DB_TESTS: '1'
+          KAREN_LICENSE_TEST_PORT: ${{ job.services.database.ports[3306] }}
+          KAREN_LICENSE_TEST_PASSWORD: isolated-ci-only
