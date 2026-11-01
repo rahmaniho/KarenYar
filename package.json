@@ -16,6 +16,7 @@
     "test:license-encoding": "node scripts/test-license-backend.mjs --encoding-only",
     "test:license-backend": "node scripts/test-license-backend.mjs",
     "test:license-build": "node --test scripts/license-build.test.mjs",
+    "test:staging-app-deploy": "php scripts/test-staging-app-deploy.php",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

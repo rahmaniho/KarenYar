@@ -28,7 +28,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: sodium, mbstring, pdo_mysql, openssl
+          extensions: sodium, mbstring, pdo_mysql, openssl, zip
           coverage: none
           tools: none
 
@@ -38,6 +38,7 @@ jobs:
       - run: npm test
       - run: npm run test:license-build
       - run: npm run test:license-backend
+      - run: npm run test:staging-app-deploy
       - run: npm run build
         env:
           VITE_BASE: /
