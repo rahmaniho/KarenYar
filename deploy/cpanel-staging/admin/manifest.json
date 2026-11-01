@@ -1,0 +1,40 @@
+{
+  "id": "./",
+  "name": "ادمین حساب‌یار — آزمایشی",
+  "short_name": "ادمین staging",
+  "description": "داشبورد مدیریت لایسنس حساب‌یار کارن (محیط آزمایشی)",
+  "lang": "fa",
+  "dir": "rtl",
+  "start_url": "./index.php",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
+  "categories": ["business", "productivity"],
+  "prefer_related_applications": false,
+  "icons": [
+    { "src": "./assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    {
+      "src": "./assets/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "صدور لایسنس",
+      "short_name": "صدور",
+      "url": "./issue-license.php",
+      "icons": [{ "src": "./assets/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "لایسنس‌ها",
+      "short_name": "لایسنس",
+      "url": "./index.php?view=licenses",
+      "icons": [{ "src": "./assets/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

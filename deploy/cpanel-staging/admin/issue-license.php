@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 
+define('KAREN_ADMIN_PAGE', true);
 require '/home/karensof/private/karen-staging/bootstrap.php';
+require __DIR__ . '/ui.php';
 
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
@@ -33,13 +35,18 @@ if (empty($_SESSION['karen_issue_license_csrf'])) {
 }
 $csrf = (string) $_SESSION['karen_issue_license_csrf'];
 
-function karen_issue_e($value): string
-{
-    return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-}
-
 $error = '';
 $issued = null;
+$old = [
+    'customer_reference' => '',
+    'product_code' => '',
+    'plan' => 'pro',
+    'max_devices' => 2,
+    'license_days' => 30,
+    'activation_code_days' => 7,
+];
+$customers = [];
+$products = [];
 
 if (isset($_GET['created'])) {
     if (!empty($_SESSION['karen_issue_license_flash']) && is_array($_SESSION['karen_issue_license_flash'])) {
@@ -72,55 +79,64 @@ try {
         $licenseDays = (int) ($_POST['license_days'] ?? 0);
         $activationCodeDays = (int) ($_POST['activation_code_days'] ?? 0);
 
+        $old = [
+            'customer_reference' => $customerReference,
+            'product_code' => $productCode,
+            'plan' => $plan,
+            'max_devices' => $maxDevices,
+            'license_days' => $licenseDays,
+            'activation_code_days' => $activationCodeDays,
+        ];
+
         if ($customerReference === '' || strlen($customerReference) > 190) {
-            karen_fail(400, 'invalid_customer_reference');
-        }
-        if (!preg_match('/^[a-z0-9_-]{1,64}$/', $productCode)) {
-            karen_fail(400, 'invalid_product_code');
-        }
-        if (!in_array($plan, ['pro', 'proplus'], true)) {
-            karen_fail(400, 'invalid_plan');
-        }
-        if ($maxDevices < 1 || $maxDevices > 20) {
-            karen_fail(400, 'invalid_max_devices');
-        }
-        if ($licenseDays < 1 || $licenseDays > 3650) {
-            karen_fail(400, 'invalid_license_days');
-        }
-        if ($activationCodeDays < 1 || $activationCodeDays > 30 || $activationCodeDays > $licenseDays) {
-            karen_fail(400, 'invalid_activation_code_days');
+            $error = 'شناسه مشتری نامعتبر است.';
+        } elseif (!preg_match('/^[a-z0-9_-]{1,64}$/', $productCode)) {
+            $error = 'کد محصول نامعتبر است.';
+        } elseif (!in_array($plan, ['pro', 'proplus'], true)) {
+            $error = 'پلن انتخاب‌شده معتبر نیست.';
+        } elseif ($maxDevices < 1 || $maxDevices > 20) {
+            $error = 'تعداد دستگاه باید بین ۱ تا ۲۰ باشد.';
+        } elseif ($licenseDays < 1 || $licenseDays > 3650) {
+            $error = 'اعتبار لایسنس باید بین ۱ تا ۳۶۵۰ روز باشد.';
+        } elseif ($activationCodeDays < 1 || $activationCodeDays > 30 || $activationCodeDays > $licenseDays) {
+            $error = 'اعتبار کد فعال‌سازی باید بین ۱ تا ۳۰ روز و از اعتبار لایسنس بیشتر نباشد.';
         }
 
-        $stmt = $pdo->prepare("SELECT id, reference_code FROM customers WHERE reference_code = :reference_code AND status = 'active' LIMIT 1");
-        $stmt->bindValue(':reference_code', $customerReference, PDO::PARAM_STR);
-        $stmt->execute();
-        $customer = $stmt->fetch();
-        if (!$customer) {
-            karen_fail(404, 'customer_not_found');
+        if ($error === '') {
+            $stmt = $pdo->prepare("SELECT id, reference_code FROM customers WHERE reference_code = :reference_code AND status = 'active' LIMIT 1");
+            $stmt->bindValue(':reference_code', $customerReference, PDO::PARAM_STR);
+            $stmt->execute();
+            $customer = $stmt->fetch();
+            if (!$customer) {
+                $error = 'مشتری فعال با این شناسه یافت نشد.';
+            }
         }
 
-        $stmt = $pdo->prepare("SELECT id, code FROM products WHERE code = :code AND status = 'active' LIMIT 1");
-        $stmt->bindValue(':code', $productCode, PDO::PARAM_STR);
-        $stmt->execute();
-        $product = $stmt->fetch();
-        if (!$product) {
-            karen_fail(404, 'product_not_found');
+        if ($error === '') {
+            $stmt = $pdo->prepare("SELECT id, code FROM products WHERE code = :code AND status = 'active' LIMIT 1");
+            $stmt->bindValue(':code', $productCode, PDO::PARAM_STR);
+            $stmt->execute();
+            $product = $stmt->fetch();
+            if (!$product) {
+                $error = 'محصول فعال با این کد یافت نشد.';
+            }
         }
 
-        if (!function_exists('karen_make_activation_code') || !function_exists('karen_activation_code_hash')) {
+        if ($error === '' && (!function_exists('karen_make_activation_code') || !function_exists('karen_activation_code_hash'))) {
             karen_fail(500, 'activation_helpers_missing');
         }
 
-        $activationCode = karen_make_activation_code();
-        $activationCodeHash = karen_activation_code_hash($activationCode);
-        $publicId = karen_uuidv4();
-        $now = time();
-        $licenseExpiresAt = gmdate('Y-m-d H:i:s', $now + $licenseDays * 86400);
-        $activationCodeExpiresAt = gmdate('Y-m-d H:i:s', $now + $activationCodeDays * 86400);
+        if ($error === '') {
+            $activationCode = karen_make_activation_code();
+            $activationCodeHash = karen_activation_code_hash($activationCode);
+            $publicId = karen_uuidv4();
+            $now = time();
+            $licenseExpiresAt = gmdate('Y-m-d H:i:s', $now + $licenseDays * 86400);
+            $activationCodeExpiresAt = gmdate('Y-m-d H:i:s', $now + $activationCodeDays * 86400);
 
-        $pdo->beginTransaction();
-        try {
-            $stmt = $pdo->prepare(<<<'SQL'
+            $pdo->beginTransaction();
+            try {
+                $stmt = $pdo->prepare(<<<'SQL'
 INSERT INTO licenses (
     customer_id, product_id, public_id, plan, status, max_devices,
     activation_code_hash, activation_code_expires_at, expires_at
@@ -129,65 +145,66 @@ INSERT INTO licenses (
     :activation_code_hash, :activation_code_expires_at, :expires_at
 )
 SQL
-            );
-            $stmt->bindValue(':customer_id', (int) $customer['id'], PDO::PARAM_INT);
-            $stmt->bindValue(':product_id', (int) $product['id'], PDO::PARAM_INT);
-            $stmt->bindValue(':public_id', $publicId, PDO::PARAM_STR);
-            $stmt->bindValue(':plan', $plan, PDO::PARAM_STR);
-            $stmt->bindValue(':max_devices', $maxDevices, PDO::PARAM_INT);
-            $stmt->bindValue(':activation_code_hash', $activationCodeHash, PDO::PARAM_STR);
-            $stmt->bindValue(':activation_code_expires_at', $activationCodeExpiresAt, PDO::PARAM_STR);
-            $stmt->bindValue(':expires_at', $licenseExpiresAt, PDO::PARAM_STR);
-            $stmt->execute();
-            $licenseId = (int) $pdo->lastInsertId();
+                );
+                $stmt->bindValue(':customer_id', (int) $customer['id'], PDO::PARAM_INT);
+                $stmt->bindValue(':product_id', (int) $product['id'], PDO::PARAM_INT);
+                $stmt->bindValue(':public_id', $publicId, PDO::PARAM_STR);
+                $stmt->bindValue(':plan', $plan, PDO::PARAM_STR);
+                $stmt->bindValue(':max_devices', $maxDevices, PDO::PARAM_INT);
+                $stmt->bindValue(':activation_code_hash', $activationCodeHash, PDO::PARAM_STR);
+                $stmt->bindValue(':activation_code_expires_at', $activationCodeExpiresAt, PDO::PARAM_STR);
+                $stmt->bindValue(':expires_at', $licenseExpiresAt, PDO::PARAM_STR);
+                $stmt->execute();
+                $licenseId = (int) $pdo->lastInsertId();
 
-            $deviceColumn = $pdo->query("SHOW COLUMNS FROM license_events LIKE 'device_id'")->fetch();
-            if ($deviceColumn && strtoupper((string) ($deviceColumn['Null'] ?? '')) === 'YES') {
-                $stmt = $pdo->prepare(<<<'SQL'
+                $deviceColumn = $pdo->query("SHOW COLUMNS FROM license_events LIKE 'device_id'")->fetch();
+                if ($deviceColumn && strtoupper((string) ($deviceColumn['Null'] ?? '')) === 'YES') {
+                    $stmt = $pdo->prepare(<<<'SQL'
 INSERT INTO license_events (license_id, device_id, event_type, ip_hash, user_agent, meta)
 VALUES (:license_id, NULL, 'license.issued', :ip_hash, :user_agent, :meta)
 SQL
-                );
-                $stmt->bindValue(':license_id', $licenseId, PDO::PARAM_INT);
-                $stmt->bindValue(':ip_hash', karen_client_ip_hash(), PDO::PARAM_STR);
-                $stmt->bindValue(':user_agent', substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 255), PDO::PARAM_STR);
-                $stmt->bindValue(':meta', json_encode([
-                    'environment' => KAREN_ENV,
-                    'source' => 'staging-admin-panel',
-                    'admin_user' => $adminUser,
-                    'plan' => $plan,
-                    'max_devices' => $maxDevices,
-                    'license_days' => $licenseDays,
-                    'activation_code_days' => $activationCodeDays,
-                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), PDO::PARAM_STR);
-                $stmt->execute();
+                    );
+                    $stmt->bindValue(':license_id', $licenseId, PDO::PARAM_INT);
+                    $stmt->bindValue(':ip_hash', karen_client_ip_hash(), PDO::PARAM_STR);
+                    $stmt->bindValue(':user_agent', substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 255), PDO::PARAM_STR);
+                    $stmt->bindValue(':meta', json_encode([
+                        'environment' => KAREN_ENV,
+                        'source' => 'staging-admin-panel',
+                        'admin_user' => $adminUser,
+                        'plan' => $plan,
+                        'max_devices' => $maxDevices,
+                        'license_days' => $licenseDays,
+                        'activation_code_days' => $activationCodeDays,
+                    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), PDO::PARAM_STR);
+                    $stmt->execute();
+                }
+
+                $pdo->commit();
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                throw $e;
             }
 
-            $pdo->commit();
-        } catch (Throwable $e) {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
-            throw $e;
+            $_SESSION['karen_issue_license_flash'] = [
+                'activation_code' => $activationCode,
+                'public_id' => $publicId,
+                'customer_reference' => (string) $customer['reference_code'],
+                'product_code' => (string) $product['code'],
+                'plan' => $plan,
+                'max_devices' => $maxDevices,
+                'license_expires_at' => $licenseExpiresAt,
+                'activation_code_expires_at' => $activationCodeExpiresAt,
+            ];
+            $_SESSION['karen_issue_license_csrf'] = bin2hex(random_bytes(32));
+            session_write_close();
+            header('Location: ?created=1');
+            exit;
         }
-
-        $_SESSION['karen_issue_license_flash'] = [
-            'activation_code' => $activationCode,
-            'public_id' => $publicId,
-            'customer_reference' => (string) $customer['reference_code'],
-            'product_code' => (string) $product['code'],
-            'plan' => $plan,
-            'max_devices' => $maxDevices,
-            'license_expires_at' => $licenseExpiresAt,
-            'activation_code_expires_at' => $activationCodeExpiresAt,
-        ];
-        $_SESSION['karen_issue_license_csrf'] = bin2hex(random_bytes(32));
-        session_write_close();
-        header('Location: ?created=1');
-        exit;
     }
 
-    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
+    if (!in_array(($_SERVER['REQUEST_METHOD'] ?? 'GET'), ['GET', 'POST'], true)) {
         header('Allow: GET, POST');
         karen_fail(405, 'method_not_allowed');
     }
@@ -203,91 +220,110 @@ SQL
 }
 
 $nonce = base64_encode(random_bytes(18));
-header("Content-Security-Policy: default-src 'none'; style-src 'nonce-" . $nonce . "'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
+header("Content-Security-Policy: default-src 'none'; script-src 'self' 'nonce-" . $nonce . "'; style-src 'self'; font-src 'self'; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
+
+karen_admin_layout_start('صدور لایسنس', 'issue', $adminUser, $nonce);
+
+if ($error !== '') {
+    echo '<div class="alert danger">' . karen_admin_icon('alert') . '<div>' . karen_admin_e($error) . '</div></div>';
+}
+
+if ($issued):
 ?>
-<!doctype html>
-<html lang="fa" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="noindex,nofollow">
-  <title>صدور لایسنس — staging</title>
-  <style nonce="<?php echo $nonce; ?>">
-    * { box-sizing: border-box; }
-    body { margin: 0; padding: 16px; background: #0f172a; color: #e2e8f0; font-family: system-ui, sans-serif; }
-    main { max-width: 720px; margin: auto; }
-    a { color: #93c5fd; }
-    h1 { font-size: 20px; }
-    .card { background: #111827; border: 1px solid #334155; border-radius: 14px; padding: 16px; margin: 14px 0; }
-    .warn { color: #fbbf24; line-height: 1.9; }
-    .error { background: #7f1d1d; border: 1px solid #fecaca; border-radius: 10px; padding: 12px; margin: 12px 0; }
-    label { display: block; margin: 14px 0 6px; }
-    input, select { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #475569; background: #0b1220; color: #e2e8f0; font: inherit; }
-    button { margin-top: 18px; border: 0; border-radius: 10px; padding: 13px 16px; background: #4f46e5; color: white; cursor: pointer; font: inherit; }
-    code { direction: ltr; display: block; word-break: break-all; background: #0b1220; border: 1px solid #334155; border-radius: 10px; padding: 12px; }
-    .muted { color: #94a3b8; }
-  </style>
-</head>
-<body>
-<main>
-  <h1>صدور لایسنس جدید — staging</h1>
-  <p><a href="./">بازگشت به پنل ادمین</a></p>
-
-  <?php if ($error !== ''): ?>
-    <div class="error"><?php echo karen_issue_e($error); ?></div>
-  <?php endif; ?>
-
-  <?php if ($issued): ?>
-    <div class="card">
-      <h2>لایسنس صادر شد</h2>
-      <p class="warn">این کد فقط همین یک‌بار نمایش داده می‌شود. آن را در جای امن کپی کن. در دیتابیس فقط هش آن ذخیره شده است. کد را در چت یا اسکرین‌شات عمومی نفرست.</p>
-      <p>کد فعال‌سازی:</p>
-      <code><?php echo karen_issue_e($issued['activation_code']); ?></code>
-      <p>شناسه لایسنس: <span class="muted"><?php echo karen_issue_e($issued['public_id']); ?></span></p>
-      <p>مشتری: <?php echo karen_issue_e($issued['customer_reference']); ?> | محصول: <?php echo karen_issue_e($issued['product_code']); ?></p>
-      <p>پلن: <?php echo karen_issue_e($issued['plan']); ?> | حداکثر دستگاه: <?php echo (int) $issued['max_devices']; ?></p>
-      <p>انقضای لایسنس: <?php echo karen_issue_e($issued['license_expires_at']); ?> UTC</p>
-      <p>انقضای کد فعال‌سازی: <?php echo karen_issue_e($issued['activation_code_expires_at']); ?> UTC</p>
+  <div class="page-head">
+    <div>
+      <h1>لایسنس صادر شد</h1>
+      <p>کد فعال‌سازی را در جای امن نگه دار.</p>
     </div>
-  <?php else: ?>
-    <div class="card">
-      <p class="warn">این صفحه برای مشتری‌ها و محصول‌های فعال موجود در دیتابیس لایسنس صادر می‌کند. کد فعال‌سازی فقط یک‌بار نمایش داده می‌شود.</p>
-      <form method="post">
-        <input type="hidden" name="csrf" value="<?php echo karen_issue_e($csrf); ?>">
+    <div class="actions">
+      <a class="btn" href="./index.php?view=licenses"><?php echo karen_admin_icon('key'); ?>فهرست لایسنس‌ها</a>
+      <a class="btn btn-primary" href="./issue-license.php"><?php echo karen_admin_icon('plus'); ?>صدور بعدی</a>
+    </div>
+  </div>
 
-        <label for="customer_reference">مشتری</label>
-        <select id="customer_reference" name="customer_reference" required>
-          <?php foreach ($customers as $customer): ?>
-            <option value="<?php echo karen_issue_e($customer['reference_code']); ?>"><?php echo karen_issue_e($customer['reference_code']); ?></option>
-          <?php endforeach; ?>
-        </select>
+  <div class="alert warning"><?php echo karen_admin_icon('alert'); ?><div>این کد فقط همین یک‌بار نمایش داده می‌شود. در دیتابیس فقط هش آن ذخیره شده است. کد را در چت یا اسکرین‌شات عمومی نفرست.</div></div>
 
-        <label for="product_code">محصول</label>
-        <select id="product_code" name="product_code" required>
-          <?php foreach ($products as $product): ?>
-            <option value="<?php echo karen_issue_e($product['code']); ?>"><?php echo karen_issue_e($product['code']); ?></option>
-          <?php endforeach; ?>
-        </select>
+  <section class="card">
+    <div class="card-head"><h2>کد فعال‌سازی</h2></div>
+    <div class="card-body">
+      <div class="code-box">
+        <code id="activation-code"><?php echo karen_admin_e($issued['activation_code']); ?></code>
+        <button class="btn btn-primary btn-sm" type="button" data-copy="#activation-code"><?php echo karen_admin_icon('copy'); ?>کپی</button>
+      </div>
+      <dl class="detail-grid" class="mt-16">
+        <div class="detail-item"><dt>شناسه لایسنس</dt><dd><code><?php echo karen_admin_e($issued['public_id']); ?></code></dd></div>
+        <div class="detail-item"><dt>مشتری</dt><dd><?php echo karen_admin_e($issued['customer_reference']); ?></dd></div>
+        <div class="detail-item"><dt>محصول</dt><dd><?php echo karen_admin_e($issued['product_code']); ?></dd></div>
+        <div class="detail-item"><dt>پلن</dt><dd><span class="badge plan"><?php echo karen_admin_e(karen_admin_plan_label($issued['plan'])); ?></span></dd></div>
+        <div class="detail-item"><dt>حداکثر دستگاه</dt><dd><?php echo karen_admin_fa($issued['max_devices']); ?></dd></div>
+        <div class="detail-item"><dt>انقضای لایسنس</dt><dd><?php echo karen_admin_dt($issued['license_expires_at']); ?></dd></div>
+        <div class="detail-item"><dt>انقضای کد فعال‌سازی</dt><dd><?php echo karen_admin_dt($issued['activation_code_expires_at']); ?></dd></div>
+      </dl>
+    </div>
+  </section>
+<?php else: ?>
+  <div class="page-head">
+    <div>
+      <h1>صدور لایسنس جدید</h1>
+      <p>برای مشتری و محصول فعال، لایسنس و کد فعال‌سازی یک‌بارمصرف بساز.</p>
+    </div>
+    <div class="actions"><a class="btn" href="./index.php?view=licenses"><?php echo karen_admin_icon('arrow'); ?>بازگشت</a></div>
+  </div>
 
-        <label for="plan">پلن</label>
-        <select id="plan" name="plan" required>
-          <option value="pro">pro</option>
-          <option value="proplus">proplus</option>
-        </select>
+  <div class="alert info"><?php echo karen_admin_icon('info'); ?><div>کد فعال‌سازی فقط یک‌بار پس از صدور نمایش داده می‌شود. فقط هش آن در دیتابیس ذخیره می‌شود.</div></div>
 
-        <label for="max_devices">حداکثر دستگاه‌های فعال</label>
-        <input id="max_devices" name="max_devices" type="number" min="1" max="20" value="2" required>
-
-        <label for="license_days">اعتبار لایسنس چند روز؟</label>
-        <input id="license_days" name="license_days" type="number" min="1" max="3650" value="30" required>
-
-        <label for="activation_code_days">کد فعال‌سازی چند روز اعتبار داشته باشد؟</label>
-        <input id="activation_code_days" name="activation_code_days" type="number" min="1" max="30" value="7" required>
-
-        <button type="submit">صدور لایسنس</button>
+  <section class="card">
+    <div class="card-head"><h2>مشخصات لایسنس</h2></div>
+    <div class="card-body">
+      <?php if (!$customers || !$products): ?>
+        <div class="alert warning"><?php echo karen_admin_icon('alert'); ?><div>مشتری یا محصول فعالی در دیتابیس وجود ندارد. ابتدا باید مشتری و محصول فعال ثبت شوند.</div></div>
+      <?php endif; ?>
+      <form method="post" data-confirm="لایسنس جدید صادر شود؟ کد فعال‌سازی فقط یک‌بار نمایش داده می‌شود." data-confirm-title="صدور لایسنس" data-confirm-label="صادر کن">
+        <input type="hidden" name="csrf" value="<?php echo karen_admin_e($csrf); ?>">
+        <div class="form-grid">
+          <div class="field">
+            <label for="customer_reference">مشتری</label>
+            <select class="input" id="customer_reference" name="customer_reference" required>
+              <?php foreach ($customers as $customer): ?>
+                <option value="<?php echo karen_admin_e($customer['reference_code']); ?>" <?php echo $old['customer_reference'] === $customer['reference_code'] ? 'selected' : ''; ?>><?php echo karen_admin_e($customer['reference_code']); ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="field">
+            <label for="product_code">محصول</label>
+            <select class="input" id="product_code" name="product_code" required>
+              <?php foreach ($products as $product): ?>
+                <option value="<?php echo karen_admin_e($product['code']); ?>" <?php echo $old['product_code'] === $product['code'] ? 'selected' : ''; ?>><?php echo karen_admin_e($product['code']); ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="field">
+            <label for="plan">پلن</label>
+            <select class="input" id="plan" name="plan" required>
+              <option value="pro" <?php echo $old['plan'] === 'pro' ? 'selected' : ''; ?>>حرفه‌ای (pro)</option>
+              <option value="proplus" <?php echo $old['plan'] === 'proplus' ? 'selected' : ''; ?>>حرفه‌ای پلاس (proplus)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="max_devices">حداکثر دستگاه فعال</label>
+            <input class="input" id="max_devices" name="max_devices" type="number" min="1" max="20" value="<?php echo (int) $old['max_devices']; ?>" required>
+          </div>
+          <div class="field">
+            <label for="license_days">اعتبار لایسنس (روز)</label>
+            <input class="input" id="license_days" name="license_days" type="number" min="1" max="3650" value="<?php echo (int) $old['license_days']; ?>" required>
+          </div>
+          <div class="field">
+            <label for="activation_code_days">اعتبار کد فعال‌سازی (روز)</label>
+            <input class="input" id="activation_code_days" name="activation_code_days" type="number" min="1" max="30" value="<?php echo (int) $old['activation_code_days']; ?>" required>
+          </div>
+          <div class="full">
+            <button class="btn btn-primary" type="submit" <?php echo (!$customers || !$products) ? 'disabled' : ''; ?>><?php echo karen_admin_icon('plus'); ?>صدور لایسنس</button>
+          </div>
+        </div>
       </form>
     </div>
-  <?php endif; ?>
-</main>
-</body>
-</html>
+  </section>
+<?php
+endif;
+
+karen_admin_layout_end();
