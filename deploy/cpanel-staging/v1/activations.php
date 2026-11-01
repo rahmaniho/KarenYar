@@ -94,6 +94,8 @@ try {
     karen_rate_limit('activation:code:' . bin2hex($activationCodeHash), 10, 300);
 
     $pdo = karen_db();
+    // Match refresh/maintenance when reading TIMESTAMP columns and DB expiry.
+    $pdo->exec("SET time_zone = '+00:00'");
 
     $abort = static function (int $status, string $error) use ($pdo): void {
         if ($pdo->inTransaction()) {
@@ -103,39 +105,71 @@ try {
         karen_fail($status, $error);
     };
 
+    // Locate only, outside the transaction: do not start an RR snapshot here.
+    $stmt = $pdo->prepare(<<<'SQL'
+SELECT id
+FROM licenses
+WHERE activation_code_hash = :activation_code_hash
+LIMIT 1
+SQL
+    );
+    $stmt->bindValue(':activation_code_hash', $activationCodeHash, PDO::PARAM_STR);
+    $stmt->execute();
+    $licenseId = (int) $stmt->fetchColumn();
+
+    if ($licenseId <= 0) {
+        $abort(404, 'invalid_activation_code');
+    }
+
     $pdo->beginTransaction();
 
+    // Match refresh/admin: lock the license PK before shared metadata or devices.
+    // Recheck the code after waiting; the locator is not an authorization decision.
     $stmt = $pdo->prepare(<<<'SQL'
-SELECT
-    l.*,
-    p.code AS product_code,
-    p.status AS product_status,
-    c.reference_code AS customer_reference,
-    c.status AS customer_status
-FROM licenses l
-INNER JOIN products p ON p.id = l.product_id
-INNER JOIN customers c ON c.id = l.customer_id
-WHERE l.activation_code_hash = :activation_code_hash
-  AND p.code = :product_code
-  AND l.status = 'active'
-  AND p.status = 'active'
-  AND c.status = 'active'
-  AND l.activation_code_expires_at > UTC_TIMESTAMP()
-  AND (l.expires_at IS NULL OR l.expires_at > UTC_TIMESTAMP())
+SELECT id, public_id, product_id, customer_id, plan, max_devices, expires_at,
+       activation_code_expires_at
+FROM licenses
+WHERE id = :license_id
+  AND activation_code_hash = :activation_code_hash
+  AND status = 'active'
+  AND activation_code_expires_at > UTC_TIMESTAMP()
+  AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())
 LIMIT 1
 FOR UPDATE
 SQL
     );
-
+    $stmt->bindValue(':license_id', $licenseId, PDO::PARAM_INT);
     $stmt->bindValue(':activation_code_hash', $activationCodeHash, PDO::PARAM_STR);
-    $stmt->bindValue(':product_code', $productCode, PDO::PARAM_STR);
     $stmt->execute();
-
     $license = $stmt->fetch();
 
     if (!$license) {
         $abort(404, 'invalid_activation_code');
     }
+
+    $stmt = $pdo->prepare(<<<'SQL'
+SELECT p.code AS product_code, c.reference_code AS customer_reference
+FROM products p
+INNER JOIN customers c ON c.id = :customer_id
+WHERE p.id = :product_id
+  AND p.code = :product_code
+  AND p.status = 'active'
+  AND c.status = 'active'
+LIMIT 1
+FOR UPDATE
+SQL
+    );
+    $stmt->bindValue(':product_id', (int) $license['product_id'], PDO::PARAM_INT);
+    $stmt->bindValue(':customer_id', (int) $license['customer_id'], PDO::PARAM_INT);
+    $stmt->bindValue(':product_code', $productCode, PDO::PARAM_STR);
+    $stmt->execute();
+    $account = $stmt->fetch();
+
+    if (!$account) {
+        $abort(404, 'invalid_activation_code');
+    }
+
+    $license = array_merge($license, $account);
 
     $expectedDevicePem = karen_ed25519_public_pem($devicePublicKey);
 
@@ -151,6 +185,21 @@ SQL
     $stmt->execute();
 
     $existingDevice = $stmt->fetch();
+
+    // The first statement's UTC_TIMESTAMP can predate a license/device lock wait.
+    $clock = $pdo->prepare('SELECT UNIX_TIMESTAMP()');
+    $clock->execute();
+    $dbNow = (int) $clock->fetchColumn();
+
+    if ($dbNow <= 0) {
+        throw new RuntimeException('database_clock_invalid');
+    }
+
+    $activationCodeExpiresAt = (new DateTimeImmutable((string) $license['activation_code_expires_at'], new DateTimeZone('UTC')))->getTimestamp();
+
+    if ($activationCodeExpiresAt <= $dbNow) {
+        $abort(404, 'invalid_activation_code');
+    }
 
     if ($existingDevice) {
         if ((int) $existingDevice['license_id'] !== (int) $license['id']) {
@@ -286,6 +335,24 @@ SQL
         'token_exp' => $tokenExpiresAt,
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), PDO::PARAM_STR);
     $stmt->execute();
+
+    // Fail closed if DB work/signing consumed the remaining code/token lifetime.
+    // These are point-in-time gates, not a guarantee against arbitrary clock jumps.
+    $clock->execute();
+    $dbNow = (int) $clock->fetchColumn();
+    $commitNow = time();
+
+    if ($dbNow <= 0) {
+        throw new RuntimeException('database_clock_invalid');
+    }
+
+    if ($activationCodeExpiresAt <= $dbNow) {
+        $abort(404, 'invalid_activation_code');
+    }
+
+    if ($tokenExpiresAt <= $commitNow || $tokenExpiresAt <= $dbNow) {
+        $abort(400, 'license_expired');
+    }
 
     $pdo->commit();
 

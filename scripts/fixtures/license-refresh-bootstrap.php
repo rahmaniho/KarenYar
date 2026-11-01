@@ -2,14 +2,14 @@
 declare(strict_types=1);
 
 // CLI-only test double for the private host bootstrap. Never deploy this file.
-// SQL, transactions and Ed25519 are real; HTTP transport and rate limiting are not.
+// SQL, transactions and Ed25519 are real; HTTP/rate limiting and the code hasher are doubles.
 if (PHP_SAPI !== 'cli' || getenv('KAREN_LICENSE_DB_TESTS') !== '1') { exit(1); }
 
 define('KAREN_ENV', 'staging');
 define('KAREN_ISSUER', 'karen-license-test');
 define('KAREN_AUDIENCE', 'hesabyar-app');
 
-function karen_refresh_test_trace(string $phase, string $kind, bool $inTransaction, ?string $sql = null, ?int $connectionId = null, ?int $timestamp = null): void
+function karen_refresh_test_trace(string $phase, string $kind, bool $inTransaction, ?string $sql = null, ?int $connectionId = null, ?int $timestamp = null, ?int $databaseErrorCode = null): void
 {
     $path = $GLOBALS['karen_test_request']['trace'];
     file_put_contents($path, json_encode([
@@ -19,6 +19,7 @@ function karen_refresh_test_trace(string $phase, string $kind, bool $inTransacti
         'sql' => $sql,
         'connection_id' => $connectionId,
         'timestamp' => $timestamp,
+        'database_error_code' => $databaseErrorCode,
     ], JSON_THROW_ON_ERROR) . "\n", FILE_APPEND | LOCK_EX);
 }
 
@@ -95,10 +96,13 @@ final class KarenRefreshTestStatement extends PDOStatement
         $sql = (string) preg_replace('/\s+/', ' ', trim($this->queryString));
         $kind = match (true) {
             str_starts_with($sql, 'SELECT license_id FROM license_devices') => 'locator',
+            str_starts_with($sql, 'SELECT id FROM licenses WHERE activation_code_hash') => 'activation_locator',
             str_contains($sql, 'FROM licenses WHERE id = :license_id') => 'license',
             str_contains($sql, 'FROM products p INNER JOIN customers c') => 'account',
             str_starts_with($sql, 'SELECT * FROM license_devices') => 'device',
             str_starts_with($sql, 'INSERT INTO device_refresh_nonces') => 'nonce',
+            str_starts_with($sql, 'SELECT COUNT(*) FROM license_devices') => 'count',
+            str_starts_with($sql, 'INSERT INTO license_devices') => 'device_insert',
             str_starts_with($sql, 'UPDATE license_devices') => 'seen',
             str_starts_with($sql, 'INSERT INTO license_events') => 'event',
             $sql === 'SELECT UNIX_TIMESTAMP()' => 'clock',
@@ -115,7 +119,12 @@ final class KarenRefreshTestStatement extends PDOStatement
                 throw new RuntimeException('test_injected_clock_failure');
             }
         }
-        $result = parent::execute($params);
+        try {
+            $result = parent::execute($params);
+        } catch (PDOException $error) {
+            karen_refresh_test_trace('error', $kind, $this->connection->inTransaction(), $sql, null, null, (int) ($error->errorInfo[1] ?? 0));
+            throw $error;
+        }
         if (array_key_exists($kind, $GLOBALS['karen_test_request']['db_shift_after'] ?? [])) {
             karen_refresh_test_db_clock($this->connection, (int) $GLOBALS['karen_test_request']['db_shift_after'][$kind]);
         }
@@ -146,8 +155,13 @@ function karen_read_json(): array
         $input['signature_b64'] = base64_encode(sodium_crypto_sign_detached($message, sodium_crypto_sign_secretkey($pair)));
         karen_refresh_test_trace('after', 'input_clock', false, null, null, $input['timestamp']);
     }
-    $GLOBALS['karen_test_signed_timestamp'] = (int) $input['timestamp'];
+    $GLOBALS['karen_test_signed_timestamp'] = (int) ($input['timestamp'] ?? time());
     return $input;
+}
+function karen_activation_code_hash(string $code): string
+{
+    // Synthetic codes only: does NOT reproduce/access the private host's hasher.
+    return hash('sha256', 'public-activation-test|' . $code, true);
 }
 function karen_db(): PDO
 {

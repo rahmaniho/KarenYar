@@ -200,7 +200,7 @@ npm run test:staging-app-deploy
 
 ---
 
-## گام ۳ — پاک‌ساز و آزمون عادی هر دو بخش ۳C پذیرفته شدند؛ حذف purge وب در مخزن آماده می‌شود
+## گام ۳ — پذیرش محدود ۳D بسته شد؛ بررسی همزمانی فعال‌سازی/تمدید/لغو در مخزن
 
 ### یافتهٔ کد و اصلاح محدود ۳A
 
@@ -470,7 +470,7 @@ hash مخزن پاک‌ساز **9a98f1db…** و ZIP **2a88c326…** پس از �
 
 این تغییر محدود هنوز کنترل عقب‌رفت دلخواه clock بین پردازش‌ها، همهٔ latencyهای پس از تصمیم commit، قرارداد revocation/transient retry، race سقف دستگاه یا تمام Step3/production را حل‌شده اعلام نمی‌کند.
 
-#### ۳D — واگذاری کامل purge به پاک‌ساز خصوصی؛ فقط مخزن، native در انتظار
+#### ۳D — native و مسیر عادی staging پذیرفته شدند؛ پاک‌سازی فقط خصوصی است
 
 پیش‌شرط‌های این تغییر محدود اکنون فراهم‌اند: پاک‌ساز مستقل ۳B نصب/اجرای واقعی/تکرار دوره‌ای پذیرفته شده و دو بخش ۳C با ۶۵ و سپس ۸۴ مورد native در هر موتور و refresh معمولی همان دستگاه روی هاست پذیرفته شدند. candidate فعلی فقط **دو خط** (دستور DELETE قدیمی و خط خالی آن) را از `refresh.php` حذف می‌کند؛ پاک‌سازی به قبل/بعد transaction یا مسیر وب دیگری منتقل نمی‌شود. دیگر هیچ DELETE nonce در endpoint public نیست. insert marker، PK replay، هر دو clock gate، UTC session، TTL ششصدثانیه‌ای از INSERT دیتابیس، امضا/claim/پاسخ و ترتیب قفل همان نسخهٔ ۳C-۲ هستند.
 
@@ -480,18 +480,42 @@ hash مخزن پاک‌ساز **9a98f1db…** و ZIP **2a88c326…** پس از �
 
 ۶ regression جدید در `scripts/fixtures/license-refresh-cleanup-handoff-cases.php`: backlog ۱۵۰ قدیمی + grace + live در وب دست‌نخورده؛ row X-lock روی nonce قدیمی بدون بلوکه‌کردن سناریوی refresh دیگر؛ replay دارای marker منقضی هنوز ۴۰۹ و grace خصوصی حفظ؛ اجرای واقعی helper در حالی که web transaction پس از event باز است، سپس commit/رفض replay؛ CLI واقعی در انتظار InnoDB روی nonce قدیمی در حالی که worker وب آماده ادامه می‌دهد و پیش از آزادشدن nonce قدیمی موفق می‌شود؛ و بقای حذف خصوصی commitشده بعد از rollback عمدی وب. observer فقط `PDO::exec`/prepared DELETEها را ثبت می‌کند، SQL را تغییر/جلوگیری نمی‌کند؛ مسیر پایه و موارد handoff نبودن DELETE در trace را assert می‌کنند. برای شناسایی انتظار CLI از همان live engine/thread-id observer قبلی استفاده شد؛ فقط bootstrap تستی، با env مخصوص fixture و در scratch خصوصی، connection id را trace می‌کند. timeout واقعی پاک‌ساز همان ۲ ثانیه است، نه تغییر تولیدی برای تست.
 
-مورد قبلی «purge محدود وب expired را حذف می‌کند» به قرارداد جدید «وب expired/live را برای cleanup نگه می‌دارد» تبدیل شد؛ تست حذف batchهای محدود در ۲۹ سناریوی خود پاک‌ساز باقی است. هیچ fixture به هاست نمی‌رود. ۸۴ مورد موجود با این تغییر قرارداد و ۶ مورد جدید **۹۰ مورد در هر engine** خواهند بود؛ این در این لحظه **تعداد هدف است، نه native PASS**.
+مورد قبلی «purge محدود وب expired را حذف می‌کند» به قرارداد جدید «وب expired/live را برای cleanup نگه می‌دارد» تبدیل شد؛ تست حذف batchهای محدود در ۲۹ سناریوی خود پاک‌ساز باقی است. هیچ fixture به هاست نمی‌رود. ۸۴ مورد موجود با این تغییر قرارداد و ۶ مورد جدید **۹۰ مورد در هر engine** شدند؛ اجرای واقعی و نتیجهٔ موفق هر دو موتور پایین ثبت شده است، نه صرف تعداد هدف.
 
-candidate public **۳۸۲ خط**، SHA **`9b7fb91dc901eefc2e521ebdb9b66729ee802bc8a2e5b2f6466ef453b5b6f4b3`** است. parser هر هفت PHP مرتبط و bootstrap تعبیه‌شدهٔ CLI را خواند؛ typecheck/lint/**۲۵۸ تست وب محلی PASS**، diff/format بررسی می‌شوند. PHP/DB بومی محلی در دسترس نیست؛ native هنوز باید از CI دو موتور دریافت شود. پاک‌ساز و ZIP immutable **2a88c326…** دوباره بدون تغییر بودند. کد فعلی هاست هنوز طبق تأیید/آزمون، همان ۳۸۴خطی b604b67a… است. نسخهٔ بدون purge هنوز برای Save تحویل نشده و روی هاست ادعا نمی‌شود. پس از native موفق، تنها قدم هاست جایگزینی **کل refresh.php** است و تأیید درخواستی **«refresh بدون پاک‌سازی قدیمی ذخیره شد»**؛ Save و آزمون بعدی جداگانه‌اند. بکاپ pre-refresh-nonce-cleanup-20261101 و متن کامل نسخه‌های پذیرفته‌شدهٔ ۳C محفوظ‌اند؛ بکاپ یکسان/ویرایش CLI/Cron/bootstrap/schema/ZIP/production درخواست نمی‌شود.
+candidate public **۳۸۲ خط**، SHA **`9b7fb91dc901eefc2e521ebdb9b66729ee802bc8a2e5b2f6466ef453b5b6f4b3`** است. parser هر هفت PHP مرتبط و bootstrap تعبیه‌شدهٔ CLI را خواند؛ typecheck/lint/**۲۵۸ تست وب محلی PASS** و Prettier/diff check موفق شدند. PHP/DB بومی محلی در دسترس نیست و parser جای runtime نیست.
+
+**native نسخهٔ بدون purge موفق شد:** commit **`4f11770d5bbebe9084e90a5955fb2e921816c502`**، [run **41359248165**](https://github.com/rahmaniho/KarenYar/actions/runs/41359248165)، **۹۰ سناریو روی هرکدام** از MySQL **`8.0.46`** (job **`125005856686`**) و MariaDB **`10.11.19-MariaDB-ubu2204`** (job **`125005856992`**) با PHP 8.3 و REPEATABLE READ. هر دو annotation مستقل صریح «90 cases passed» با `gh api` بررسی شدند، از جمله CLI منتظر قفل و rollback وب. web job **`125005857138`** هم در typecheck/lint/۲۵۸ تست، license build/backend، installer و build/staging build موفق بود. audit report غیرمسدودکننده exit1 و هشدار Node20→Node24 همچنان به معنی رفع advisoryها نیستند. watcher **`license-cleanup-handoff-checks-8fef8a16`** با exit **0** تمام شد؛ نیازی به rewatch نیست.
+
+پاک‌ساز با hash **9a98f1db…** و ZIP immutable **2a88c326…** پس از تأیید Save نیز دوباره در مخزن بدون تغییر بودند. کل نسخهٔ **۳۸۲خطی** بدون purge با دستور Edit → select all/delete → paste → Save برای `/home/karensof/public_html/staging.karen-soft.ir/v1/refresh.php` به‌صورت یکپارچه در گفتگو تحویل شد. کاربر در ۲۰۲۶-۱۱-۰۲ صریحاً تأیید کرد: **«refresh بدون پاک‌سازی قدیمی ذخیره شد»** و سپس پس از همان بررسی آنلاین خواسته‌شده گفت: **«لایسنس فعال ماند»**.
+
+**رسید تازهٔ سرور دریافت و پذیرش محدود ۳D بسته شد:** متن خود صفحهٔ جزئیات ادمین برای لایسنس **`6f78de1e-c775-4368-a343-6aa0436ba2e9`**، pro/active/max_devices=2، انقضا **`2026-12-01 09:04:54`**؛ دستگاه Android/Chrome **`1da50714-9ea8-4a10-a7c4-19130ad8b2ed`** active با activation **`2026-11-01 09:06:53`**. آخرین **`license.refreshed` و last_seen همان دستگاه هر دو `2026-11-01 22:59:17`** هستند؛ refresh قبلی **`22:59:07`** و پیش از آن شاهد تاریخی ۳C-۲ **`22:40:12`** نمایش داده شدند. ترکیب Save صریح، فعال‌ماندن UI و این رویداد/last_seen تازه، فقط مسیر عادی همان staging را می‌پذیرد؛ timezone/لحظهٔ دقیق کلیک، خواندن مستقل bytes/hash هاست، اثبات مستقل ذخیرهٔ توکن در مرورگر، رفع تمام raceها یا آمادگی production ادعا نمی‌شوند.
+
+وضعیت نصب اعلام‌شده اکنون **«۳D، ۳۸۲خطی بدون purge، Save و مسیر عادی staging پذیرفته شد»** و hash مخزن متن تحویل‌شده **9b7fb91d…** است. نسخهٔ قبلی **۳۸۴خطی b604b67a…** مرجع ۳C-۲ و متن rollback در گفتگوست، نه نسخهٔ فعلی اعلام‌شده. بکاپ pre-refresh-nonce-cleanup-20261101 و نسخه‌های کامل پذیرفته‌شدهٔ ۳C محفوظ‌اند. **۳D دوباره ارسال/نصب/Save/refresh یا با تصویر ادمین تکراری آزمایش نمی‌شود.** پاک‌ساز private، hash guard **9a98…** و Cron پنج‌دقیقه‌ای بدون تغییر می‌مانند؛ expiry maintenance دیگر در وب اجرا نمی‌شود. setup/status/CLI/Cron، clock/schema/bootstrap/ZIP/production یا پاک‌کردن/نصب مجدد داده لازم نیست.
+
+**قدم بعد فقط مخزن است:** endpoint واقعی **`v1/activations.php`** و مسیر POST واقعی **`admin/index.php`** در کنار refresh بررسی می‌شوند. ۹۰ سناریوی checkpoint قبلی اجرای واقعی refresh/cleanup هستند، نه پوشش واقعی activation یا POST ادمین. bootstrap خصوصی و schema پایهٔ هاست در مخزن نیستند؛ fixture موجود ستون‌های activation و AUTO_INCREMENT لازم برای INSERT دستگاه را نداشت و worker فقط refresh را اجرا می‌کرد. تست‌های جدید باید این محدودیت را صریح رفع کنند و اگر عملیات مدیریتی در fixture با PDO اجرا شد، با آزمون HTTP/CSRF/احراز هویت پنل اشتباه گرفته نشود. هیچ fixture، secret یا فایل مالی به هاست نمی‌رود؛ تا آماده‌شدن و قبولی بومی تغییر محدود بعدی، هیچ اقدام هاست درخواست نمی‌شود.
 
 بهبود بعدی نمایش نتیجهٔ refresh باید موفقیت واقعیِ پاسخ/بررسی trust و ذخیرهٔ نشست را از no-op، آفلاین و خطا جدا کند. `sync()` فعلی `Promise<void>` است و خطاها را داخل خود مدیریت می‌کند؛ صرف `await sync(true)` مجوز نمایش toast موفقیت نیست. این تغییر رابط در این مرحله پیاده‌سازی یا منتشر نشده است.
+
+#### ۳E-۱ — candidate فعال‌سازی license-first و پوشش واقعی endpoint؛ native در انتظار
+
+مرور کد، JOIN اولیهٔ `activations.php` را نشان داد که license/product/customer را همزمان `FOR UPDATE` می‌گرفت؛ ترتیب واقعی قفل جدول‌های آن از متن SQL تضمین نمی‌شد. این مشاهده به‌تنهایی اثبات deadlock رخ‌داده روی هاست یا هر دو optimizer نیست. candidate جدید لایسنس را با locator صرفاً id **خارج** از تراکنش پیدا می‌کند، سپس داخل تراکنش یک SELECT تک‌جدولی با PK و recheck همان activation hash/status/expiry، بعد metadata فعال و بعد device unique-key را قفل می‌کند. code locator مجوز محسوب نمی‌شود و تعویض کد در فاصلهٔ locator/lock باید رد شود. source قبلی **۳۱۷ خط** / SHA **`296f2e911bfc011c98b9d67239d6a9bceffc3748eb8fb12aedd2f165bfc2e125`** بود؛ این fingerprint مخزن است، نه اندازه‌گیری فایل هاست.
+
+همان فایل session را UTC می‌کند، انقضای کد را با clock جدید DB پس از قفل دستگاه بررسی می‌کند، و پیش از commit انقضای کد با DB و انقضای توکن با هر دو PHP/DB را دوباره gate می‌کند. شکست query clock، expiry یا event باید fail-closed و rollback باشد؛ arbitrary backward clock jumps/تأخیر بعد از آخرین تصمیم حل‌شده ادعا نمی‌شوند. قالب JSON/HY2، claims، TTL هفت‌روزه با cap انقضای لایسنس، key material، rate-limit bucketها و errorهای شناخته‌شده عوض نشده‌اند. کد **یک‌بارنمایش** است، نه الزاماً یک‌بارمصرف؛ reuse همان key فعال در ظرفیت پر باید همچنان موفق شود و revoked/key mismatch/cross-license binding همچنان رد شوند. schema/private bootstrap/کلید/دادهٔ مالی/ZIP یا public refresh تغییری ندارند.
+
+harness حالا **خود `activations.php`** را در worker جدا اجرا می‌کند؛ تنها خط جایگزین‌شدهٔ endpoint، مسیر require bootstrap است، نه SQL آن. fixture صریحاً ستون‌های `licenses.activation_code_hash`/`activation_code_expires_at` و AUTO_INCREMENT دستگاه را اضافه می‌کند تا INSERT واقعی اجرا شود؛ این فقط schema مصنوعی دیتابیس موقتی CI است، **migration یا دستور SQL هاست نیست**. hasher تستیِ کد با مقدار PUBLIC مصنوعی، HTTP و rate limiter double هستند؛ hasher/private bootstrap واقعی در دسترس/تست‌شده نیستند. PDO همان SQL واقعی را اجرا می‌کند و error number واقعی را فقط در trace خصوصی fixture ثبت می‌کند؛ هیچ SQL حذف یا شبیه‌سازی نشده است.
+
+۲۵ سناریوی جدید در `scripts/fixtures/license-activation-transaction-cases.php`، به‌علاوهٔ ۹۰ قبلی، **هدف ۱۱۵ سناریو در هر engine**: create/reuse و امضای واقعی fixture/claim/cap/ترتیب read؛ legacy base64؛ invalid code/cap/key mismatch/revoked/cross-license؛ دو متقاضی آخرین slot؛ create سپس reuse برای همان key؛ مسابقهٔ key غایب بین دو product/customer مستقل؛ rotation کد بعد از locator؛ تغییر وضعیت product/customer هنگام انتظار license؛ پر/خالی‌شدن slot با تراکنش PDO با پروتکل مدیریتی license→device؛ activation↔refresh واقعی در هر دو ترتیب؛ انقضای واقعی کد هنگام lock wait و expiry کد/لایسنس بعد از event با clock session تستی؛ event failure/lock timeout واقعی و retry؛ non-UTC؛ و شکست هرکدام از دو clock query. تغییر مدیریتی در دو سناریو **PDO model** است، نه اجرای `admin/index.php`/CSRF/REMOTE_USER/redirect/event actor؛ پوشش endpoint ادمین هنوز باز است.
+
+**قرارداد گذرای cross-license هنوز حل‌شده اعلام نمی‌شود:** UNIQUE binding باید فقط یک برنده داشته باشد؛ بازنده در deadlock/timeout/duplicate همچنان می‌تواند `500 activation_failed` بگیرد و retry پس از commit برنده باید `409 device_already_registered` بدهد. تست باید error number واقعی و نبود token/تغییر ماندگار بازنده را تأیید کند؛ این نه تبدیل همهٔ خطاها به ۴۰۹ است، نه retry خودکار/بی‌کران. timeout و event failure هم با retry بعد از برطرف‌شدن علت بررسی می‌شوند. سمت کلاینت activation error قبل از نوشتن session پرتاب می‌شود و مالی حذف نمی‌شود؛ مسیر sync برای permanent rejection جداست و یکدست‌سازی بیشتر آن هنوز باز است.
+
+candidate **۳۸۴ خط** / SHA **`9d45db80afd59b294aa3ddd33bd74cf9b96aa285c66d3a02280ee952f8a07b9a`** است. parser ده PHP مرتبط PASS؛ typecheck/lint و **۲۵۸ تست وب محلی PASS**. PHP/MySQL محلی نداریم؛ parser runtime نیست. **native هنوز اجرا/تأیید نشده و هیچ فایل جدیدی برای هاست ارسال یا جایگزینی آن درخواست نشده است.** refresh پذیرفته‌شده **9b7fb91d…**، helper/Cron خصوصی **9a98f1db…** و ZIP **2a88c326…** بدون تغییر هستند. پس از قبولی native، قدم احتمالی هاست ابتدا فقط backup فایل **`v1/activations.php`** در پوشهٔ private جدید است؛ نه backup تکراری refresh و نه نصب candidate همزمان با backup. متن کامل فایل فقط در قدم جداگانه و پس از تأیید backup داده می‌شود.
 
 ### باقی‌ماندهٔ گام ۳
 
 - تست همزمانی فعال‌سازی/تمدید/لغو و سقف دستگاه؛ بررسی race ثبت یک device key برای دو license و مدیریت خطاهای قابل‌تکرار تراکنش.
-- تست replay، بازهٔ timestamp و انقضای nonce بدون امکان بازپخش امضای قدیمی.
+- پوشش replay/timestamp/nonce در checkpoint ۹۰گانه ثبت شد؛ حدود clock jump/تأخیر تصمیم و سناریوهای خارج از آن، بدون ادعای پوشش کامل یا تکرار پذیرش بسته‌شده، باز هستند.
 - یکدست‌سازی خطاهای لغو دستگاه/لایسنس با حفظ رفتار امن کلاینت.
-- حذف پاک‌سازی عمومی `DELETE ... LIMIT 100` از تراکنش refresh با آماده‌کردن پاک‌سازی محدود و مستقل (ترجیحاً CLI/cron خصوصی)، نه انتقال بی‌برنامهٔ حذف به ابتدای همان تراکنش. nonce معتبر نباید زود پاک شود و نصب/تأیید زمان‌بندی پاک‌سازی پیش از production لازم است.
+- پاک‌سازی مستقل و حذف purge وب در ۳B/۳D انجام و برای مسیر محدود پذیرفته شدند؛ پایش سلامت و تازگی Cron خصوصی پیش از production و در عملیات ادامه دارد. nonce معتبر نباید زود پاک شود.
 - پذیرش واقعی staging پس از اعمال مرحله‌ای و rollback آماده.
 
 ---

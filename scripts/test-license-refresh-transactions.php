@@ -2,10 +2,10 @@
 declare(strict_types=1);
 
 /**
- * Isolated MySQL/MariaDB regression tests for the real refresh endpoint SQL.
+ * Isolated MySQL/MariaDB regressions for real refresh and activation endpoint SQL.
  * Requires PHP CLI + pdo_mysql + sodium + proc_open; never run/upload on cPanel.
  * The only substituted endpoint line is its private host-bootstrap require.
- * HTTP/auth/rate-limit middleware is a test double, NOT a test of the host bootstrap.
+ * HTTP/auth/rate limiting and the activation-code hasher are doubles, NOT host-bootstrap coverage.
  */
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 if (getenv('KAREN_LICENSE_DB_TESTS') !== '1') {
@@ -44,6 +44,7 @@ $version = (string) $server->query('SELECT VERSION()')->fetchColumn();
 $database = 'karen_test_refresh_' . bin2hex(random_bytes(8));
 $scratch = sys_get_temp_dir() . '/' . $database;
 $endpoint = $scratch . '/refresh.php';
+$activationEndpoint = $scratch . '/activations.php';
 $db = null;
 $children = [];
 $passed = [];
@@ -104,13 +105,13 @@ function refresh_test_input(int $deviceId = 1, array $overrides = [], bool $lega
     $input['signature_b64'] = $legacy ? base64_encode($signature) : rtrim(strtr(base64_encode($signature), '+/', '-_'), '=');
     return $input;
 }
-function refresh_test_start(array $input, array $controls = []): array
+function refresh_test_start(array $input, array $controls = [], ?string $script = null): array
 {
     global $scratch, $endpoint, $children;
     $base = $scratch . '/request-' . bin2hex(random_bytes(8));
     $request = array_replace(['input' => $input, 'trace' => $base . '.trace', 'release' => $base . '.release'], $controls);
     file_put_contents($base . '.json', json_encode($request, JSON_THROW_ON_ERROR));
-    $process = proc_open([PHP_BINARY, __FILE__, '--worker', $base . '.json', $endpoint], [
+    $process = proc_open([PHP_BINARY, __FILE__, '--worker', $base . '.json', $script ?? $endpoint], [
         0 => ['pipe', 'r'], 1 => ['file', $base . '.out', 'w'], 2 => ['file', $base . '.err', 'w'],
     ], $pipes);
     refresh_test_assert(is_resource($process), 'Start PHP worker');
@@ -206,7 +207,7 @@ function refresh_test_effects(int $nonces, int $events, int $seen): void
     refresh_test_equal($events, (int) $db->query('SELECT COUNT(*) FROM license_events')->fetchColumn(), 'Event rows');
     refresh_test_equal($seen, (int) $db->query("SELECT COUNT(*) FROM license_devices WHERE last_seen_at <> '2000-01-01 00:00:00'")->fetchColumn(), 'Updated devices');
 }
-function refresh_test_claims(array $response): array
+function refresh_test_claims(array $response, string $product = 'hesabyar'): array
 {
     refresh_test_response($response, 200);
     $body = $response['body'];
@@ -221,7 +222,7 @@ function refresh_test_claims(array $response): array
     refresh_test_equal('karen-license-test', $claims['iss'], 'Issuer passed to signer');
     refresh_test_equal('hesabyar-app', $claims['aud'], 'Audience passed to signer');
     refresh_test_equal('staging', $claims['env'], 'Environment passed to signer');
-    refresh_test_equal('hesabyar', $claims['product'], 'Product passed to signer');
+    refresh_test_equal($product, $claims['product'], 'Product passed to signer');
     refresh_test_equal($claims['iat'], $claims['nbf'], 'nbf contract');
     return $claims;
 }
@@ -246,8 +247,9 @@ try {
         'CREATE TABLE customers (id INT UNSIGNED PRIMARY KEY, reference_code VARCHAR(64) UNIQUE NOT NULL, status VARCHAR(20) NOT NULL) ENGINE=InnoDB',
         'CREATE TABLE licenses (id INT UNSIGNED PRIMARY KEY, public_id VARCHAR(64) UNIQUE NOT NULL, product_id INT UNSIGNED NOT NULL, customer_id INT UNSIGNED NOT NULL,
             plan VARCHAR(20) NOT NULL, max_devices INT NOT NULL, status VARCHAR(20) NOT NULL, expires_at TIMESTAMP NULL,
+            activation_code_hash VARBINARY(32) UNIQUE NULL, activation_code_expires_at TIMESTAMP NULL,
             FOREIGN KEY (product_id) REFERENCES products(id), FOREIGN KEY (customer_id) REFERENCES customers(id)) ENGINE=InnoDB',
-        'CREATE TABLE license_devices (id INT UNSIGNED PRIMARY KEY, license_id INT UNSIGNED NOT NULL, device_key_id CHAR(36) UNIQUE NOT NULL,
+        'CREATE TABLE license_devices (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, license_id INT UNSIGNED NOT NULL, device_key_id CHAR(36) UNIQUE NOT NULL,
             device_label VARCHAR(190) NOT NULL, public_key_pem TEXT NOT NULL, status VARCHAR(20) NOT NULL, activated_at TIMESTAMP NULL, last_seen_at TIMESTAMP NULL,
             KEY license_status (license_id, status), FOREIGN KEY (license_id) REFERENCES licenses(id)) ENGINE=InnoDB',
         'CREATE TABLE license_events (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, license_id INT UNSIGNED NOT NULL, device_id INT UNSIGNED NOT NULL,
@@ -264,6 +266,10 @@ try {
     $source = str_replace("require '/home/karensof/private/karen-staging/bootstrap.php';", "require __DIR__ . '/test-bootstrap.php';", $source, $replaced);
     refresh_test_equal(1, $replaced, 'Only host bootstrap location is substituted');
     file_put_contents($endpoint, $source);
+    $source = (string) file_get_contents($repo . '/deploy/cpanel-staging/v1/activations.php');
+    $source = str_replace("require '/home/karensof/private/karen-staging/bootstrap.php';", "require __DIR__ . '/test-bootstrap.php';", $source, $replaced);
+    refresh_test_equal(1, $replaced, 'Activation also substitutes only the host bootstrap location');
+    file_put_contents($activationEndpoint, $source);
     copy($repo . '/deploy/cpanel-staging/v1/license-encoding.php', $scratch . '/license-encoding.php');
     copy($repo . '/scripts/fixtures/license-refresh-bootstrap.php', $scratch . '/test-bootstrap.php');
 
@@ -455,9 +461,10 @@ try {
     require __DIR__ . '/fixtures/license-refresh-freshness-cases.php';
     require __DIR__ . '/fixtures/license-refresh-clock-cases.php';
     require __DIR__ . '/fixtures/license-refresh-cleanup-handoff-cases.php';
+    require __DIR__ . '/fixtures/license-activation-transaction-cases.php';
     echo json_encode(['ok' => true, 'database' => $version, 'isolation' => 'REPEATABLE READ', 'passed' => count($passed), 'tests' => $passed], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT) . "\n";
     if (getenv('GITHUB_ACTIONS') === 'true') {
-        echo '::notice title=Refresh transaction tests::' . count($passed) . ' cases passed on ' . $version . ' with REPEATABLE READ' . "\n";
+        echo '::notice title=License transaction tests::' . count($passed) . ' cases passed on ' . $version . ' with REPEATABLE READ' . "\n";
     }
 } finally {
     foreach ($children as $worker) {
