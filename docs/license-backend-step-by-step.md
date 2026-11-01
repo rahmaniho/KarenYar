@@ -124,7 +124,7 @@ public key SHA-256: c6764aea4f3fda425b71c5960b5bf78b80b9d0c15bb65895eb290e37dce6
 - تست نشست ذخیره‌شده: رد توکن و کلید جایگزین‌شده، حفظ حق بکاپ و PDF، سازگاری قالب نشست قبلی و تشخیص انقضا هنگام قطع شبکه.
 - build آفلاین/دمو و build پین‌شدهٔ staging: موفق؛ کلید staging در خروجی demo حضور ندارد.
 - پوشش محدودهٔ تنظیم‌شدهٔ Vitest: ۹۱٫۳۳٪ statements/lines و ۸۶٫۶٪ branches.
-- PHP در محیط محلی این مرحله در دسترس نیست؛ تست کامل PHP/sodium در quality CI با Node 22 و PHP 8.3 موفق شد. فایل PHP در گام ۲ تغییر نکرده است.
+- PHP در محیط محلی این مرحله در دسترس نیست؛ تست کامل PHP/sodium در quality CI با Node 22 و PHP 8.3 موفق شد. endpointهای PHP لایسنس در گام ۲ تغییر نکرده‌اند؛ نصب‌کنندهٔ جدید جداگانه تست شد.
 - CI کد گام ۲ در commit `30904a3`: https://github.com/rahmaniho/KarenYar/actions/runs/41296925873 — موفق. گزارش audit وابستگی‌ها همچنان advisoryهای باز را ثبت می‌کند و gate مسدودکننده نیست.
 - E2E واقعی این بیلد جدید روی staging هنوز منتظر نصب و تأیید کاربر است؛ تست شبیه‌سازی‌شده جای آن را نمی‌گیرد.
 
@@ -165,6 +165,7 @@ entry script: assets/index-BmUh7tMd.js
 - در خطای قابل‌گرفتن هنگام انتشار فایل‌های راه‌انداز، بازیابی هر چهار فایل از کپی خصوصی تلاش می‌شود. `deploy_failed_restored` یعنی این بازیابی موفق بوده؛ `rollback_required` یعنی باید متوقف شد و بازیابی دستی جداگانه بررسی شود.
 - فایل‌های مالی/IndexedDB یا هویت دستگاه تغییر نمی‌کنند؛ به فایل‌های دیگر admin، v1 یا production دست زده نمی‌شود.
 - تست PHP با ZIP واقعی، fixture خصوصی و تزریق خطا، در `scripts/test-staging-app-deploy.php` است؛ شبکه، bootstrap هاست، دیتابیس یا کلید خصوصی واقعی در تست بارگذاری نمی‌شود.
+- آزمون نصب‌کننده و بازگشت در PHP 8.3 با zip و تمام quality gates در commit `dc7d4ee` موفق شدند: https://github.com/rahmaniho/KarenYar/actions/runs/41298320357 . تست‌های هاست این نسخه هنوز منتظر ساخت فایل و اجرای مرحلهٔ بعد توسط کاربرند.
 
 ```text
 npm run test:staging-app-deploy
