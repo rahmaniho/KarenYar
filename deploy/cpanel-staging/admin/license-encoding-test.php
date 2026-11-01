@@ -85,6 +85,75 @@ karen_encoding_test_check(
     'بیت‌های انتهایی غیرکانونیکال باید رد شوند.'
 );
 
+$activationPath = dirname(__DIR__) . '/v1/activations.php';
+$refreshPath = dirname(__DIR__) . '/v1/refresh.php';
+$helperPath = dirname(__DIR__) . '/v1/license-encoding.php';
+$activationSource = @file_get_contents($activationPath);
+$refreshSource = @file_get_contents($refreshPath);
+$helperSource = @file_get_contents($helperPath);
+$activationSource = is_string($activationSource) ? $activationSource : '';
+$refreshSource = is_string($refreshSource) ? $refreshSource : '';
+$helperSource = is_string($helperSource) ? $helperSource : '';
+$activationRealPath = realpath($activationPath);
+$refreshRealPath = realpath($refreshPath);
+$helperRealPath = realpath($helperPath);
+
+$requirePattern = '~require_once\s+__DIR__\s*\.\s*[\'"]/license-encoding\.php[\'"]\s*;~';
+karen_encoding_test_check(
+    'activations_requires_shared_decoder',
+    preg_match($requirePattern, $activationSource) === 1,
+    'activations.php باید فایل کمکی را require کند.'
+);
+karen_encoding_test_check(
+    'activations_uses_shared_decoder',
+    preg_match('~karen_license_decode_key_material\s*\(\s*\$devicePublicKeyB64\s*,\s*32\s*\)~', $activationSource) === 1,
+    'activations.php باید کلید عمومی را با decoder مشترک باز کند.'
+);
+karen_encoding_test_check(
+    'activations_legacy_strict_decode_removed',
+    preg_match('~base64_decode\s*\(\s*\$devicePublicKeyB64\s*,\s*true\s*\)~', $activationSource) === 0,
+    'نباید decode سخت‌گیرانهٔ قدیمی برای کلید عمومی باقی مانده باشد.'
+);
+karen_encoding_test_check(
+    'refresh_requires_shared_decoder',
+    preg_match($requirePattern, $refreshSource) === 1,
+    'refresh.php باید فایل کمکی را require کند.'
+);
+karen_encoding_test_check(
+    'refresh_uses_shared_decoder',
+    preg_match('~karen_license_decode_key_material\s*\(\s*\$signatureB64\s*,\s*64\s*\)~', $refreshSource) === 1,
+    'refresh.php باید امضا را با decoder مشترک باز کند.'
+);
+karen_encoding_test_check(
+    'refresh_legacy_strict_decode_removed',
+    preg_match('~base64_decode\s*\(\s*\$signatureB64\s*,\s*true\s*\)~', $refreshSource) === 0,
+    'نباید decode سخت‌گیرانهٔ قدیمی برای امضا باقی مانده باشد.'
+);
+
+$decoderReflection = new ReflectionFunction('karen_license_decode_key_material');
+$decoderFile = $decoderReflection->getFileName();
+karen_encoding_test_check(
+    'shared_decoder_loaded_from_v1',
+    is_string($decoderFile) && $helperRealPath !== false && realpath($decoderFile) === $helperRealPath,
+    'تابع decoder باید از همان فایل v1/license-encoding.php بارگذاری شده باشد.'
+);
+
+$opcacheStatus = function_exists('opcache_get_status') ? @opcache_get_status(true) : false;
+$opcacheEnabled = is_array($opcacheStatus) && !empty($opcacheStatus['opcache_enabled']);
+$opcacheScripts = is_array($opcacheStatus) && isset($opcacheStatus['scripts']) && is_array($opcacheStatus['scripts'])
+    ? $opcacheStatus['scripts']
+    : [];
+$deploymentLines = [
+    'activations.php sha256=' . ($activationSource === '' ? 'unreadable_or_empty' : hash('sha256', $activationSource)),
+    'refresh.php sha256=' . ($refreshSource === '' ? 'unreadable_or_empty' : hash('sha256', $refreshSource)),
+    'license-encoding.php sha256=' . ($helperSource === '' ? 'unreadable_or_empty' : hash('sha256', $helperSource)),
+    'decoder_loaded_from=' . ($decoderFile === false ? 'unknown' : $decoderFile),
+    'opcache_enabled=' . ($opcacheEnabled ? 'yes' : 'no'),
+    'opcache_cached_activations=' . ($activationRealPath !== false && isset($opcacheScripts[$activationRealPath]) ? 'yes' : 'no'),
+    'opcache_cached_refresh=' . ($refreshRealPath !== false && isset($opcacheScripts[$refreshRealPath]) ? 'yes' : 'no'),
+    'opcache_cached_helper=' . ($helperRealPath !== false && isset($opcacheScripts[$helperRealPath]) ? 'yes' : 'no'),
+];
+
 $serverOk = true;
 foreach ($checks as $check) {
     if (!$check['ok']) {
@@ -136,6 +205,12 @@ header("Content-Security-Policy: default-src 'none'; script-src 'nonce-" . $nonc
     <p class="<?php echo $serverOk ? 'ok' : 'fail'; ?>">
       نتیجهٔ سمت سرور: <?php echo $serverOk ? 'PASS' : 'FAIL'; ?>
     </p>
+  </div>
+
+  <div class="card">
+    <h2>وضعیت فایل‌های deployed</h2>
+    <p class="muted">این بخش فقط اطلاعات تشخیصی است و درخواست زنده ارسال نمی‌کند. اگر تست سمت سرور FAIL است، ابتدا همان را بررسی کنید.</p>
+    <pre><?php echo karen_encoding_test_e(implode("\n", $deploymentLines)); ?></pre>
   </div>
 
   <div class="card">
