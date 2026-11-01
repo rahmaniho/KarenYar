@@ -150,16 +150,21 @@ function refresh_test_wait_for_lock(array $worker): void
     $connectionId = (int) ($connections[0]['connection_id'] ?? 0);
     refresh_test_assert($connectionId > 0, 'Worker connection ID must be known');
     $deadline = microtime(true) + 10;
+    $active = '';
     do {
-        $waiting = (int) $server->query("SELECT COUNT(*) FROM information_schema.INNODB_TRX WHERE trx_mysql_thread_id = " . $connectionId . " AND trx_state = 'LOCK WAIT'")->fetchColumn();
-        if ($waiting === 1) { return; }
+        // INNODB_TRX can retain the previous worker's cached row across fast tests.
+        // Inspect the live engine dump instead, matching this worker's thread only.
+        $status = (string) $server->query('SHOW ENGINE INNODB STATUS')->fetch()['Status'];
+        $active = strstr($status, "\nTRANSACTIONS\n") ?: '';
+        foreach (explode('---TRANSACTION', $active) as $transaction) {
+            if (preg_match('/(?:MySQL|MariaDB) thread id ' . $connectionId . ',/', $transaction) === 1 && str_contains($transaction, 'LOCK WAIT')) { return; }
+        }
         if (!proc_get_status($worker['process'])['running']) { break; }
         usleep(20000);
     } while (microtime(true) < $deadline);
-    $transactions = $server->query('SELECT trx_mysql_thread_id, trx_state, trx_query FROM information_schema.INNODB_TRX')->fetchAll();
     throw new RuntimeException('InnoDB did not observe the refresh worker waiting for the held license lock: ' . json_encode([
         'connection' => $connectionId,
-        'transactions' => $transactions,
+        'engine_transactions' => $active,
         'trace' => refresh_test_trace($worker),
         'output' => @file_get_contents($worker['base'] . '.out'),
         'errors' => @file_get_contents($worker['base'] . '.err'),
