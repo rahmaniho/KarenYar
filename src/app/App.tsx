@@ -6,12 +6,14 @@ import { LockScreen } from '@/components/LockScreen';
 import { useLockStore } from '@/store/lock-store';
 import { applyTheme, useSettingsStore } from '@/store/settings-store';
 import { useLicenseStore } from '@/store/license-store';
+import { useLicenseSync } from '@/hooks/use-license-sync';
 import { router } from './router';
 
 export function App() {
   const theme = useSettingsStore((s) => s.theme);
   const initLicense = useLicenseStore((s) => s.init);
   const locked = useLockStore((s) => s.locked);
+  useLicenseSync();
 
   // اعمال تم + دنبال‌کردن تغییر تم سیستم‌عامل در حالت «سیستم»
   useEffect(() => {

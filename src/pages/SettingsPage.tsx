@@ -11,6 +11,7 @@ import {
   Moon,
   MonitorSmartphone,
   Palette,
+  RefreshCw,
   Store,
   Sun,
   Trash2,
@@ -57,6 +58,22 @@ const SUPPORT_PHONE = import.meta.env.VITE_SUPPORT_PHONE ?? '';
 
 const ALL_FEATURES = Object.keys(FEATURE_LABELS) as Feature[];
 
+/** در حالت سروری، پلن‌ها اشتراکی‌اند و برچسب Lifetime درست نیست. */
+const SERVER_TIER_LABELS: Record<LicenseTier, string> = {
+  free: 'رایگان',
+  pro: 'حرفه‌ای',
+  proplus: 'Pro+',
+};
+
+const SERVER_STATUS_LABELS: Record<string, string> = {
+  inactive: 'فعال نشده',
+  active: 'فعال',
+  offline: 'فعال — حالت آفلاین',
+  expired: 'منقضی',
+  revoked: 'لغو شده',
+  error: 'نیاز به بررسی',
+};
+
 function SectionTitle({ icon: Icon, children }: { icon: typeof Palette; children: string }) {
   return (
     <CardTitle className="flex items-center gap-2 text-base">
@@ -76,6 +93,13 @@ export function SettingsPage() {
   const activate = useLicenseStore((s) => s.activate);
   const deactivate = useLicenseStore((s) => s.deactivate);
   const can = useLicenseStore((s) => s.can);
+  const licenseMode = useLicenseStore((s) => s.mode);
+  const licenseStatus = useLicenseStore((s) => s.status);
+  const licenseStatusMessage = useLicenseStore((s) => s.statusMessage);
+  const licenseSyncing = useLicenseStore((s) => s.syncing);
+  const syncLicense = useLicenseStore((s) => s.sync);
+  const deviceKeyId = useLicenseStore((s) => s.deviceKeyId);
+  const isServerLicense = licenseMode === 'server';
   const { canInstall, isInstalled, promptInstall } = useInstallPrompt();
 
   const [licenseKey, setLicenseKey] = useState('');
@@ -99,7 +123,7 @@ export function SettingsPage() {
 
   const handleActivate = async () => {
     if (!licenseKey.trim()) {
-      toast.error('کلید لایسنس را وارد کنید.');
+      toast.error(isServerLicense ? 'کد فعال‌سازی را وارد کنید.' : 'کلید لایسنس را وارد کنید.');
       return;
     }
     setActivating(true);
@@ -109,7 +133,7 @@ export function SettingsPage() {
         toast.error('این لایسنس منقضی شده است. برای تمدید با فروشنده تماس بگیرید.');
       } else {
         toast.success(
-          `نسخه‌ی ${TIER_LABELS[info.tier]} برای «${info.holderName ?? ''}» فعال شد. خوش آمدید!`,
+          `نسخه‌ی ${isServerLicense ? SERVER_TIER_LABELS[info.tier] : TIER_LABELS[info.tier]} برای «${info.holderName ?? ''}» فعال شد. خوش آمدید!`,
         );
       }
       setLicenseKey('');
@@ -447,8 +471,16 @@ export function SettingsPage() {
         <CardContent className="space-y-5">
           <div className="flex flex-wrap items-center gap-3 rounded-xl bg-muted/60 p-4">
             <Badge variant={licenseInfo.tier === 'free' ? 'secondary' : 'neon'} className="text-sm">
-              نسخه‌ی فعلی: {TIER_LABELS[licenseInfo.tier]}
+              نسخه‌ی فعلی:{' '}
+              {isServerLicense
+                ? SERVER_TIER_LABELS[licenseInfo.tier]
+                : TIER_LABELS[licenseInfo.tier]}
             </Badge>
+            {isServerLicense && (
+              <Badge variant="outline" className="text-xs">
+                {SERVER_STATUS_LABELS[licenseStatus] ?? licenseStatus}
+              </Badge>
+            )}
             {licenseInfo.holderName && (
               <span className="text-sm">
                 دارنده: <b>{licenseInfo.holderName}</b>
@@ -458,10 +490,10 @@ export function SettingsPage() {
               <span className="text-sm text-muted-foreground">
                 اعتبار تا {formatJalaliLong(new Date(licenseInfo.expiresAt))}
               </span>
-            ) : licenseInfo.tier !== 'free' ? (
+            ) : licenseInfo.tier !== 'free' && !isServerLicense ? (
               <span className="text-sm text-muted-foreground">مادام‌العمر (بدون انقضا)</span>
             ) : null}
-            {licenseInfo.tier === 'free' && (
+            {licenseInfo.tier === 'free' && !isServerLicense && (
               <span className="text-sm text-muted-foreground">
                 محدودیت نسخه‌ی رایگان: {toFaDigits(FREE_LIMITS.products)} کالا و{' '}
                 {toFaDigits(FREE_LIMITS.transactions)} تراکنش — بدون خروجی PDF و پشتیبان‌گیری
@@ -479,23 +511,58 @@ export function SettingsPage() {
             )}
           </div>
 
+          {isServerLicense && (
+            <div className="space-y-3 rounded-xl border border-dashed p-4">
+              {licenseStatusMessage && (
+                <p className="text-sm leading-7 text-muted-foreground" role="status">
+                  {licenseStatusMessage}
+                </p>
+              )}
+              <p className="text-xs leading-6 text-muted-foreground">
+                لایسنس روی این دستگاه ثبت شده است. حتی اگر لایسنس منقضی یا لغو شود، داده‌های شما پاک
+                نمی‌شود و پشتیبان‌گیری و خروجی PDF همیشه در دسترس می‌ماند.
+              </p>
+              {deviceKeyId && (
+                <p className="text-xs text-muted-foreground">
+                  شناسه‌ی این دستگاه: <b dir="ltr">{deviceKeyId}</b>
+                </p>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void syncLicense(true)}
+                disabled={licenseSyncing}
+              >
+                <RefreshCw aria-hidden className={licenseSyncing ? 'animate-spin' : undefined} />
+                {licenseSyncing ? 'در حال بررسی…' : 'بررسی آنلاین و تمدید'}
+              </Button>
+            </div>
+          )}
+
           {licenseInfo.tier === 'free' && (
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label htmlFor="license-key">کلید لایسنس</Label>
+                <Label htmlFor="license-key">
+                  {isServerLicense ? 'کد فعال‌سازی' : 'کلید لایسنس'}
+                </Label>
                 <Textarea
                   id="license-key"
                   dir="ltr"
                   className="text-left font-mono text-xs"
                   rows={3}
-                  placeholder="KS1.xxxxxxxx.xxxxxxxx"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder={
+                    isServerLicense ? 'KS-STAGE-xxxxxxxxxxxxxxxx' : 'KS1.xxxxxxxx.xxxxxxxx'
+                  }
                   value={licenseKey}
                   onChange={(e) => setLicenseKey(e.target.value)}
                   aria-describedby="license-help"
                 />
                 <p id="license-help" className="text-xs text-muted-foreground">
-                  کلید را دقیقاً همان‌طور که دریافت کرده‌اید وارد کنید؛ فعال‌سازی کاملاً آفلاین
-                  انجام می‌شود.
+                  {isServerLicense
+                    ? 'کد فعال‌سازی را از فروشنده بگیرید. فعال‌سازی به اینترنت نیاز دارد و این دستگاه در سرور ثبت می‌شود؛ بعد از آن، برنامه تا پایان اعتبار توکن آفلاین هم کار می‌کند.'
+                    : 'کلید را دقیقاً همان‌طور که دریافت کرده‌اید وارد کنید؛ فعال‌سازی کاملاً آفلاین انجام می‌شود.'}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -768,7 +835,11 @@ export function SettingsPage() {
         open={deactivateOpen}
         onOpenChange={setDeactivateOpen}
         title="غیرفعال‌کردن لایسنس"
-        description="لایسنس از این دستگاه حذف و برنامه به نسخه‌ی رایگان برمی‌گردد. داده‌های شما پاک نمی‌شود. ادامه می‌دهید؟"
+        description={
+          isServerLicense
+            ? 'لایسنس از این دستگاه حذف و برنامه به نسخه‌ی رایگان برمی‌گردد. داده‌های شما پاک نمی‌شود و خروجی گرفتن از آن‌ها باز می‌ماند. ثبت این دستگاه در سرور باقی می‌ماند و برای آزادکردن ظرفیت، باید از پنل مدیریت لغو شود. ادامه می‌دهید؟'
+            : 'لایسنس از این دستگاه حذف و برنامه به نسخه‌ی رایگان برمی‌گردد. داده‌های شما پاک نمی‌شود. ادامه می‌دهید؟'
+        }
         confirmLabel="غیرفعال‌کردن"
         destructive
         onConfirm={async () => {
