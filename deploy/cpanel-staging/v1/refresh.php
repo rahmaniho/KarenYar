@@ -203,6 +203,13 @@ SQL
         $abort(404, 'device_or_license_invalid');
     }
 
+    // Locks may have waited: never authorize with the pre-wait timestamp/clock.
+    $now = time();
+
+    if ($timestamp < $now - 300 || $timestamp > $now + 300) {
+        $abort(400, 'invalid_timestamp');
+    }
+
     $row = array_merge($device, $license, $account);
 
     if ((string) $row['product_code'] !== $productCode) {
@@ -318,6 +325,18 @@ SQL
         'token_exp' => $tokenExpiresAt,
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), PDO::PARAM_STR);
     $stmt->execute();
+
+    // SQL/signing can wait too. Roll back all effects rather than return a
+    // token for a request or license that expired before the commit decision.
+    $commitNow = time();
+
+    if ($timestamp < $commitNow - 300 || $timestamp > $commitNow + 300) {
+        $abort(400, 'invalid_timestamp');
+    }
+
+    if ($tokenExpiresAt <= $commitNow) {
+        $abort(400, 'license_expired');
+    }
 
     $pdo->commit();
 

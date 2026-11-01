@@ -9,7 +9,7 @@ define('KAREN_ENV', 'staging');
 define('KAREN_ISSUER', 'karen-license-test');
 define('KAREN_AUDIENCE', 'hesabyar-app');
 
-function karen_refresh_test_trace(string $phase, string $kind, bool $inTransaction, ?string $sql = null, ?int $connectionId = null): void
+function karen_refresh_test_trace(string $phase, string $kind, bool $inTransaction, ?string $sql = null, ?int $connectionId = null, ?int $timestamp = null): void
 {
     $path = $GLOBALS['karen_test_request']['trace'];
     file_put_contents($path, json_encode([
@@ -18,6 +18,7 @@ function karen_refresh_test_trace(string $phase, string $kind, bool $inTransacti
         'transaction' => $inTransaction,
         'sql' => $sql,
         'connection_id' => $connectionId,
+        'timestamp' => $timestamp,
     ], JSON_THROW_ON_ERROR) . "\n", FILE_APPEND | LOCK_EX);
 }
 
@@ -97,7 +98,20 @@ final class KarenRefreshTestStatement extends PDOStatement
 
 function karen_read_json(): array
 {
-    return $GLOBALS['karen_test_request']['input'];
+    $request = $GLOBALS['karen_test_request'];
+    $input = $request['input'];
+    if (array_key_exists('stamp_offset', $request)) {
+        // Calibrate only the synthetic client's signed input at worker entry.
+        // Production time(), endpoint SQL and lock waits are never substituted.
+        $input['timestamp'] = time() + (int) $request['stamp_offset'];
+        $device = (int) ($request['stamp_device'] ?? 1);
+        $pair = sodium_crypto_sign_seed_keypair(hash('sha256', 'public-device-test-seed-' . $device, true));
+        $message = implode("\n", ['karen-license-refresh-v1', $input['product_code'],
+            $input['device_key_id'], (string) $input['timestamp'], $input['nonce']]);
+        $input['signature_b64'] = base64_encode(sodium_crypto_sign_detached($message, sodium_crypto_sign_secretkey($pair)));
+        karen_refresh_test_trace('after', 'input_clock', false, null, null, $input['timestamp']);
+    }
+    return $input;
 }
 function karen_db(): PDO
 {

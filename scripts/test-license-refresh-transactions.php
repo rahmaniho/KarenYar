@@ -451,6 +451,7 @@ try {
         refresh_test_equal(0, (int) $stmt->fetchColumn(), 'Expired nonce removed');
     });
     require __DIR__ . '/fixtures/license-nonce-cleanup-cases.php';
+    require __DIR__ . '/fixtures/license-refresh-freshness-cases.php';
     echo json_encode(['ok' => true, 'database' => $version, 'isolation' => 'REPEATABLE READ', 'passed' => count($passed), 'tests' => $passed], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT) . "\n";
     if (getenv('GITHUB_ACTIONS') === 'true') {
         echo '::notice title=Refresh transaction tests::' . count($passed) . ' cases passed on ' . $version . ' with REPEATABLE READ' . "\n";
