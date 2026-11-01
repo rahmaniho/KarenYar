@@ -18,6 +18,16 @@ if (($argv[1] ?? '') === '--worker') {
     require $argv[3];
     exit;
 }
+set_exception_handler(static function (Throwable $error): never {
+    $message = $error->getMessage();
+    fwrite(STDERR, (string) $error . "\n");
+    if (getenv('GITHUB_ACTIONS') === 'true') {
+        $escape = static fn(string $text): string => str_replace(['%', "\r", "\n"], ['%25', '%0D', '%0A'], $text);
+        echo '::error title=Refresh transaction regression::' . $escape($message) . "\n";
+        echo '::notice title=Completed transaction cases::' . $escape(implode('; ', $GLOBALS['passed'] ?? [])) . "\n";
+    }
+    exit(1);
+});
 if (!extension_loaded('pdo_mysql') || !extension_loaded('sodium') || !function_exists('proc_open')) {
     throw new RuntimeException('Tests require PHP pdo_mysql, sodium and proc_open.');
 }
@@ -164,6 +174,7 @@ function refresh_test_finish(array $worker): array
     $errors = (string) file_get_contents($worker['base'] . '.err');
     refresh_test_equal(0, $state['exitcode'] >= 0 ? $state['exitcode'] : $closed, 'Worker exit: ' . $errors);
     $response = json_decode($output, true, 512, JSON_THROW_ON_ERROR);
+    $response['test_stderr'] = $errors;
     return $response;
 }
 function refresh_test_request(array $input, array $controls = []): array
@@ -428,6 +439,9 @@ try {
         refresh_test_equal(0, (int) $stmt->fetchColumn(), 'Expired nonce removed');
     });
     echo json_encode(['ok' => true, 'database' => $version, 'isolation' => 'REPEATABLE READ', 'passed' => count($passed), 'tests' => $passed], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT) . "\n";
+    if (getenv('GITHUB_ACTIONS') === 'true') {
+        echo '::notice title=Refresh transaction tests::' . count($passed) . ' cases passed on ' . $version . ' with REPEATABLE READ' . "\n";
+    }
 } finally {
     foreach ($children as $worker) {
         if (is_resource($worker['process'])) { proc_terminate($worker['process']); proc_close($worker['process']); }
