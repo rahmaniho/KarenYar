@@ -123,7 +123,8 @@ public key SHA-256: c6764aea4f3fda425b71c5960b5bf78b80b9d0c15bb65895eb290e37dce6
 - تست نشست ذخیره‌شده: رد توکن و کلید جایگزین‌شده، حفظ حق بکاپ و PDF، سازگاری قالب نشست قبلی و تشخیص انقضا هنگام قطع شبکه.
 - build آفلاین/دمو و build پین‌شدهٔ staging: موفق؛ کلید staging در خروجی demo حضور ندارد.
 - پوشش محدودهٔ تنظیم‌شدهٔ Vitest: ۹۱٫۳۳٪ statements/lines و ۸۶٫۶٪ branches.
-- PHP در محیط محلی این مرحله در دسترس نیست؛ فایل PHP در گام ۲ تغییر نکرده و تست کامل PHP همچنان در quality CI اجرا می‌شود.
+- PHP در محیط محلی این مرحله در دسترس نیست؛ تست کامل PHP/sodium در quality CI با Node 22 و PHP 8.3 موفق شد. فایل PHP در گام ۲ تغییر نکرده است.
+- CI کد گام ۲ در commit `30904a3`: https://github.com/rahmaniho/KarenYar/actions/runs/41296925873 — موفق. گزارش audit وابستگی‌ها همچنان advisoryهای باز را ثبت می‌کند و gate مسدودکننده نیست.
 - E2E واقعی این بیلد جدید روی staging هنوز منتظر نصب و تأیید کاربر است؛ تست شبیه‌سازی‌شده جای آن را نمی‌گیرد.
 
 ```text
@@ -140,6 +141,8 @@ npm run build:staging-web
 
 ```text
 path: deploy/cpanel-staging/artifacts/hesabyar-staging-web.zip
+source commit: 30904a3595e0157158fcc4805fd20d5417aae0fc
+download URL: https://raw.githubusercontent.com/rahmaniho/KarenYar/30904a3595e0157158fcc4805fd20d5417aae0fc/deploy/cpanel-staging/artifacts/hesabyar-staging-web.zip
 SHA-256: 2a88c326d2fe063aea69281502aec46c320447fb36d3e4ca867cf07e5cf53ec7
 size: 1411728 bytes
 files: 88
