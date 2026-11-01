@@ -25,6 +25,7 @@ import {
   ServerLicenseError,
   activateWithServer,
   refreshWithServer,
+  verifyServerLicenseSession,
   type LicenseSession,
 } from '@/core/license/server/api';
 import {
@@ -32,7 +33,7 @@ import {
   ensureDeviceIdentity,
   loadDeviceIdentity,
 } from '@/core/license/server/device-identity';
-import { verifyLicenseToken } from '@/core/license/server/token';
+import { isExpiredLicenseTokenError } from '@/core/license/server/token';
 
 const LICENSE_ROW_KEY = 'current';
 const SESSION_ROW_KEY = 'server-license-session';
@@ -72,6 +73,8 @@ const ACTIVATION_ERROR_MESSAGES: Record<string, string> = {
     'این دستگاه به لایسنس دیگری متصل است. ابتدا لایسنس قبلی را روی همین دستگاه غیرفعال کنید یا با پشتیبانی تماس بگیرید.',
   device_key_mismatch: 'شناسه‌ی دستگاه با ثبت سرور نمی‌خواند. با پشتیبانی تماس بگیرید.',
   rate_limited: 'تلاش‌های بیش از حد؛ حدود ۱۰ دقیقه صبر کنید و دوباره امتحان کنید.',
+  issuer_key_mismatch: 'کلید امضای سرور مورد اعتماد این نسخه نیست. با پشتیبانی تماس بگیرید.',
+  issuer_kid_mismatch: 'شناسه‌ی کلید امضای سرور تغییر کرده است. با پشتیبانی تماس بگیرید.',
 };
 
 const PERMANENT_REJECTION_MESSAGES: Record<string, string> = {
@@ -119,13 +122,7 @@ export const useLicenseStore = create<LicenseState>()((set, get) => {
     const config = getServerLicenseConfig();
     if (!config) return;
     try {
-      const { claims } = await verifyLicenseToken(session.token, {
-        publicKeyB64: session.issuerPublicKeyB64,
-        kid: session.kid,
-        environment: config.environment,
-        product: 'hesabyar',
-        deviceKeyId,
-      });
+      const { claims } = await verifyServerLicenseSession(config, session, deviceKeyId);
       const licenseExpiry =
         session.licenseExpiresAt !== undefined
           ? session.licenseExpiresAt
@@ -153,13 +150,13 @@ export const useLicenseStore = create<LicenseState>()((set, get) => {
         lastCheckedAt: checkedAt,
       });
     } catch (error) {
-      const expired = error instanceof LicenseError && error.message.includes('منقضی');
+      const expired = isExpiredLicenseTokenError(error);
       set({
         info: { ...FREE_LICENSE_INFO, isExpired: expired },
         status: expired ? 'expired' : 'error',
         statusMessage: expired
           ? 'توکن لایسنس منقضی شده است؛ برای تمدید، برنامه را به اینترنت وصل کنید. داده‌های شما دست‌نخورده است.'
-          : 'توکن لایسنس قابل تأیید نیست؛ یک بار فعال‌سازی را تکرار کنید. داده‌های شما دست‌نخورده است.',
+          : 'توکن لایسنس قابل تأیید نیست؛ «بررسی آنلاین و تمدید» را بزنید. اگر خطا ادامه داشت با پشتیبانی تماس بگیرید. داده‌های شما دست‌نخورده است.',
       });
     }
   }

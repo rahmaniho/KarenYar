@@ -1,0 +1,7 @@
+{
+  "environment": "staging",
+  "issuer": "karen-license-staging",
+  "audience": "hesabyar-app",
+  "issuerKeyId": "staging-ed25519-c6764aea4f3fda42",
+  "issuerPublicKeyB64": "mRSBJrVv5+hHAw0QkC5u5nMinkxap5w1xxcJpIHHDDo="
+}

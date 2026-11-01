@@ -29,6 +29,7 @@ import {
   type Feature,
   type LicenseTier,
 } from '@/core/license/license-core';
+import { getServerLicenseConfig } from '@/core/license/server/config';
 import { formatJalaliLong } from '@/core/jalali/jalali';
 import { toFaDigits } from '@/core/currency/currency';
 import { useLicenseStore } from '@/store/license-store';
@@ -100,6 +101,7 @@ export function SettingsPage() {
   const syncLicense = useLicenseStore((s) => s.sync);
   const deviceKeyId = useLicenseStore((s) => s.deviceKeyId);
   const isServerLicense = licenseMode === 'server';
+  const trustedIssuerKeyId = getServerLicenseConfig()?.issuerKeyId;
   const { canInstall, isInstalled, promptInstall } = useInstallPrompt();
 
   const [licenseKey, setLicenseKey] = useState('');
@@ -522,6 +524,14 @@ export function SettingsPage() {
                 لایسنس روی این دستگاه ثبت شده است. حتی اگر لایسنس منقضی یا لغو شود، داده‌های شما پاک
                 نمی‌شود و پشتیبان‌گیری و خروجی PDF همیشه در دسترس می‌ماند.
               </p>
+              {trustedIssuerKeyId && (
+                <p className="text-xs leading-6 text-muted-foreground">
+                  کلید مورد اعتماد سرور:{' '}
+                  <b dir="ltr" className="break-all font-mono">
+                    {trustedIssuerKeyId}
+                  </b>
+                </p>
+              )}
               {deviceKeyId && (
                 <p className="text-xs text-muted-foreground">
                   شناسه‌ی این دستگاه: <b dir="ltr">{deviceKeyId}</b>

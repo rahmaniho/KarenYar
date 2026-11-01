@@ -36,10 +36,12 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
+      - run: npm run test:license-build
       - run: npm run test:license-backend
       - run: npm run build
         env:
           VITE_BASE: /
+      - run: npm run build:staging-web
 
       # Dependency upgrades are a separate tracked stage. Publish the audit
       # result now so advisories cannot disappear from review unnoticed.

@@ -1,9 +1,17 @@
 import 'fake-indexeddb/auto';
-import { webcrypto } from 'node:crypto';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from '@/core/db/db';
 
-import { bytesToBase64Url } from '@/core/license/server/token';
+import {
+  installTestCrypto,
+  makeTestIssuer,
+  makeTestSession,
+  TEST_AUDIENCE,
+  TEST_DEVICE_KEY_ID,
+  TEST_ISSUER,
+  TEST_ISSUER_KEY_ID,
+  type TestIssuer,
+} from '@/tests/license-fixtures';
 import { ServerLicenseError, type LicenseSession } from '@/core/license/server/api';
 
 vi.mock('@/core/license/server/device-identity', () => ({
@@ -34,52 +42,14 @@ vi.mock('@/core/license/server/api', async (importOriginal) => {
   };
 });
 
-const DEVICE_KEY_ID = '11111111-1111-4111-8111-111111111111';
+const DEVICE_KEY_ID = TEST_DEVICE_KEY_ID;
 const SESSION_ROW_KEY = 'server-license-session';
+let issuer: TestIssuer;
 
-beforeAll(() => {
-  if (!globalThis.crypto?.subtle) {
-    Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true });
-  }
-});
+beforeAll(installTestCrypto);
 
 async function makeSession(plan = 'pro'): Promise<LicenseSession> {
-  const pair = (await webcrypto.subtle.generateKey({ name: 'Ed25519' }, true, [
-    'sign',
-    'verify',
-  ])) as CryptoKeyPair;
-  const raw = new Uint8Array(await webcrypto.subtle.exportKey('raw', pair.publicKey));
-  const now = Math.floor(Date.now() / 1000);
-  const header = { alg: 'EdDSA', typ: 'hesabyar-license', kid: 'k1', env: 'staging' };
-  const claims = {
-    iss: 'karen-license-staging',
-    aud: 'hesabyar-app',
-    env: 'staging',
-    sub: 'STAGING-CUSTOMER-001',
-    jti: 'license-1',
-    product: 'hesabyar',
-    plan,
-    features: ['backup', 'pdf-export'],
-    device_key_id: DEVICE_KEY_ID,
-    device_id: 1,
-    max_devices: 2,
-    iat: now,
-    nbf: now,
-    exp: now + 7 * 86400,
-  };
-  const h = bytesToBase64Url(new TextEncoder().encode(JSON.stringify(header)));
-  const c = bytesToBase64Url(new TextEncoder().encode(JSON.stringify(claims)));
-  const sig = await webcrypto.subtle.sign(
-    { name: 'Ed25519' },
-    pair.privateKey,
-    new TextEncoder().encode(`${h}.${c}`),
-  );
-  return {
-    token: `HY2.${h}.${c}.${bytesToBase64Url(new Uint8Array(sig))}`,
-    kid: 'k1',
-    issuerPublicKeyB64: bytesToBase64Url(raw),
-    updatedAt: new Date().toISOString(),
-  };
+  return makeTestSession(issuer, { plan });
 }
 
 async function loadStore() {
@@ -89,6 +59,11 @@ async function loadStore() {
 }
 
 beforeEach(async () => {
+  issuer = await makeTestIssuer();
+  vi.stubEnv('VITE_LICENSE_ISSUER', TEST_ISSUER);
+  vi.stubEnv('VITE_LICENSE_AUDIENCE', TEST_AUDIENCE);
+  vi.stubEnv('VITE_LICENSE_ISSUER_KEY_ID', TEST_ISSUER_KEY_ID);
+  vi.stubEnv('VITE_LICENSE_ISSUER_PUBLIC_KEY', issuer.publicKeyB64);
   vi.stubEnv('VITE_LICENSE_API_BASE', 'https://staging.example/v1');
   vi.stubEnv('VITE_LICENSE_ENV', 'staging');
   await db.license.clear();
@@ -178,6 +153,82 @@ describe('استور لایسنس سروری', () => {
     expect(store.getState().info.tier).toBe('pro');
     expect(store.getState().statusMessage).toContain('rate_limited');
   });
+
+  it('کلید ناسازگار پاسخ تمدید، نشست معتبر قبلی را جایگزین نمی‌کند', async () => {
+    const session = await makeSession();
+    activateWithServer.mockResolvedValue(session);
+    const store = await loadStore();
+    await store.getState().activate('KS-STAGE-TEST');
+    refreshWithServer.mockRejectedValue(
+      new ServerLicenseError('issuer_key_mismatch', 'issuer_key_mismatch'),
+    );
+    await store.getState().sync(true);
+    expect(store.getState().info.tier).toBe('pro');
+    expect(store.getState().statusMessage).toContain('issuer_key_mismatch');
+    expect((await db.license.get(SESSION_ROW_KEY))?.value).toEqual(session);
+  });
+
+  it('نشست قبلی با کلید واقعی در قالب base64url، بعد از ارتقا هم معتبر است', async () => {
+    const session = await makeSession();
+    session.issuerPublicKeyB64 = session.issuerPublicKeyB64
+      .replaceAll('+', '-')
+      .replaceAll('/', '_')
+      .replace(/=$/, '');
+    await db.license.put({ key: SESSION_ROW_KEY, value: session });
+    await db.license.put({ key: 'server-license-ever-activated', value: true });
+    const store = await loadStore();
+    await store.getState().init();
+    await vi.waitFor(() => expect(store.getState().status).toBe('offline'));
+    expect(store.getState().info.tier).toBe('pro');
+    expect(store.getState().can('backup')).toBe(true);
+  });
+
+  it('توکن ذخیره‌شدهٔ منقضی، حتی هنگام قطعی شبکه expired می‌ماند و خروجی باز است', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const session = await makeTestSession(issuer, { iat: now - 100, nbf: now - 100, exp: now - 1 });
+    await db.license.put({ key: SESSION_ROW_KEY, value: session });
+    await db.license.put({ key: 'server-license-ever-activated', value: true });
+    const store = await loadStore();
+    await store.getState().init();
+    await vi.waitFor(() => expect(refreshWithServer).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(store.getState().syncing).toBe(false));
+    expect(store.getState().status).toBe('expired');
+    expect(store.getState().info.isExpired).toBe(true);
+    expect(store.getState().can('backup')).toBe(true);
+    expect(store.getState().can('pdf-export')).toBe(true);
+  });
+
+  it.each(['foreign key', 'forged key metadata', 'kid', 'issuer', 'audience'])(
+    'نشست IndexedDB با %s دست‌کاری‌شده، آفلاین پذیرفته نمی‌شود',
+    async (mutation) => {
+      let session = await makeSession();
+      if (mutation === 'foreign key' || mutation === 'forged key metadata') {
+        const attacker = await makeTestIssuer();
+        session = await makeTestSession(attacker, { plan: 'proplus' });
+        if (mutation === 'forged key metadata') {
+          session.issuerPublicKeyB64 = issuer.publicKeyB64;
+        }
+      } else if (mutation === 'kid') {
+        session.kid = 'untrusted-kid';
+      } else {
+        session = await makeTestSession(issuer, {
+          [mutation === 'issuer' ? 'iss' : 'aud']: 'another-service',
+        });
+      }
+      await db.license.put({ key: SESSION_ROW_KEY, value: session });
+      await db.license.put({ key: 'server-license-ever-activated', value: true });
+      const store = await loadStore();
+      await store.getState().init();
+      await vi.waitFor(() => expect(refreshWithServer).toHaveBeenCalledOnce());
+      await vi.waitFor(() => expect(store.getState().syncing).toBe(false));
+      expect(store.getState().info.tier).toBe('free');
+      expect(store.getState().status).toBe('error');
+      // Trust failures never wipe financial data or remove the right to export it.
+      expect(store.getState().everActivated).toBe(true);
+      expect(store.getState().can('backup')).toBe(true);
+      expect(store.getState().can('pdf-export')).toBe(true);
+    },
+  );
 
   it('غیرفعال‌سازی دستی فقط نشست را پاک می‌کند، نه هویت دستگاه را', async () => {
     activateWithServer.mockResolvedValue(await makeSession('pro'));

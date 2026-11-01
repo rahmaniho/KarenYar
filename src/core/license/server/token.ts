@@ -7,6 +7,27 @@
  */
 import { LicenseError } from '../license-core';
 
+export class LicenseTokenError extends LicenseError {
+  constructor(
+    public readonly code:
+      'invalid_token' | 'invalid_signature' | 'token_expired' | 'crypto_missing',
+    message: string,
+  ) {
+    super(message);
+    this.name = 'LicenseTokenError';
+  }
+}
+
+/** Stable across module reloads; no classification by translated message text. */
+export function isExpiredLicenseTokenError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.name === 'LicenseTokenError' &&
+    'code' in error &&
+    error.code === 'token_expired'
+  );
+}
+
 export interface LicenseTokenHeader {
   alg: string;
   typ: string;
@@ -44,6 +65,8 @@ export interface VerifyTokenOptions {
   publicKeyB64: string;
   kid: string;
   environment: string;
+  issuer: string;
+  audience: string;
   product: string;
   deviceKeyId: string;
   nowMs?: number;
@@ -85,7 +108,10 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 }
 
 function invalid(): never {
-  throw new LicenseError('توکن لایسنس معتبر نیست. برنامه را دوباره فعال‌سازی کنید.');
+  throw new LicenseTokenError(
+    'invalid_token',
+    'توکن لایسنس معتبر نیست. برنامه را دوباره فعال‌سازی کنید.',
+  );
 }
 
 export async function verifyLicenseToken(
@@ -93,7 +119,21 @@ export async function verifyLicenseToken(
   options: VerifyTokenOptions,
 ): Promise<VerifiedToken> {
   const subtle = globalThis.crypto?.subtle;
-  if (!subtle) throw new LicenseError('مرورگر شما از رمزنگاری امن پشتیبانی نمی‌کند.');
+  if (!subtle)
+    throw new LicenseTokenError('crypto_missing', 'مرورگر شما از رمزنگاری امن پشتیبانی نمی‌کند.');
+
+  // Expected trust must be explicit, never inferred from the token or response.
+  for (const value of [
+    options.publicKeyB64,
+    options.kid,
+    options.environment,
+    options.issuer,
+    options.audience,
+    options.product,
+    options.deviceKeyId,
+  ]) {
+    if (typeof value !== 'string' || value === '') invalid();
+  }
 
   const parts = token.split('.');
   if (parts.length !== 4 || parts[0] !== 'HY2' || token.length > 8192) invalid();
@@ -128,6 +168,7 @@ export async function verifyLicenseToken(
   ) {
     invalid();
   }
+  if (claims.iss !== options.issuer || claims.aud !== options.audience) invalid();
   if (claims.product !== options.product || claims.device_key_id !== options.deviceKeyId) invalid();
 
   let publicKey: CryptoKey;
@@ -148,12 +189,15 @@ export async function verifyLicenseToken(
     if (error instanceof LicenseError) throw error;
     invalid();
   }
-  if (!valid) throw new LicenseError('امضای توکن لایسنس معتبر نیست.');
+  if (!valid) throw new LicenseTokenError('invalid_signature', 'امضای توکن لایسنس معتبر نیست.');
 
   const now = Math.floor((options.nowMs ?? Date.now()) / 1000);
   const skew = options.clockSkewSeconds ?? 60;
   if (claims.exp <= now)
-    throw new LicenseError('توکن لایسنس منقضی شده است؛ برنامه را به اینترنت وصل کنید.');
+    throw new LicenseTokenError(
+      'token_expired',
+      'توکن لایسنس منقضی شده است؛ برنامه را به اینترنت وصل کنید.',
+    );
   if (claims.nbf > now + skew || claims.iat > now + skew) invalid();
 
   return { header, claims };

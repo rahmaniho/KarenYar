@@ -5,7 +5,8 @@
 import { LicenseError } from '../license-core';
 import type { ServerLicenseConfig } from './config';
 import type { DeviceIdentity } from './device-identity';
-import { bytesToBase64Url, verifyLicenseToken } from './token';
+import { bytesToBase64Url, verifyLicenseToken, type VerifiedToken } from './token';
+import { normalizeIssuerPublicKey } from './public-key';
 
 export const LICENSE_PRODUCT_CODE = 'hesabyar';
 
@@ -95,6 +96,44 @@ async function postJson(
   return data;
 }
 
+/** Online responses and persisted sessions must pass the SAME pinned trust check. */
+export async function verifyServerLicenseSession(
+  config: ServerLicenseConfig,
+  session: LicenseSession,
+  deviceKeyId: string,
+): Promise<VerifiedToken> {
+  let matchingKey = false;
+  try {
+    matchingKey =
+      normalizeIssuerPublicKey(session.issuerPublicKeyB64) ===
+      normalizeIssuerPublicKey(config.issuerPublicKeyB64);
+  } catch {
+    // Malformed or missing key material fails closed, just like a different key.
+  }
+  if (!matchingKey) {
+    throw new ServerLicenseError(
+      'issuer_key_mismatch',
+      'کلید عمومی سرور با کلید ثبت‌شده در برنامه یکی نیست.',
+    );
+  }
+  if (!config.issuerKeyId || session.kid !== config.issuerKeyId) {
+    throw new ServerLicenseError(
+      'issuer_kid_mismatch',
+      'شناسه‌ی کلید سرور با شناسه‌ی ثبت‌شده در برنامه یکی نیست.',
+    );
+  }
+  // Always verify with BUILD trust, never a key or kid supplied by API/IndexedDB.
+  return verifyLicenseToken(session.token, {
+    publicKeyB64: config.issuerPublicKeyB64,
+    kid: config.issuerKeyId,
+    environment: config.environment,
+    issuer: config.issuer,
+    audience: config.audience,
+    product: LICENSE_PRODUCT_CODE,
+    deviceKeyId,
+  });
+}
+
 async function toSession(
   config: ServerLicenseConfig,
   data: unknown,
@@ -103,20 +142,13 @@ async function toSession(
   if (!isIssuedTokenResponse(data)) {
     throw new ServerLicenseError('invalid_response', 'پاسخ سرور لایسنس معتبر نیست.');
   }
-  if (config.issuerPublicKeyB64 && data.issuer_public_key_b64 !== config.issuerPublicKeyB64) {
-    throw new ServerLicenseError(
-      'issuer_key_mismatch',
-      'کلید عمومی سرور با کلید ثبت‌شده در برنامه یکی نیست.',
-    );
-  }
-  // امضا و ادعاها همین‌جا آفلاین بررسی می‌شوند؛ پاسخ سرور بدون امضای معتبر پذیرفته نمی‌شود.
-  await verifyLicenseToken(data.token, {
-    publicKeyB64: data.issuer_public_key_b64,
+  const candidate: LicenseSession = {
+    token: data.token,
     kid: data.kid,
-    environment: config.environment,
-    product: LICENSE_PRODUCT_CODE,
-    deviceKeyId,
-  });
+    issuerPublicKeyB64: data.issuer_public_key_b64,
+    updatedAt: new Date().toISOString(),
+  };
+  await verifyServerLicenseSession(config, candidate, deviceKeyId);
   const license = (data as { license?: unknown }).license;
   let licenseExpiresAt: string | null | undefined;
   if (license && typeof license === 'object') {
@@ -126,9 +158,9 @@ async function toSession(
   }
   return {
     token: data.token,
-    kid: data.kid,
-    issuerPublicKeyB64: data.issuer_public_key_b64,
-    updatedAt: new Date().toISOString(),
+    kid: config.issuerKeyId,
+    issuerPublicKeyB64: config.issuerPublicKeyB64,
+    updatedAt: candidate.updatedAt,
     licenseExpiresAt,
   };
 }
