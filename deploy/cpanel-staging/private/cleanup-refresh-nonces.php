@@ -107,6 +107,8 @@ function karen_nonce_cleanup_status(string $directory, array $status): void
     $temporary = @tempnam($directory, '.nonce-status-');
     if ($temporary === false) { throw new RuntimeException('cleanup_storage_unavailable'); }
     try {
+        // tempnam can fall back to the system temp directory; never write status there.
+        if (dirname($temporary) !== $directory) { throw new RuntimeException('cleanup_storage_unavailable'); }
         $json = json_encode($status, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
         if (!@chmod($temporary, 0600) || @file_put_contents($temporary, $json) !== strlen($json)
             || !@rename($temporary, $target)) { throw new RuntimeException('cleanup_storage_unavailable'); }

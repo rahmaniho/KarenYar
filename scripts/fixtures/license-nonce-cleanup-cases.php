@@ -375,6 +375,12 @@ refresh_test_case('cleanup status symlink cannot overwrite another file', functi
         refresh_test_assert(!is_file($scratch . '/cleanup-bootstrap-hit'), 'Storage checked before DB');
     } finally { unlink($target); }
 });
+refresh_test_case('cleanup status refuses an unavailable private directory without orphaned fallback files', function () use ($scratch): void {
+    $pattern = sys_get_temp_dir() . '/.nonce-status-*';
+    $before = glob($pattern) ?: [];
+    nonce_test_error(fn() => karen_nonce_cleanup_status($scratch . '/missing-private-directory', ['ok' => true]), 'cleanup_storage_unavailable');
+    refresh_test_equal([], array_values(array_diff(glob($pattern) ?: [], $before)), 'No status or temporary file left outside private directory');
+});
 refresh_test_case('cleanup rejects HTTP before loading the private bootstrap', function () use ($scratch): void {
     nonce_test_clear_markers();
     $socket = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
