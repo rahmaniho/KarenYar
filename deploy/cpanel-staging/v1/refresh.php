@@ -234,8 +234,6 @@ SQL
         $abort(401, 'invalid_device_signature');
     }
 
-    $pdo->exec('DELETE FROM device_refresh_nonces WHERE expires_at < UTC_TIMESTAMP() LIMIT 100');
-
     $nonceHash = hash('sha256', $deviceKeyId . '|' . $nonce, true);
 
     $stmt = $pdo->prepare(<<<'SQL'

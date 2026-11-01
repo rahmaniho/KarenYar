@@ -54,6 +54,16 @@ final class KarenRefreshTestPDO extends PDO
         }
     }
 
+    public function exec(string $statement): int|false
+    {
+        $sql = (string) preg_replace('/\s+/', ' ', trim($statement));
+        $nonceDelete = preg_match('/^DELETE\b.*\bdevice_refresh_nonces\b/i', $sql) === 1;
+        if ($nonceDelete) { karen_refresh_test_trace('before', 'nonce_delete', $this->inTransaction(), $sql); }
+        $result = parent::exec($statement);
+        if ($nonceDelete) { karen_refresh_test_trace('after', 'nonce_delete', $this->inTransaction(), $sql); }
+        return $result;
+    }
+
     public function beginTransaction(): bool
     {
         $result = parent::beginTransaction();
@@ -92,6 +102,7 @@ final class KarenRefreshTestStatement extends PDOStatement
             str_starts_with($sql, 'UPDATE license_devices') => 'seen',
             str_starts_with($sql, 'INSERT INTO license_events') => 'event',
             $sql === 'SELECT UNIX_TIMESTAMP()' => 'clock',
+            preg_match('/^DELETE\b.*\bdevice_refresh_nonces\b/i', $sql) === 1 => 'nonce_delete',
             default => 'other',
         };
         karen_refresh_test_trace('before', $kind, $this->connection->inTransaction(), $sql);

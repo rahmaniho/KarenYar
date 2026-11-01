@@ -93,7 +93,7 @@ jobs:
           extensions: sodium, pdo_mysql
           coverage: none
           tools: none
-      - name: Refresh locking/freshness/clocks, private nonce cleanup, replay and rollback
+      - name: Refresh locking/freshness/clocks, cleanup handoff, replay and rollback
         run: php scripts/test-license-refresh-transactions.php
         env:
           KAREN_LICENSE_DB_TESTS: '1'

@@ -162,7 +162,7 @@ function refresh_test_wait_for_lock(array $worker): void
         if (!proc_get_status($worker['process'])['running']) { break; }
         usleep(20000);
     } while (microtime(true) < $deadline);
-    throw new RuntimeException('InnoDB did not observe the refresh worker waiting for the held license lock: ' . json_encode([
+    throw new RuntimeException('InnoDB did not observe the worker waiting for the held row lock: ' . json_encode([
         'connection' => $connectionId,
         'engine_transactions' => $active,
         'trace' => refresh_test_trace($worker),
@@ -278,6 +278,7 @@ try {
         refresh_test_equal(['backup', 'pdf-export', 'unlimited-products', 'unlimited-transactions'], $claims['features'], 'Feature contract');
         refresh_test_equal(7 * 86400, $claims['exp'] - $claims['iat'], 'Seven-day token contract');
         $trace = refresh_test_trace($worker);
+        refresh_test_assert(!in_array('nonce_delete', array_column($trace, 'kind'), true), 'Web refresh must never delete nonce markers');
         $reads = array_values(array_filter($trace, static fn(array $entry): bool => $entry['phase'] === 'before' && str_starts_with((string) $entry['sql'], 'SELECT')));
         refresh_test_equal(['locator', 'license', 'account', 'device', 'clock', 'clock'], array_column($reads, 'kind'), 'Read order, including both post-lock DB clocks');
         refresh_test_equal([false, true, true, true, true, true], array_column($reads, 'transaction'), 'Locator must be outside the transaction; both clock reads follow locks inside it');
@@ -436,23 +437,24 @@ try {
             refresh_test_effects(1, 1, 1);
         } finally { if ($db->inTransaction()) { $db->rollBack(); } }
     });
-    refresh_test_case('existing bounded nonce purge deletes expired entries, not live entries', function () use ($db): void {
+    refresh_test_case('web refresh preserves expired and live nonce entries for independent cleanup', function () use ($db): void {
         $stmt = $db->prepare('INSERT INTO device_refresh_nonces (nonce_hash, device_id, expires_at) VALUES (?, 2, ?)');
         $expired = hash('sha256', 'expired-test-nonce', true);
         $live = hash('sha256', 'live-test-nonce', true);
         $stmt->execute([$expired, gmdate('Y-m-d H:i:s', time() - 60)]);
         $stmt->execute([$live, gmdate('Y-m-d H:i:s', time() + 600)]);
         refresh_test_response(refresh_test_request(refresh_test_input()), 200);
-        refresh_test_effects(2, 1, 1);
+        refresh_test_effects(3, 1, 1);
         $stmt = $db->prepare('SELECT COUNT(*) FROM device_refresh_nonces WHERE nonce_hash = ?');
         $stmt->execute([$live]);
         refresh_test_equal(1, (int) $stmt->fetchColumn(), 'Live nonce preserved');
         $stmt->execute([$expired]);
-        refresh_test_equal(0, (int) $stmt->fetchColumn(), 'Expired nonce removed');
+        refresh_test_equal(1, (int) $stmt->fetchColumn(), 'Expired nonce is retained for the private cleaner');
     });
     require __DIR__ . '/fixtures/license-nonce-cleanup-cases.php';
     require __DIR__ . '/fixtures/license-refresh-freshness-cases.php';
     require __DIR__ . '/fixtures/license-refresh-clock-cases.php';
+    require __DIR__ . '/fixtures/license-refresh-cleanup-handoff-cases.php';
     echo json_encode(['ok' => true, 'database' => $version, 'isolation' => 'REPEATABLE READ', 'passed' => count($passed), 'tests' => $passed], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT) . "\n";
     if (getenv('GITHUB_ACTIONS') === 'true') {
         echo '::notice title=Refresh transaction tests::' . count($passed) . ' cases passed on ' . $version . ' with REPEATABLE READ' . "\n";

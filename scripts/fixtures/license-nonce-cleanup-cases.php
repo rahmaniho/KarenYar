@@ -23,10 +23,15 @@ function karen_db(): PDO {
         $error->errorInfo = ['HY000', 1205, 'SECRET_TEST_CREDENTIAL'];
         throw $error;
     }
-    return new PDO((string) getenv('KAREN_LICENSE_TEST_DSN'), 'root', (string) getenv('KAREN_LICENSE_TEST_PASSWORD'), [
+    $pdo = new PDO((string) getenv('KAREN_LICENSE_TEST_DSN'), 'root', (string) getenv('KAREN_LICENSE_TEST_PASSWORD'), [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES => false,
     ]);
+    if ($trace = getenv('KAREN_CLEANUP_TEST_TRACE')) {
+        file_put_contents($trace, json_encode(['phase' => 'after', 'kind' => 'connect',
+            'connection_id' => (int) $pdo->query('SELECT CONNECTION_ID()')->fetchColumn()], JSON_THROW_ON_ERROR) . "\n", LOCK_EX);
+    }
+    return $pdo;
 }
 PHP
 );

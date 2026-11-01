@@ -71,7 +71,7 @@ foreach (['nonce', 'event'] as $kind) {
         try {
             refresh_freshness_wait_until(refresh_freshness_timestamp($worker) + 301);
         } finally { touch($worker['release']); }
-        // Includes rollback of the legacy purge, inserted nonce, event and last_seen.
+        // Inserted nonce/event/last_seen roll back; old markers remain for private cleanup.
         refresh_freshness_aborted($worker, 1);
     });
 }
