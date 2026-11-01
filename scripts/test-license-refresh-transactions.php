@@ -279,8 +279,8 @@ try {
         refresh_test_equal(7 * 86400, $claims['exp'] - $claims['iat'], 'Seven-day token contract');
         $trace = refresh_test_trace($worker);
         $reads = array_values(array_filter($trace, static fn(array $entry): bool => $entry['phase'] === 'before' && str_starts_with((string) $entry['sql'], 'SELECT')));
-        refresh_test_equal(['locator', 'license', 'account', 'device'], array_column($reads, 'kind'), 'Read order');
-        refresh_test_equal([false, true, true, true], array_column($reads, 'transaction'), 'Locator must be outside the transaction');
+        refresh_test_equal(['locator', 'license', 'account', 'device', 'clock', 'clock'], array_column($reads, 'kind'), 'Read order, including both post-lock DB clocks');
+        refresh_test_equal([false, true, true, true, true, true], array_column($reads, 'transaction'), 'Locator must be outside the transaction; both clock reads follow locks inside it');
         refresh_test_assert(!str_contains($reads[1]['sql'], 'JOIN'), 'First locking read must be a single-table license primary-key lookup');
         refresh_test_assert(str_contains($reads[1]['sql'], 'FOR UPDATE') && str_contains($reads[3]['sql'], 'FOR UPDATE'), 'Separate locking reads');
         refresh_test_effects(1, 1, 1);
@@ -452,6 +452,7 @@ try {
     });
     require __DIR__ . '/fixtures/license-nonce-cleanup-cases.php';
     require __DIR__ . '/fixtures/license-refresh-freshness-cases.php';
+    require __DIR__ . '/fixtures/license-refresh-clock-cases.php';
     echo json_encode(['ok' => true, 'database' => $version, 'isolation' => 'REPEATABLE READ', 'passed' => count($passed), 'tests' => $passed], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT) . "\n";
     if (getenv('GITHUB_ACTIONS') === 'true') {
         echo '::notice title=Refresh transaction tests::' . count($passed) . ' cases passed on ' . $version . ' with REPEATABLE READ' . "\n";

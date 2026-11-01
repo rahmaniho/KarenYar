@@ -119,6 +119,8 @@ try {
     karen_rate_limit('refresh:device:' . $deviceKeyId, 30, 300);
 
     $pdo = karen_db();
+    // TIMESTAMP columns and cleanup must interpret all values in the same UTC session.
+    $pdo->exec("SET time_zone = '+00:00'");
 
     $abort = static function (int $status, string $error) use ($pdo): void {
         if ($pdo->inTransaction()) {
@@ -203,10 +205,19 @@ SQL
         $abort(404, 'device_or_license_invalid');
     }
 
-    // Locks may have waited: never authorize with the pre-wait timestamp/clock.
+    // Use both clocks after locks: nonce expiry/cleanup use DB time, while
+    // the existing signed token and initial fast rejection keep the PHP clock.
+    $clock = $pdo->prepare('SELECT UNIX_TIMESTAMP()');
+    $clock->execute();
+    $dbNow = (int) $clock->fetchColumn();
     $now = time();
 
-    if ($timestamp < $now - 300 || $timestamp > $now + 300) {
+    if ($dbNow <= 0) {
+        throw new RuntimeException('database_clock_invalid');
+    }
+
+    if ($timestamp < $now - 300 || $timestamp > $now + 300
+        || $timestamp < $dbNow - 300 || $timestamp > $dbNow + 300) {
         $abort(400, 'invalid_timestamp');
     }
 
@@ -226,7 +237,6 @@ SQL
     $pdo->exec('DELETE FROM device_refresh_nonces WHERE expires_at < UTC_TIMESTAMP() LIMIT 100');
 
     $nonceHash = hash('sha256', $deviceKeyId . '|' . $nonce, true);
-    $nonceExpiresAt = gmdate('Y-m-d H:i:s', $now + 600);
 
     $stmt = $pdo->prepare(<<<'SQL'
 INSERT INTO device_refresh_nonces (
@@ -236,14 +246,13 @@ INSERT INTO device_refresh_nonces (
 ) VALUES (
     :nonce_hash,
     :device_id,
-    :expires_at
+    DATE_ADD(UTC_TIMESTAMP(), INTERVAL 600 SECOND)
 )
 SQL
     );
 
     $stmt->bindValue(':nonce_hash', $nonceHash, PDO::PARAM_STR);
     $stmt->bindValue(':device_id', (int) $row['id'], PDO::PARAM_INT);
-    $stmt->bindValue(':expires_at', $nonceExpiresAt, PDO::PARAM_STR);
 
     try {
         $stmt->execute();
@@ -328,13 +337,20 @@ SQL
 
     // SQL/signing can wait too. Roll back all effects rather than return a
     // token for a request or license that expired before the commit decision.
+    $clock->execute();
+    $commitDbNow = (int) $clock->fetchColumn();
     $commitNow = time();
 
-    if ($timestamp < $commitNow - 300 || $timestamp > $commitNow + 300) {
+    if ($commitDbNow <= 0) {
+        throw new RuntimeException('database_clock_invalid');
+    }
+
+    if ($timestamp < $commitNow - 300 || $timestamp > $commitNow + 300
+        || $timestamp < $commitDbNow - 300 || $timestamp > $commitDbNow + 300) {
         $abort(400, 'invalid_timestamp');
     }
 
-    if ($tokenExpiresAt <= $commitNow) {
+    if ($tokenExpiresAt <= $commitNow || $tokenExpiresAt <= $commitDbNow) {
         $abort(400, 'license_expired');
     }
 

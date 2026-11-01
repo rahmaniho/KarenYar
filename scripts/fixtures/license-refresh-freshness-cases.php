@@ -91,8 +91,9 @@ refresh_test_case('valid lock wait refreshes token and nonce clocks rather than 
         refresh_test_assert($claims['iat'] >= $release && $claims['iat'] > $entry, 'Token uses the post-lock PHP clock');
         refresh_test_equal($claims['iat'], $claims['nbf'], 'Refreshed nbf');
         refresh_test_equal(7 * 86400, $claims['exp'] - $claims['iat'], 'Unchanged token TTL');
-        $expiry = (int) $db->query('SELECT UNIX_TIMESTAMP(expires_at) FROM device_refresh_nonces WHERE device_id = 1')->fetchColumn();
-        refresh_test_equal($claims['iat'] + 600, $expiry, 'Nonce TTL starts from the refreshed PHP clock');
+        $nonce = $db->query('SELECT UNIX_TIMESTAMP(created_at) AS created, UNIX_TIMESTAMP(expires_at) AS expires FROM device_refresh_nonces WHERE device_id = 1')->fetch();
+        refresh_test_assert((int) $nonce['created'] >= $release, 'Nonce is anchored after the lock wait in the DB');
+        refresh_test_equal(600, (int) $nonce['expires'] - (int) $nonce['created'], 'Unchanged nonce TTL is anchored at its DB insertion, not an earlier PHP clock');
         $seen = (int) $db->query('SELECT UNIX_TIMESTAMP(last_seen_at) FROM license_devices WHERE id = 1')->fetchColumn();
         refresh_test_assert($seen >= $release, 'last_seen remains a post-lock DB timestamp');
         refresh_test_effects(1, 1, 1);

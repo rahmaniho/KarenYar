@@ -22,6 +22,14 @@ function karen_refresh_test_trace(string $phase, string $kind, bool $inTransacti
     ], JSON_THROW_ON_ERROR) . "\n", FILE_APPEND | LOCK_EX);
 }
 
+function karen_refresh_test_db_clock(PDO $pdo, int $offset): void
+{
+    // Session-only clock skew for disposable DB tests. Never changes an OS/global clock.
+    $timestamp = (int) $GLOBALS['karen_test_signed_timestamp'] + $offset;
+    $pdo->exec('SET timestamp = ' . $timestamp);
+    karen_refresh_test_trace('after', 'db_clock_control', $pdo->inTransaction(), null, null, $timestamp);
+}
+
 final class KarenRefreshTestPDO extends PDO
 {
     public function __construct()
@@ -38,6 +46,12 @@ final class KarenRefreshTestPDO extends PDO
         $this->exec('SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ');
         $timeout = (int) ($GLOBALS['karen_test_request']['lock_timeout'] ?? 8);
         $this->exec('SET SESSION innodb_lock_wait_timeout = ' . max(1, min(8, $timeout)));
+        if (isset($GLOBALS['karen_test_request']['initial_time_zone'])) {
+            $this->exec('SET time_zone = ' . $this->quote((string) $GLOBALS['karen_test_request']['initial_time_zone']));
+        }
+        if (array_key_exists('db_offset_from_input', $GLOBALS['karen_test_request'])) {
+            karen_refresh_test_db_clock($this, (int) $GLOBALS['karen_test_request']['db_offset_from_input']);
+        }
     }
 
     public function beginTransaction(): bool
@@ -77,13 +91,23 @@ final class KarenRefreshTestStatement extends PDOStatement
             str_starts_with($sql, 'INSERT INTO device_refresh_nonces') => 'nonce',
             str_starts_with($sql, 'UPDATE license_devices') => 'seen',
             str_starts_with($sql, 'INSERT INTO license_events') => 'event',
+            $sql === 'SELECT UNIX_TIMESTAMP()' => 'clock',
             default => 'other',
         };
         karen_refresh_test_trace('before', $kind, $this->connection->inTransaction(), $sql);
         if ($kind === 'event' && !empty($GLOBALS['karen_test_request']['fail_event'])) {
             throw new RuntimeException('test_injected_event_failure');
         }
+        if ($kind === 'clock') {
+            $GLOBALS['karen_test_clock_calls'] = ($GLOBALS['karen_test_clock_calls'] ?? 0) + 1;
+            if (($GLOBALS['karen_test_request']['fail_clock'] ?? 0) === $GLOBALS['karen_test_clock_calls']) {
+                throw new RuntimeException('test_injected_clock_failure');
+            }
+        }
         $result = parent::execute($params);
+        if (array_key_exists($kind, $GLOBALS['karen_test_request']['db_shift_after'] ?? [])) {
+            karen_refresh_test_db_clock($this->connection, (int) $GLOBALS['karen_test_request']['db_shift_after'][$kind]);
+        }
         karen_refresh_test_trace('after', $kind, $this->connection->inTransaction(), $sql);
         if (($GLOBALS['karen_test_request']['pause_after'] ?? '') === $kind) {
             $deadline = microtime(true) + 12;
@@ -111,6 +135,7 @@ function karen_read_json(): array
         $input['signature_b64'] = base64_encode(sodium_crypto_sign_detached($message, sodium_crypto_sign_secretkey($pair)));
         karen_refresh_test_trace('after', 'input_clock', false, null, null, $input['timestamp']);
     }
+    $GLOBALS['karen_test_signed_timestamp'] = (int) $input['timestamp'];
     return $input;
 }
 function karen_db(): PDO
