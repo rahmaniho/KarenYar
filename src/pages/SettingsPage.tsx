@@ -44,6 +44,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -381,8 +382,66 @@ export function SettingsPage() {
                 onChange={(e) => settings.updateShop({ shopAddress: e.target.value })}
               />
             </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="set-economic">شناسه / کد اقتصادی</Label>
+                <Input
+                  id="set-economic"
+                  dir="ltr"
+                  className="text-left"
+                  value={settings.shopEconomicCode}
+                  onChange={(e) =>
+                    settings.updateInvoiceBranding({ shopEconomicCode: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="set-registration">شماره ثبت</Label>
+                <Input
+                  id="set-registration"
+                  dir="ltr"
+                  className="text-left"
+                  value={settings.shopRegistrationNumber}
+                  onChange={(e) =>
+                    settings.updateInvoiceBranding({ shopRegistrationNumber: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="set-invoice-footer">شرایط فروش روی فاکتور</Label>
+              <Textarea
+                id="set-invoice-footer"
+                rows={2}
+                maxLength={300}
+                placeholder="مثلاً: کالای فروخته‌شده تا ۷ روز با بسته‌بندی اصلی قابل تعویض است."
+                value={settings.invoiceFooterNote}
+                onChange={(e) =>
+                  settings.updateInvoiceBranding({ invoiceFooterNote: e.target.value })
+                }
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+              <div>
+                <p className="text-sm font-medium">نمایش لوگو در سربرگ فاکتور PDF</p>
+                <p className="text-xs text-muted-foreground">
+                  با خاموش‌کردن این گزینه، فقط نام و مشخصات فروشگاه چاپ می‌شود.
+                </p>
+              </div>
+              <Switch
+                checked={settings.invoiceShowLogo}
+                onCheckedChange={(checked) =>
+                  settings.updateInvoiceBranding({ invoiceShowLogo: checked })
+                }
+                aria-label="نمایش لوگو در فاکتور"
+              />
+            </div>
             <p className="text-xs text-muted-foreground">
-              این مشخصات روی فاکتور فروش و فیش حقوقی چاپ می‌شود.
+              این مشخصات روی فاکتور فروش و فیش حقوقی چاپ می‌شود؛ خروجی PDF با فونت فارسی و نام
+              <span dir="ltr" className="mx-1 font-mono text-[11px]">
+                factor-شماره.pdf
+              </span>
+              ساخته می‌شود.
             </p>
           </CardContent>
         </Card>

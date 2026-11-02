@@ -138,7 +138,20 @@
   }
 }
 
+/* ——— چاپ حرفه‌ای فاکتور: A4، حاشیه‌ی استاندارد، تایپوگرافی فارسی ——— */
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #0b1b3a !important;
+  }
+
+  /* فقط ناحیه‌ی سند چاپ شود؛ منو، دکمه‌ها و اعلان‌ها حذف می‌شوند */
   body * {
     visibility: hidden;
   }
@@ -148,14 +161,76 @@
   }
   .print-area {
     position: absolute;
+    inset-inline: 0;
     top: 0;
-    right: 0;
-    left: 0;
     width: 100%;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
     box-shadow: none !important;
+    background: #ffffff !important;
+    font-family: 'Vazirmatn', 'Tahoma', serif;
+    font-feature-settings: 'ss01';
+    font-variant-numeric: normal;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
-  .no-print {
+  .no-print,
+  [data-sonner-toaster],
+  header,
+  nav,
+  aside,
+  footer {
     display: none !important;
+  }
+
+  /* جدول اقلام: تکرار سرستون در صفحه‌های بعد و شکست نیمه‌کاره‌ی ردیف‌ها */
+  .print-area table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+  .print-area thead {
+    display: table-header-group;
+  }
+  .print-area tfoot {
+    display: table-footer-group;
+  }
+  .print-area tr,
+  .print-area img {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .print-area h1,
+  .print-area h2,
+  .print-area h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* تایپوگرافی خوانا برای فارسی در چاپ */
+  .print-area p,
+  .print-area td,
+  .print-area th,
+  .print-area dt,
+  .print-area dd,
+  .print-area li {
+    line-height: 1.75;
+    letter-spacing: 0;
+    word-spacing: 0;
+    text-align: start;
+  }
+  .print-area .tabular-nums,
+  .print-area .amount {
+    font-family: 'Vazirmatn', 'Tahoma', monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+  }
+  .print-area a {
+    color: inherit !important;
+    text-decoration: none;
   }
 }
 

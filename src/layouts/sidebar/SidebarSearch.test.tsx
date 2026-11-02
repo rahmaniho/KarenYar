@@ -31,7 +31,10 @@ describe('جستجوی عملیاتی منو', () => {
     setup();
     const input = screen.getByRole('combobox', { name: 'جستجو در منوها و صفحات' });
     fireEvent.change(input, { target: { value: 'فاکتور' } });
-    expect(screen.getByRole('option', { name: /فاکتورها/ })).toBeInTheDocument();
+    // هر دو صفحه‌ی «فاکتورها» و «فاکتورهای صادرشده» در نتایج می‌آیند
+    const options = screen.getAllByRole('option', { name: /فاکتور/ });
+    expect(options.length).toBeGreaterThan(0);
+    expect(options.some((option) => /فاکتورها/.test(option.textContent ?? ''))).toBe(true);
     expect(screen.getByRole('listbox')).toBeInTheDocument();
   });
 

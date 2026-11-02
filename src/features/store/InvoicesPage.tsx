@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Eye, Plus, Receipt, Search, ShoppingCart, Undo2 } from 'lucide-react';
+import { Eye, FileText, Plus, Receipt, Search, ShoppingCart, Undo2 } from 'lucide-react';
 import { db, type Invoice } from '@/core/db/db';
 import { formatMoney, formatNumber, toFaDigits } from '@/core/currency/currency';
 import { currentJalaliMonthKey, formatJalaliNumeric, jalaliMonthLabel } from '@/core/jalali/jalali';
@@ -69,6 +69,12 @@ export function InvoicesPage() {
         subtitle="جستجو، مشاهده رسید، چاپ و ابطال فروش با اصلاح خودکار انبار و درآمد"
         actions={
           <>
+            <Button asChild variant="outline">
+              <Link to="/store/invoices/issued">
+                <FileText />
+                فاکتورهای صادرشده
+              </Link>
+            </Button>
             <Button asChild variant="outline">
               <Link to="/store/invoices/new">
                 <Plus />
