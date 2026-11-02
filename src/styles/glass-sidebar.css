@@ -1,0 +1,428 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Glassmorphism Floating Sidebar — حساب‌یار کارن سافت
+   تمام رنگها و افکتها با CSS Variables مدیریت میشوند. بدنهی سایدبار در هر دو تم
+   روشن/تاریک، سرمهای شیشهای میماند (هماهنگ با هویت کارن سافت و خوانایی بالا).
+   ───────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --glass-ink: #f8fafc;
+  --glass-muted: #b9c4d4;
+  --glass-dim: #94a3b8;
+  --glass-gold: #d6b46a;
+  --glass-gold-soft: rgb(214 180 106 / 0.2);
+  --glass-blue: #38bdf8;
+  --glass-green: #39ff88;
+  --glass-line: rgb(255 255 255 / 0.1);
+  --glass-line-strong: rgb(255 255 255 / 0.18);
+  --glass-blur: 22px;
+  --glass-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --glass-fast: 180ms;
+  --glass-normal: 300ms;
+}
+
+.glass-lite {
+  --glass-blur: 10px;
+}
+
+/* نور محیطی بسیار ملایم پشت سایدبار تا شیشه معنا پیدا کند؛ خوانایی محتوا حفظ میشود */
+.app-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(58rem 38rem at 100% 0%, rgb(214 180 106 / 0.075), transparent 65%),
+    radial-gradient(46rem 34rem at 100% 100%, rgb(56 189 248 / 0.07), transparent 65%),
+    radial-gradient(40rem 30rem at 0% 15%, rgb(11 27 58 / 0.055), transparent 70%);
+}
+.dark .app-ambient {
+  background:
+    radial-gradient(58rem 38rem at 100% 0%, rgb(214 180 106 / 0.06), transparent 65%),
+    radial-gradient(46rem 34rem at 100% 100%, rgb(56 189 248 / 0.055), transparent 65%),
+    radial-gradient(42rem 32rem at 0% 10%, rgb(57 255 136 / 0.035), transparent 70%);
+}
+.glass-lite .app-ambient {
+  opacity: 0.7;
+}
+
+/* ── بدنهی شناور ───────────────────────────────────────────────────────────── */
+.glass-sidebar {
+  position: relative;
+  isolation: isolate;
+  color: var(--glass-ink);
+  border: 1px solid var(--glass-line);
+  border-radius: 28px;
+  background:
+    radial-gradient(120% 58% at 100% -6%, rgb(214 180 106 / 0.12), transparent 62%),
+    radial-gradient(110% 52% at 0% 104%, rgb(56 189 248 / 0.1), transparent 62%),
+    linear-gradient(158deg, rgb(28 41 61 / 0.84), rgb(16 24 39 / 0.9) 52%, rgb(11 20 36 / 0.93));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(135%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(135%);
+  box-shadow:
+    0 28px 64px -20px rgb(3 10 24 / 0.62),
+    0 6px 18px -8px rgb(3 10 24 / 0.4),
+    inset 0 1px 0 rgb(255 255 255 / 0.13),
+    inset 0 -1px 0 rgb(255 255 255 / 0.045);
+  transition:
+    width var(--glass-normal) var(--glass-ease),
+    border-radius var(--glass-normal) var(--glass-ease);
+}
+/* انعکاس نور روی لبهی بالایی */
+.glass-sidebar::before {
+  content: '';
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 14%;
+  height: 1px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(255 255 255 / 0.28) 38%,
+    rgb(214 180 106 / 0.55) 62%,
+    transparent
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+/* هالهی داخلی بسیار ظریف */
+.glass-sidebar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(90% 26% at 82% 0%, rgb(255 255 255 / 0.055), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* در تم تاریک، لبهی شیشه کمی پررنگتر میشود تا از پسزمینه جدا بماند */
+.dark .glass-sidebar {
+  border-color: rgb(255 255 255 / 0.16);
+  box-shadow:
+    0 28px 64px -20px rgb(0 0 0 / 0.72),
+    0 6px 18px -8px rgb(0 0 0 / 0.5),
+    inset 0 1px 0 rgb(255 255 255 / 0.16),
+    inset 0 -1px 0 rgb(255 255 255 / 0.06);
+}
+
+/* Fallback برای مرورگرهای بدون پشتیبانی backdrop-filter */
+@supports not ((-webkit-backdrop-filter: blur(2px)) or (backdrop-filter: blur(2px))) {
+  .glass-sidebar {
+    background: linear-gradient(158deg, #1c293d, #101827 55%, #0b1424);
+  }
+}
+@supports (prefers-reduced-transparency: reduce) {
+  .glass-sidebar {
+    background: linear-gradient(158deg, #1c293d, #101827 55%, #0b1424);
+  }
+}
+
+/* ── هدر شیشهای بالای صفحه (هماهنگ با سایدبار، بدون تغییر عملکرد کنترلها) ───── */
+.glass-topbar {
+  border: 1px solid rgb(255 255 255 / 0.55);
+  background: hsl(var(--card) / 0.78);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+  box-shadow:
+    0 10px 30px -18px rgb(11 27 58 / 0.4),
+    inset 0 1px 0 rgb(255 255 255 / 0.6);
+}
+.dark .glass-topbar {
+  border-color: var(--glass-line);
+  background: hsl(var(--card) / 0.7);
+  box-shadow:
+    0 10px 30px -18px rgb(0 0 0 / 0.6),
+    inset 0 1px 0 rgb(255 255 255 / 0.07);
+}
+@supports not ((-webkit-backdrop-filter: blur(2px)) or (backdrop-filter: blur(2px))) {
+  .glass-topbar {
+    background: hsl(var(--card));
+  }
+}
+
+/* حلقهی فوکوس طلایی همرنگ سایدبار (بهجای حلقهی سبز سراسری برنامه) */
+.glass-sidebar :focus-visible {
+  outline: 2px solid rgb(214 180 106 / 0.85);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+/* ── اسکرول مستقل منو ──────────────────────────────────────────────────────── */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+  overscroll-behavior: contain;
+}
+.sidebar-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.16);
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ── جستجوی منو ───────────────────────────────────────────────────────────── */
+.glass-search {
+  border: 1px solid var(--glass-line);
+  background: rgb(255 255 255 / 0.055);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.07);
+  transition:
+    border-color var(--glass-fast) ease,
+    background var(--glass-fast) ease,
+    box-shadow var(--glass-fast) ease;
+}
+.glass-search:focus-within {
+  border-color: rgb(214 180 106 / 0.55);
+  background: rgb(255 255 255 / 0.085);
+  box-shadow:
+    0 0 0 3px rgb(214 180 106 / 0.12),
+    inset 0 1px 0 rgb(255 255 255 / 0.1);
+}
+.glass-search input::placeholder {
+  color: var(--glass-dim);
+}
+.glass-kbd {
+  border: 1px solid var(--glass-line);
+  background: rgb(255 255 255 / 0.07);
+  color: var(--glass-muted);
+}
+.nav-search-results {
+  border: 1px solid var(--glass-line-strong);
+  background: linear-gradient(165deg, rgb(28 41 61 / 0.98), rgb(13 22 38 / 0.98));
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 22px 45px -18px rgb(0 0 0 / 0.7);
+  animation: glass-pop-in 200ms var(--glass-ease) both;
+}
+.nav-search-result[data-selected='true'] {
+  background: rgb(255 255 255 / 0.1);
+  box-shadow: inset 0 0 0 1px rgb(214 180 106 / 0.3);
+}
+
+/* ── آیتمهای ناوبری ────────────────────────────────────────────────────────── */
+.nav-group-label {
+  color: var(--glass-dim);
+  letter-spacing: 0.01em;
+}
+.nav-group-rule {
+  background: linear-gradient(90deg, transparent, var(--glass-line-strong), transparent);
+}
+.nav-item {
+  position: relative;
+  color: var(--glass-muted);
+  border: 1px solid transparent;
+  transition:
+    color var(--glass-fast) ease,
+    background var(--glass-fast) ease,
+    border-color var(--glass-fast) ease,
+    transform var(--glass-fast) var(--glass-ease),
+    box-shadow var(--glass-fast) ease;
+}
+.nav-item:hover {
+  color: var(--glass-ink);
+  background: rgb(255 255 255 / 0.065);
+  transform: translateX(-2px);
+}
+.nav-item:focus-visible {
+  outline: 2px solid rgb(214 180 106 / 0.8);
+  outline-offset: 2px;
+}
+.nav-item.is-active {
+  color: #fff;
+  background: linear-gradient(265deg, var(--glass-gold-soft), rgb(255 255 255 / 0.075) 75%);
+  border-color: rgb(214 180 106 / 0.42);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    0 6px 20px -12px rgb(214 180 106 / 0.55);
+}
+.nav-item.is-active::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: -1px;
+  inset-block-start: 50%;
+  width: 3px;
+  height: 22px;
+  border-radius: 999px;
+  transform: translateY(-50%);
+  background: linear-gradient(180deg, #f0d9a3, var(--glass-gold));
+  box-shadow: 0 0 12px rgb(214 180 106 / 0.6);
+}
+.nav-item.is-active .nav-item-icon {
+  color: var(--glass-gold);
+  background: rgb(214 180 106 / 0.14);
+  border-color: rgb(214 180 106 / 0.28);
+}
+.nav-item-icon {
+  border: 1px solid rgb(255 255 255 / 0.07);
+  background: rgb(255 255 255 / 0.045);
+  transition:
+    color var(--glass-fast) ease,
+    background var(--glass-fast) ease,
+    border-color var(--glass-fast) ease;
+}
+.nav-badge {
+  border: 1px solid rgb(255 255 255 / 0.16);
+  background: rgb(245 158 11 / 0.2);
+  color: #fcd9a0;
+}
+.nav-badge[data-danger='true'] {
+  background: rgb(239 68 68 / 0.22);
+  color: #fecaca;
+  border-color: rgb(239 68 68 / 0.35);
+}
+.nav-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 0 2px rgb(16 24 39 / 0.9);
+}
+.nav-dot[data-danger='true'] {
+  background: #ef4444;
+}
+
+/* ── تولتیپ فارسی حالت فشرده ──────────────────────────────────────────────── */
+.sidebar-tooltip {
+  position: fixed;
+  z-index: 90;
+  transform: translate(-100%, -50%);
+  padding: 6px 11px;
+  border: 1px solid var(--glass-line-strong);
+  border-radius: 10px;
+  background: rgb(13 22 38 / 0.96);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 12px 28px -12px rgb(0 0 0 / 0.7);
+  color: var(--glass-ink);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: glass-fade-in 160ms ease both;
+}
+.sidebar-tooltip::after {
+  content: '';
+  position: absolute;
+  inset-inline-end: -4px;
+  inset-block-start: 50%;
+  width: 7px;
+  height: 7px;
+  transform: translateY(-50%) rotate(45deg);
+  border-inline-end: 1px solid var(--glass-line-strong);
+  border-block-start: 1px solid var(--glass-line-strong);
+  background: rgb(13 22 38 / 0.96);
+}
+
+/* ── پنل کاربر / منوی حساب ────────────────────────────────────────────────── */
+.glass-user-panel {
+  border: 1px solid var(--glass-line);
+  background: rgb(255 255 255 / 0.055);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.07);
+  transition:
+    background var(--glass-fast) ease,
+    border-color var(--glass-fast) ease;
+}
+.glass-user-panel:hover {
+  background: rgb(255 255 255 / 0.085);
+  border-color: var(--glass-line-strong);
+}
+.glass-user-menu {
+  border: 1px solid var(--glass-line-strong);
+  background: linear-gradient(165deg, rgb(28 41 61 / 0.98), rgb(13 22 38 / 0.98));
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 20px 44px -18px rgb(0 0 0 / 0.7);
+  animation: glass-pop-in 210ms var(--glass-ease) both;
+}
+.glass-user-menu button,
+.glass-user-menu a {
+  transition:
+    background var(--glass-fast) ease,
+    color var(--glass-fast) ease;
+}
+.glass-user-menu button:hover,
+.glass-user-menu a:hover {
+  background: rgb(255 255 255 / 0.08);
+}
+
+/* ── کشوی موبایل ──────────────────────────────────────────────────────────── */
+.drawer-backdrop {
+  background: rgb(4 10 22 / 0.55);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.glass-bottom-nav {
+  border: 1px solid rgb(255 255 255 / 0.5);
+  background: hsl(var(--card) / 0.88);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: 0 12px 34px -16px rgb(11 27 58 / 0.45);
+}
+.dark .glass-bottom-nav {
+  border-color: var(--glass-line);
+  background: hsl(var(--card) / 0.82);
+}
+@supports not ((-webkit-backdrop-filter: blur(2px)) or (backdrop-filter: blur(2px))) {
+  .glass-bottom-nav {
+    background: hsl(var(--card));
+  }
+}
+
+/* ── محتوای اصلی: هماهنگی نرم با عرض منو ─────────────────────────────────── */
+@media (min-width: 768px) {
+  .app-content {
+    padding-inline-start: calc(var(--nav-width) + 2rem);
+  }
+}
+.app-content {
+  transition: padding-inline-start var(--glass-normal) var(--glass-ease);
+}
+
+/* ── انیمیشنها ────────────────────────────────────────────────────────────── */
+@keyframes glass-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes glass-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* بار پردازشی کمتر روی موبایل و سختافزار ضعیف */
+@media (max-width: 1023px) {
+  :root {
+    --glass-blur: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --glass-fast: 1ms;
+    --glass-normal: 1ms;
+  }
+  .nav-item:hover {
+    transform: none;
+  }
+  .nav-search-results,
+  .glass-user-menu,
+  .sidebar-tooltip,
+  .app-ambient {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}
