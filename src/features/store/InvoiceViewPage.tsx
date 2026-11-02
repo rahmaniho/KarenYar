@@ -1,11 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
-import { assetUrl } from '@/lib/utils';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ArrowRight, FileDown, Plus, Printer, Receipt, Undo2, ShoppingCart } from 'lucide-react';
+import {
+  ArrowRight,
+  FileDown,
+  Plus,
+  Printer,
+  Receipt,
+  Undo2,
+  ShoppingCart,
+  Wallet,
+} from 'lucide-react';
 import { toast } from 'sonner';
-import { db, type Invoice, type InvoiceItem } from '@/core/db/db';
-import { formatDecimal, formatMoney, toFaDigits } from '@/core/currency/currency';
+import { db, type CustomerPayment, type Invoice, type InvoiceItem } from '@/core/db/db';
+import { toFaDigits } from '@/core/currency/currency';
 import { formatJalaliLong } from '@/core/jalali/jalali';
 import { downloadInvoicePdf } from './invoice-pdf';
 import { useLicenseStore } from '@/store/license-store';
@@ -15,7 +23,9 @@ import { EmptyState } from '@/components/EmptyState';
 import { FeatureGate } from '@/components/FeatureGate';
 import { Button } from '@/components/ui/button';
 import { VoidInvoiceDialog } from './VoidInvoiceDialog';
-import { invoicePaymentMethod, PAYMENT_LABELS } from './payment';
+import { InvoicePrintDocument } from './InvoicePrintDocument';
+import { InvoicePaymentDialog, InvoicePaymentHistory } from './InvoicePaymentDialog';
+import { invoicePaymentState } from './invoice-domain';
 
 /** مشاهده و چاپ فاکتور — ناحیه‌ی چاپ با شناسه‌ی print-area */
 export function InvoiceViewPage() {
@@ -32,7 +42,6 @@ export function InvoiceViewPage() {
   const invoiceFooterNote = useSettingsStore((s) => s.invoiceFooterNote);
   const invoiceShowLogo = useSettingsStore((s) => s.invoiceShowLogo);
   const can = useLicenseStore((s) => s.can);
-  const printRef = useRef<HTMLDivElement>(null);
   // useLiveQuery هنگام بارگذاری هم undefined برمی‌گرداند؛ تا مهلت کوتاه تمام نشود «پیدا نشد» نشان نمی‌دهیم
   const [loadTimedOut, setLoadTimedOut] = useState(false);
   useEffect(() => {
@@ -41,6 +50,7 @@ export function InvoiceViewPage() {
     return () => window.clearTimeout(timer);
   }, [invoiceId]);
   const [deleting, setDeleting] = useState(false);
+  const [paying, setPaying] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
 
   // ورود با ?print=1 از فهرست فاکتورها: پس از آماده‌شدن سند، پنجره‌ی چاپ باز می‌شود
@@ -68,6 +78,11 @@ export function InvoiceViewPage() {
     },
     [invoiceId],
     null,
+  );
+  const payments = useLiveQuery(
+    () => db.customerPayments.where('invoiceId').equals(invoiceId).toArray(),
+    [invoiceId],
+    [] as CustomerPayment[],
   );
 
   if (invoice === undefined && !loadTimedOut) {
@@ -102,6 +117,7 @@ export function InvoiceViewPage() {
         invoice,
         items: items ?? [],
         customer: invoice.customerId != null ? (customer ?? null) : null,
+        payments,
         settings: {
           shopName,
           shopPhone,
@@ -164,6 +180,14 @@ export function InvoiceViewPage() {
               <FileDown aria-hidden />
               {pdfLoading ? 'در حال ساخت…' : 'دریافت PDF'}
             </Button>
+            {invoice.isCredit &&
+              invoice.status !== 'voided' &&
+              invoicePaymentState(invoice, payments).remaining > 0 && (
+                <Button variant="outline" onClick={() => setPaying(true)}>
+                  <Wallet aria-hidden />
+                  ثبت پرداخت
+                </Button>
+              )}
             {invoice.status !== 'voided' && (
               <Button variant="destructive" onClick={() => setDeleting(true)}>
                 <Undo2 aria-hidden />
@@ -176,132 +200,29 @@ export function InvoiceViewPage() {
 
       {!can('pdf-export') && <FeatureGate feature="pdf-export" compact className="mb-4 no-print" />}
 
-      <div
-        ref={printRef}
-        className="print-area mx-auto max-w-3xl rounded-2xl border bg-white p-6 text-navy-900 shadow-card sm:p-8"
-      >
-        {invoice.status === 'voided' && (
-          <div className="mb-5 rounded-xl border-2 border-red-300 bg-red-50 p-4 text-red-800">
-            <p className="font-extrabold">باطل‌شده — این سند فروش معتبر نیست</p>
-            <p className="mt-1 text-xs">
-              {invoice.voidReason}
-              {invoice.voidedAt ? ` · ${formatJalaliLong(new Date(invoice.voidedAt))}` : ''}
-            </p>
-            <p className="mt-1 text-xs">موجودی و درآمد خودکار این فروش اصلاح شده‌اند.</p>
-          </div>
-        )}
-        {/* سربرگ فاکتور */}
-        <div className="flex items-start justify-between border-b-2 border-navy-900 pb-4">
-          <div>
-            <p className="text-xl font-extrabold">{shopName}</p>
-            {shopPhone && <p className="mt-1 text-sm text-navy-600">تلفن: {shopPhone}</p>}
-            {shopAddress && <p className="text-sm text-navy-600">{shopAddress}</p>}
-          </div>
-          <div className="text-left">
-            <p className="text-sm text-navy-600">فاکتور فروش</p>
-            <p className="text-2xl font-extrabold">#{toFaDigits(String(invoice.number))}</p>
-            <p className="text-sm text-navy-600">{formatJalaliLong(new Date(invoice.date))}</p>
-          </div>
-        </div>
+      <InvoicePrintDocument
+        invoice={invoice}
+        items={items ?? []}
+        customer={customer}
+        payments={payments}
+        settings={{
+          shopName,
+          shopPhone,
+          shopAddress,
+          shopEconomicCode,
+          shopRegistrationNumber,
+          invoiceFooterNote,
+          invoiceShowLogo,
+          currencyUnit: unit,
+        }}
+        className="rounded-2xl border"
+      />
 
-        <p className="mt-4 text-sm">
-          خریدار: <b>{invoice.customerName ?? 'مشتری گذری'}</b>
-          {invoice.isCredit && (
-            <span className="ms-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800 ring-1 ring-amber-300">
-              فروش نسیه
-            </span>
-          )}
-        </p>
-
-        <p className="mt-2 text-xs text-navy-600">
-          روش پرداخت: <b>{PAYMENT_LABELS[invoicePaymentMethod(invoice)]}</b>
-          {invoice.source === 'pos' ? ' · فروش صندوق' : ''}
-        </p>
-        {invoice.note && (
-          <p className="mt-2 rounded-lg bg-navy-50 px-3 py-2 text-xs text-navy-700">
-            یادداشت: {invoice.note}
-          </p>
-        )}
-        <table className="mt-4 w-full text-xs sm:text-sm">
-          <thead>
-            <tr className="border-b bg-navy-50 text-navy-700">
-              <th className="px-2 py-2 text-start font-semibold">ردیف</th>
-              <th className="px-2 py-2 text-start font-semibold">شرح کالا</th>
-              <th className="px-2 py-2 text-start font-semibold">تعداد</th>
-              <th className="px-2 py-2 text-start font-semibold">قیمت واحد</th>
-              <th className="px-2 py-2 text-start font-semibold">جمع</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item, i) => (
-              <tr key={item.id} className="border-b last:border-0">
-                <td className="px-2 py-2">{toFaDigits(String(i + 1))}</td>
-                <td className="px-2 py-2 font-medium">{item.name}</td>
-                <td className="px-2 py-2">{formatDecimal(item.qty, 6)}</td>
-                <td className="px-2 py-2">{formatMoney(item.unitPrice, unit)}</td>
-                <td className="px-2 py-2 font-semibold">{formatMoney(item.total, unit)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div className="mt-5 flex justify-end">
-          <dl className="w-72 space-y-1.5 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-navy-600">جمع اقلام</dt>
-              <dd>{formatMoney(invoice.subtotal, unit)}</dd>
-            </div>
-            {invoice.discountAmount > 0 && (
-              <div className="flex justify-between">
-                <dt className="text-navy-600">تخفیف</dt>
-                <dd>− {formatMoney(invoice.discountAmount, unit)}</dd>
-              </div>
-            )}
-            {invoice.taxAmount > 0 && (
-              <div className="flex justify-between">
-                <dt className="text-navy-600">
-                  مالیات بر ارزش افزوده ({toFaDigits(String(invoice.taxPercent))}٪)
-                </dt>
-                <dd>{formatMoney(invoice.taxAmount, unit)}</dd>
-              </div>
-            )}
-            <div className="flex justify-between border-t-2 border-navy-900 pt-2 text-base font-extrabold">
-              <dt>
-                {invoice.status === 'voided'
-                  ? 'مبلغ سند باطل‌شده'
-                  : invoice.isCredit
-                    ? 'مبلغ نسیه'
-                    : 'مبلغ فروش'}
-              </dt>
-              <dd>{formatMoney(invoice.total, unit)}</dd>
-            </div>
-            {invoice.cashTendered !== undefined && invoice.status !== 'voided' && (
-              <>
-                <div className="flex justify-between text-navy-600">
-                  <dt>وجه نقد دریافتی</dt>
-                  <dd>{formatMoney(invoice.cashTendered, unit)}</dd>
-                </div>
-                <div className="flex justify-between font-bold">
-                  <dt>باقی پول مشتری</dt>
-                  <dd>{formatMoney(invoice.changeAmount ?? 0, unit)}</dd>
-                </div>
-              </>
-            )}
-          </dl>
-        </div>
-
-        <p className="mt-8 flex items-center justify-center gap-1.5 border-t pt-4 text-center text-xs text-navy-500">
-          از خرید شما سپاسگزاریم — صادرشده با حساب‌یار کارن سافت
-          <img
-            src={assetUrl('images/karensoft/KarenYar.png')}
-            alt=""
-            width={512}
-            height={512}
-            className="h-4 w-4 object-contain"
-          />
-        </p>
-      </div>
-
+      <InvoicePaymentHistory invoice={invoice} />
+      <InvoicePaymentDialog
+        invoice={paying ? invoice : null}
+        onOpenChange={(open) => !open && setPaying(false)}
+      />
       <VoidInvoiceDialog invoice={deleting ? invoice : null} onOpenChange={setDeleting} />
     </div>
   );

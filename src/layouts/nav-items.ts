@@ -80,6 +80,12 @@ export const NAV_GROUPS: NavGroup[] = [
         keywords: ['صورتحساب', 'فاکتور جدید', 'صدور فاکتور'],
       },
       {
+        to: '/store/invoices/dashboard',
+        label: 'داشبورد فاکتور',
+        icon: LayoutDashboard,
+        keywords: ['گزارش فاکتور', 'وصول', 'مطالبات', 'سررسید'],
+      },
+      {
         to: '/store/invoices/issued',
         label: 'فاکتورهای صادرشده',
         icon: FileText,
