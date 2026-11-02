@@ -15,9 +15,9 @@ function activation_diagnostic_report(array $worker, ?string $path = null): arra
     refresh_test_equal([
         'version', 'started_at_utc', 'phase', 'outcome', 'http_status', 'error_code',
         'input_code_bytes', 'input_has_non_ascii', 'computed_hash_bytes', 'device_key_id',
-        'locator_license_id', 'license_public_id', 'committed', 'database_error_code',
+        'locator_license_id', 'lookup_execute_ok', 'lookup_driver_code', 'lookup_row_found', 'license_public_id', 'committed', 'database_error_code',
         'finished_at_utc', 'source_sha256', 'php_version', 'php_sapi', 'db_schema',
-        'db_utc_now', 'db_time_zone', 'transaction_open_at_report',
+        'db_utc_now', 'db_time_zone', 'db_sql_mode', 'pdo_error_mode', 'pdo_emulate_prepares', 'transaction_open_at_report',
     ], array_keys($report), 'Strict metadata-only allowlist: no code/hash/token/key/header/label fields');
     refresh_test_equal(hash_file('sha256', $activationEndpoint), $report['source_sha256'], 'Fingerprint is the actual executed endpoint copy');
     clearstatcache(true, $path);
@@ -34,6 +34,12 @@ activation_test_case('private diagnostics preserve a successful activation and e
     $response = refresh_test_finish($worker);
     refresh_test_claims($response);
     $report = activation_diagnostic_report($worker);
+    refresh_test_equal(2, $report['version'], 'Execution-aware diagnostic version');
+    refresh_test_equal(true, $report['lookup_execute_ok'], 'Locator statement really executed');
+    refresh_test_equal(null, $report['lookup_driver_code'], 'No locator driver error');
+    refresh_test_equal(true, $report['lookup_row_found'], 'Lookup returned a row');
+    refresh_test_equal(PDO::ERRMODE_EXCEPTION, $report['pdo_error_mode'], 'Real connection error mode');
+    refresh_test_equal(false, $report['pdo_emulate_prepares'], 'Native prepared statement mode');
     refresh_test_equal('committed', $report['phase'], 'Success phase');
     refresh_test_equal('succeeded', $report['outcome'], 'Success outcome');
     refresh_test_equal(200, $report['http_status'], 'Success status');
@@ -60,6 +66,9 @@ activation_test_case('private diagnostics distinguish an unmatched code without 
     refresh_test_response($response, 404, 'invalid_activation_code');
     refresh_test_equal(['ok' => false, 'error' => 'invalid_activation_code'], $response['body'], 'Public rejection is unchanged');
     $report = activation_diagnostic_report($worker);
+    refresh_test_equal(true, $report['lookup_execute_ok'], 'Unmatched hash is not a failed SQL statement');
+    refresh_test_equal(null, $report['lookup_driver_code'], 'No SQL error on a genuine miss');
+    refresh_test_equal(false, $report['lookup_row_found'], 'Successful lookup returned no row');
     refresh_test_equal('license_lookup', $report['phase'], 'Lookup miss distinguished privately');
     refresh_test_equal('rejected', $report['outcome'], 'Rejected outcome');
     refresh_test_equal(404, $report['http_status'], 'Rejected status');
@@ -210,5 +219,56 @@ activation_test_case('private report IO failure remains soft with a throwing PHP
         'throw_on_report_io_warning' => true,
     ]);
     refresh_test_response(refresh_test_finish($worker), 404, 'invalid_activation_code');
+    activation_test_unchanged();
+});
+
+foreach ([false, true] as $noBackslashes) {
+    activation_test_case('emulated binary lookup with NUL/quote/backslash/FF: ' . ($noBackslashes ? 'NO_BACKSLASH_ESCAPES' : 'default SQL mode'), function () use ($db, $noBackslashes): void {
+        // PUBLIC synthetic code chosen for digest edge bytes, never a host credential.
+        $code = 'public-binary-probe-8293';
+        $digest = hash('sha256', 'public-activation-test|' . $code, true);
+        foreach (["\0", "'", "\\", "\xff"] as $byte) {
+            refresh_test_assert(str_contains($digest, $byte), 'Public synthetic digest includes the binary edge byte');
+        }
+        $db->prepare('UPDATE licenses SET activation_code_hash = ? WHERE id = 1')->execute([$digest]);
+        $worker = activation_test_start(activation_test_input(1, 1, ['activation_code' => $code]), [
+            'emulate_prepares' => true,
+            'no_backslash_escapes' => $noBackslashes,
+        ]);
+        refresh_test_claims(refresh_test_finish($worker));
+        $report = activation_diagnostic_report($worker);
+        refresh_test_equal(true, $report['pdo_emulate_prepares'], 'Real emulated PDO mode observed');
+        refresh_test_equal(true, $report['lookup_execute_ok'], 'Binary lookup executed');
+        refresh_test_equal(true, $report['lookup_row_found'], 'Binary digest still matched');
+        refresh_test_equal(null, $report['lookup_driver_code'], 'No silent SQL error');
+        refresh_test_equal($noBackslashes, str_contains($report['db_sql_mode'], 'NO_BACKSLASH_ESCAPES'), 'Actual session SQL mode observed without changing the endpoint mode');
+        refresh_test_effects(0, 1, 1);
+    });
+}
+
+activation_test_case('silent real SQL failure is distinguished from a successful unmatched lookup', function () use ($db): void {
+    try {
+        $worker = activation_test_start(activation_test_input(), [
+            'pdo_error_mode' => PDO::ERRMODE_SILENT,
+            'emulate_prepares' => true,
+            'silent_locator_sql_failure' => true,
+        ]);
+        // Preserve the existing public contract; diagnostics alone gain precision.
+        refresh_test_response(refresh_test_finish($worker), 404, 'invalid_activation_code');
+        $report = activation_diagnostic_report($worker);
+        refresh_test_equal('license_lookup', $report['phase'], 'Same public rejection stage');
+        refresh_test_equal(false, $report['lookup_execute_ok'], 'Actual driver execute returned false');
+        refresh_test_equal(1054, $report['lookup_driver_code'], 'Only real numeric unknown-column code, not error text');
+        refresh_test_equal(false, $report['lookup_row_found'], 'No result fetched from failed execute');
+        refresh_test_equal(PDO::ERRMODE_SILENT, $report['pdo_error_mode'], 'Silent connection mode observed');
+        refresh_test_equal(false, $report['transaction_open_at_report'], 'No authorization transaction began');
+        $raw = (string) file_get_contents($worker['trace'] . '.activation-report.json');
+        refresh_test_assert(!str_contains($raw, 'Unknown column'), 'No raw driver message in private report');
+    } finally {
+        // Only restore this CLI fixture's disposable schema; never deployed/run on host.
+        if ($db->query("SHOW COLUMNS FROM licenses LIKE 'temporarily_hidden_code_hash'")->fetch()) {
+            $db->exec('ALTER TABLE licenses RENAME COLUMN temporarily_hidden_code_hash TO activation_code_hash');
+        }
+    }
     activation_test_unchanged();
 });

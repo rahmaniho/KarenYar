@@ -39,9 +39,9 @@ final class KarenRefreshTestPDO extends PDO
     public function __construct()
     {
         parent::__construct((string) getenv('KAREN_LICENSE_TEST_DSN'), 'root', (string) getenv('KAREN_LICENSE_TEST_PASSWORD'), [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_ERRMODE => (int) ($GLOBALS['karen_test_request']['pdo_error_mode'] ?? PDO::ERRMODE_EXCEPTION),
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
+            PDO::ATTR_EMULATE_PREPARES => (bool) ($GLOBALS['karen_test_request']['emulate_prepares'] ?? false),
         ]);
         $this->setAttribute(PDO::ATTR_STATEMENT_CLASS, [KarenRefreshTestStatement::class, [$this]]);
         $connectionId = (int) $this->query('SELECT CONNECTION_ID()')->fetchColumn();
@@ -52,6 +52,9 @@ final class KarenRefreshTestPDO extends PDO
         $this->exec('SET SESSION innodb_lock_wait_timeout = ' . max(1, min(8, $timeout)));
         if (isset($GLOBALS['karen_test_request']['initial_time_zone'])) {
             $this->exec('SET time_zone = ' . $this->quote((string) $GLOBALS['karen_test_request']['initial_time_zone']));
+        }
+        if (!empty($GLOBALS['karen_test_request']['no_backslash_escapes'])) {
+            $this->exec("SET SESSION sql_mode = CONCAT(@@session.sql_mode, ',NO_BACKSLASH_ESCAPES')");
         }
         if (array_key_exists('db_offset_from_input', $GLOBALS['karen_test_request'])) {
             karen_refresh_test_db_clock($this, (int) $GLOBALS['karen_test_request']['db_offset_from_input']);
@@ -113,6 +116,11 @@ final class KarenRefreshTestStatement extends PDOStatement
             default => 'other',
         };
         karen_refresh_test_trace('before', $kind, $this->connection->inTransaction(), $sql);
+        if ($kind === 'activation_locator' && !empty($GLOBALS['karen_test_request']['silent_locator_sql_failure'])) {
+            // Real missing-column execute failure in a synthetic disposable DB.
+            // The test restores the column in finally; no endpoint SQL is replaced.
+            $this->connection->exec('ALTER TABLE licenses RENAME COLUMN activation_code_hash TO temporarily_hidden_code_hash');
+        }
         if ($kind === 'event' && !empty($GLOBALS['karen_test_request']['fail_event'])) {
             throw new RuntimeException('test_injected_event_failure');
         }

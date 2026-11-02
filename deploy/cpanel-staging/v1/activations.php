@@ -56,7 +56,7 @@ function karen_plan_features(string $plan): array
 // Private, bounded metadata for the last completed staging POST. Never log
 // activation codes/hashes, tokens, public keys, labels, headers or exception text.
 $activationTrace = [
-    'version' => 1,
+    'version' => 2,
     'started_at_utc' => gmdate('Y-m-d H:i:s'),
     'phase' => 'read_input',
     'outcome' => 'incomplete',
@@ -67,6 +67,9 @@ $activationTrace = [
     'computed_hash_bytes' => null,
     'device_key_id' => null,
     'locator_license_id' => null,
+    'lookup_execute_ok' => null,
+    'lookup_driver_code' => null,
+    'lookup_row_found' => null,
     'license_public_id' => null,
     'committed' => false,
     'database_error_code' => null,
@@ -86,16 +89,24 @@ if (defined('KAREN_ENV') && KAREN_ENV === 'staging') {
             $report['db_schema'] = null;
             $report['db_utc_now'] = null;
             $report['db_time_zone'] = null;
+            $report['db_sql_mode'] = null;
+            $report['pdo_error_mode'] = null;
+            $report['pdo_emulate_prepares'] = null;
+            if ($pdo instanceof PDO) {
+                try { $report['pdo_error_mode'] = (int) $pdo->getAttribute(PDO::ATTR_ERRMODE); } catch (Throwable) {}
+                try { $report['pdo_emulate_prepares'] = (bool) $pdo->getAttribute(PDO::ATTR_EMULATE_PREPARES); } catch (Throwable) {}
+            }
             $report['transaction_open_at_report'] = $pdo instanceof PDO && $pdo->inTransaction();
             // No table read or new snapshot; only probe an already-open connection,
             // after normal commit/rollback. Never open a connection for reporting.
             if ($pdo instanceof PDO && !$report['transaction_open_at_report']) {
                 try {
-                    $context = $pdo->query('SELECT DATABASE() AS db_schema, UTC_TIMESTAMP() AS db_utc_now, @@session.time_zone AS db_time_zone')->fetch(PDO::FETCH_ASSOC);
+                    $context = $pdo->query('SELECT DATABASE() AS db_schema, UTC_TIMESTAMP() AS db_utc_now, @@session.time_zone AS db_time_zone, @@session.sql_mode AS db_sql_mode')->fetch(PDO::FETCH_ASSOC);
                     if (is_array($context)) {
                         $report['db_schema'] = $context['db_schema'];
                         $report['db_utc_now'] = $context['db_utc_now'];
                         $report['db_time_zone'] = $context['db_time_zone'];
+                        $report['db_sql_mode'] = $context['db_sql_mode'];
                     }
                 } catch (Throwable) {
                     // A failed metadata probe must not change the API result.
@@ -219,8 +230,12 @@ LIMIT 1
 SQL
     );
     $stmt->bindValue(':activation_code_hash', $activationCodeHash, PDO::PARAM_STR);
-    $stmt->execute();
-    $licenseId = (int) $stmt->fetchColumn();
+    $activationTrace['lookup_execute_ok'] = $stmt->execute();
+    $activationLookupInfo = $stmt->errorInfo();
+    $activationTrace['lookup_driver_code'] = (int) ($activationLookupInfo[1] ?? 0) ?: null;
+    $activationLocatedId = $stmt->fetchColumn();
+    $activationTrace['lookup_row_found'] = $activationLocatedId !== false;
+    $licenseId = (int) $activationLocatedId;
     $activationTrace['locator_license_id'] = $licenseId > 0 ? $licenseId : null;
 
     if ($licenseId <= 0) {
