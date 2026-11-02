@@ -475,9 +475,9 @@ SQL
     }
 
     $activationTrace['phase'] = 'commit';
-    $pdo->commit();
-    $activationTrace['phase'] = 'committed';
-    $activationTrace['committed'] = true;
+    $commitResult = $pdo->commit();
+    $activationTrace['phase'] = $commitResult ? 'committed' : 'commit_returned_false';
+    $activationTrace['committed'] = $commitResult;
     $activationTrace['outcome'] = 'succeeded';
     $activationTrace['http_status'] = 200;
 
