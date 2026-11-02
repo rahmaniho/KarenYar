@@ -61,6 +61,7 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-charts': ['recharts'],
           'vendor-pdf': ['jspdf', 'html2canvas'],
+          'vendor-pdf-vector': ['pdf-lib', '@pdf-lib/fontkit'],
           'vendor-ui': [
             '@radix-ui/react-dialog',
             '@radix-ui/react-select',

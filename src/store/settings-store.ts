@@ -19,6 +19,14 @@ interface SettingsState {
   invoiceTaxPercent: number;
   /** آستانه‌ی پیش‌فرض هشدار موجودی */
   defaultMinStock: number;
+  /** شناسه/کد اقتصادی فروشگاه — روی فاکتور چاپی */
+  shopEconomicCode: string;
+  /** شماره ثبت فروشگاه — روی فاکتور چاپی */
+  shopRegistrationNumber: string;
+  /** شرایط فروش که پایین فاکتور چاپ/PDF درج می‌شود */
+  invoiceFooterNote: string;
+  /** نمایش لوگو در سربرگ فاکتور PDF */
+  invoiceShowLogo: boolean;
   payrollRates: PayrollRates;
   currencyRates: CurrencyRate[];
   /** هش SHA-256 پین قفل برنامه — null یعنی قفل غیرفعال */
@@ -30,6 +38,20 @@ interface SettingsState {
   ) => void;
   setInvoiceTaxPercent: (value: number) => void;
   setDefaultMinStock: (value: number) => void;
+  updateInvoiceBranding: (
+    patch: Partial<
+      Pick<
+        SettingsState,
+        | 'shopEconomicCode'
+        | 'shopRegistrationNumber'
+        | 'invoiceFooterNote'
+        | 'invoiceShowLogo'
+        | 'shopName'
+        | 'shopPhone'
+        | 'shopAddress'
+      >
+    >,
+  ) => void;
   setPayrollRates: (rates: PayrollRates) => void;
   setCurrencyRates: (rates: CurrencyRate[]) => void;
   setPinHash: (pinHash: string | null) => void;
@@ -45,6 +67,10 @@ export const useSettingsStore = create<SettingsState>()(
       shopAddress: '',
       invoiceTaxPercent: 10,
       defaultMinStock: 5,
+      shopEconomicCode: '',
+      shopRegistrationNumber: '',
+      invoiceFooterNote: '',
+      invoiceShowLogo: true,
       payrollRates: DEFAULT_PAYROLL_RATES,
       currencyRates: DEFAULT_CURRENCY_RATES,
       pinHash: null,
@@ -53,6 +79,7 @@ export const useSettingsStore = create<SettingsState>()(
       updateShop: (patch) => set(patch),
       setInvoiceTaxPercent: (invoiceTaxPercent) => set({ invoiceTaxPercent }),
       setDefaultMinStock: (defaultMinStock) => set({ defaultMinStock }),
+      updateInvoiceBranding: (patch) => set(patch),
       setPayrollRates: (payrollRates) => set({ payrollRates }),
       setCurrencyRates: (currencyRates) => set({ currencyRates }),
       setPinHash: (pinHash) => set({ pinHash }),

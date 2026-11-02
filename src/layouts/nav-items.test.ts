@@ -9,6 +9,7 @@ const ROUTER_PATHS = [
   '/store/finance',
   '/store/products',
   '/store/invoices',
+  '/store/invoices/issued',
   '/store/reports',
   '/store/customers',
   '/personal/transactions',

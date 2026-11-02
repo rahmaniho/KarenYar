@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { assetUrl } from '@/lib/utils';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ArrowRight, FileDown, Plus, Printer, Receipt, Undo2, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
 import { db, type Invoice, type InvoiceItem } from '@/core/db/db';
 import { formatDecimal, formatMoney, toFaDigits } from '@/core/currency/currency';
 import { formatJalaliLong } from '@/core/jalali/jalali';
-import { exportElementToPdf } from '@/core/utils/pdf';
+import { downloadInvoicePdf } from './invoice-pdf';
 import { useLicenseStore } from '@/store/license-store';
 import { useSettingsStore } from '@/store/settings-store';
 import { PageHeader } from '@/components/PageHeader';
@@ -20,12 +20,17 @@ import { invoicePaymentMethod, PAYMENT_LABELS } from './payment';
 /** مشاهده و چاپ فاکتور — ناحیه‌ی چاپ با شناسه‌ی print-area */
 export function InvoiceViewPage() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const invoiceId = Number(id);
   const unit = useSettingsStore((s) => s.currencyUnit);
   const shopName = useSettingsStore((s) => s.shopName);
   const shopPhone = useSettingsStore((s) => s.shopPhone);
   const shopAddress = useSettingsStore((s) => s.shopAddress);
+  const shopEconomicCode = useSettingsStore((s) => s.shopEconomicCode);
+  const shopRegistrationNumber = useSettingsStore((s) => s.shopRegistrationNumber);
+  const invoiceFooterNote = useSettingsStore((s) => s.invoiceFooterNote);
+  const invoiceShowLogo = useSettingsStore((s) => s.invoiceShowLogo);
   const can = useLicenseStore((s) => s.can);
   const printRef = useRef<HTMLDivElement>(null);
   // useLiveQuery هنگام بارگذاری هم undefined برمی‌گرداند؛ تا مهلت کوتاه تمام نشود «پیدا نشد» نشان نمی‌دهیم
@@ -38,6 +43,13 @@ export function InvoiceViewPage() {
   const [deleting, setDeleting] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
 
+  // ورود با ?print=1 از فهرست فاکتورها: پس از آماده‌شدن سند، پنجره‌ی چاپ باز می‌شود
+  useEffect(() => {
+    if (searchParams.get('print') !== '1') return;
+    const timer = window.setTimeout(() => window.print(), 700);
+    return () => window.clearTimeout(timer);
+  }, [searchParams]);
+
   const invoice = useLiveQuery(
     () => (Number.isFinite(invoiceId) ? db.invoices.get(invoiceId) : undefined),
     [invoiceId],
@@ -46,6 +58,16 @@ export function InvoiceViewPage() {
     () => db.invoiceItems.where('invoiceId').equals(invoiceId).toArray(),
     [invoiceId],
     [] as InvoiceItem[],
+  );
+  const customer = useLiveQuery(
+    async () => {
+      const current = await db.invoices.get(invoiceId);
+      return current?.customerId != null
+        ? ((await db.customers.get(current.customerId)) ?? null)
+        : null;
+    },
+    [invoiceId],
+    null,
   );
 
   if (invoice === undefined && !loadTimedOut) {
@@ -73,16 +95,38 @@ export function InvoiceViewPage() {
   }
 
   const downloadPdf = async () => {
-    if (!printRef.current) return;
+    if (!invoice) return;
     setPdfLoading(true);
     try {
-      await exportElementToPdf(printRef.current, `hesabyar-invoice-${invoice.number}.pdf`);
-      toast.success('فایل PDF فاکتور ساخته شد.');
-    } catch {
-      toast.error('ساخت PDF با خطا مواجه شد؛ از چاپ استفاده کنید.');
+      const fileName = await downloadInvoicePdf({
+        invoice,
+        items: items ?? [],
+        customer: invoice.customerId != null ? (customer ?? null) : null,
+        settings: {
+          shopName,
+          shopPhone,
+          shopAddress,
+          shopEconomicCode,
+          shopRegistrationNumber,
+          invoiceFooterNote,
+          invoiceShowLogo,
+          currencyUnit: unit,
+        },
+      });
+      toast.success(`فایل ${fileName} ساخته شد.`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'ساخت PDF با خطا مواجه شد؛ از چاپ استفاده کنید.',
+      );
     } finally {
       setPdfLoading(false);
     }
+  };
+
+  const printInvoice = () => {
+    document.body.dataset.printMode = 'invoice';
+    window.print();
+    window.setTimeout(() => delete document.body.dataset.printMode, 0);
   };
 
   return (
@@ -108,7 +152,7 @@ export function InvoiceViewPage() {
                 فاکتور جدید
               </Link>
             </Button>
-            <Button variant="outline" onClick={() => window.print()}>
+            <Button variant="outline" onClick={printInvoice}>
               <Printer aria-hidden />
               چاپ
             </Button>
