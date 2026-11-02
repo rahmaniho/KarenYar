@@ -53,6 +53,96 @@ function karen_plan_features(string $plan): array
     return [];
 }
 
+// Private, bounded metadata for the last completed staging POST. Never log
+// activation codes/hashes, tokens, public keys, labels, headers or exception text.
+$activationTrace = [
+    'version' => 1,
+    'started_at_utc' => gmdate('Y-m-d H:i:s'),
+    'phase' => 'read_input',
+    'outcome' => 'incomplete',
+    'http_status' => null,
+    'error_code' => null,
+    'input_code_bytes' => null,
+    'input_has_non_ascii' => null,
+    'computed_hash_bytes' => null,
+    'device_key_id' => null,
+    'locator_license_id' => null,
+    'license_public_id' => null,
+    'committed' => false,
+    'database_error_code' => null,
+];
+
+if (defined('KAREN_ENV') && KAREN_ENV === 'staging') {
+    register_shutdown_function(static function () use (&$activationTrace, &$pdo): void {
+        $temporary = null;
+        $handle = null;
+        try {
+            $report = $activationTrace;
+            $report['finished_at_utc'] = gmdate('Y-m-d H:i:s');
+            $report['source_sha256'] = hash_file('sha256', __FILE__);
+            $report['php_version'] = PHP_VERSION;
+            $report['php_sapi'] = PHP_SAPI;
+            $report['http_status'] ??= http_response_code() ?: null;
+            $report['db_schema'] = null;
+            $report['db_utc_now'] = null;
+            $report['db_time_zone'] = null;
+            $report['transaction_open_at_report'] = $pdo instanceof PDO && $pdo->inTransaction();
+            // No table read or new snapshot; only probe an already-open connection,
+            // after normal commit/rollback. Never open a connection for reporting.
+            if ($pdo instanceof PDO && !$report['transaction_open_at_report']) {
+                try {
+                    $context = $pdo->query('SELECT DATABASE() AS db_schema, UTC_TIMESTAMP() AS db_utc_now, @@session.time_zone AS db_time_zone')->fetch(PDO::FETCH_ASSOC);
+                    if (is_array($context)) {
+                        $report['db_schema'] = $context['db_schema'];
+                        $report['db_utc_now'] = $context['db_utc_now'];
+                        $report['db_time_zone'] = $context['db_time_zone'];
+                    }
+                } catch (Throwable) {
+                    // A failed metadata probe must not change the API result.
+                }
+            }
+            // The optional constant is server configuration, NOT a request input.
+            // CI redirects it into its disposable scratch directory.
+            $path = defined('KAREN_ACTIVATION_REPORT_FILE')
+                ? (string) KAREN_ACTIVATION_REPORT_FILE
+                : '/home/karensof/private/karen-staging/activation-last-attempt.json';
+            $temporary = $path . '.tmp-' . bin2hex(random_bytes(6));
+            $handle = @fopen($temporary, 'x');
+            if ($handle === false || !@chmod($temporary, 0600)) {
+                throw new RuntimeException('report_unavailable');
+            }
+            $json = json_encode($report, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+            if (@fwrite($handle, $json) !== strlen($json)) {
+                throw new RuntimeException('report_unavailable');
+            }
+            fclose($handle);
+            $handle = null;
+            // Replace, never append or follow a destination symlink; fixed-size
+            // private history of one attempt, without changing business records.
+            if (!@rename($temporary, $path)) {
+                throw new RuntimeException('report_unavailable');
+            }
+            $temporary = null;
+        } catch (Throwable) {
+            try { @error_log('karen staging activation report unavailable'); } catch (Throwable) {}
+        } finally {
+            try {
+                if (is_resource($handle)) { @fclose($handle); }
+                if ($temporary !== null && is_file($temporary)) { @unlink($temporary); }
+            } catch (Throwable) {
+                // Reporting/cleanup must never throw into the business response.
+            }
+        }
+    });
+}
+
+$activationReject = static function (int $status, string $error) use (&$activationTrace): never {
+    $activationTrace['outcome'] = 'rejected';
+    $activationTrace['http_status'] = $status;
+    $activationTrace['error_code'] = $error;
+    karen_fail($status, $error);
+};
+
 try {
     $input = karen_read_json();
 
@@ -62,49 +152,64 @@ try {
     $deviceLabel = trim((string) ($input['device_label'] ?? 'Unknown device'));
     $productCode = trim((string) ($input['product_code'] ?? 'hesabyar'));
 
+    $activationTrace['phase'] = 'validate_code';
+    $activationTrace['input_code_bytes'] = strlen($activationCode);
+    $activationTrace['input_has_non_ascii'] = strlen($activationCode) <= 128
+        ? preg_match('/[^\x20-\x7E]/', $activationCode) === 1 : null;
+
     if ($activationCode === '' || strlen($activationCode) > 128) {
-        karen_fail(400, 'invalid_activation_code');
+        $activationReject(400, 'invalid_activation_code');
     }
 
+    $activationTrace['phase'] = 'validate_device_id';
     if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/', $deviceKeyId)) {
-        karen_fail(400, 'invalid_device_key_id');
+        $activationReject(400, 'invalid_device_key_id');
     }
 
+    $activationTrace['device_key_id'] = $deviceKeyId;
+    $activationTrace['phase'] = 'validate_device_key';
     $devicePublicKey = karen_license_decode_key_material($devicePublicKeyB64, 32);
 
     if ($devicePublicKey === null) {
-        karen_fail(400, 'invalid_device_public_key');
+        $activationReject(400, 'invalid_device_public_key');
     }
 
+    $activationTrace['phase'] = 'validate_device_label';
     if ($deviceLabel === '') {
         $deviceLabel = 'Unknown device';
     }
 
     if (strlen($deviceLabel) > 190) {
-        karen_fail(400, 'invalid_device_label');
+        $activationReject(400, 'invalid_device_label');
     }
 
+    $activationTrace['phase'] = 'validate_product';
     if (!preg_match('/^[a-z0-9_-]{1,64}$/', $productCode)) {
-        karen_fail(400, 'invalid_product_code');
+        $activationReject(400, 'invalid_product_code');
     }
 
+    $activationTrace['phase'] = 'hash_code';
     $activationCodeHash = karen_activation_code_hash($activationCode);
+    $activationTrace['computed_hash_bytes'] = strlen($activationCodeHash);
 
+    $activationTrace['phase'] = 'rate_limit';
     karen_rate_limit('activation:ip:' . bin2hex(karen_client_ip_hash()), 30, 300);
     karen_rate_limit('activation:code:' . bin2hex($activationCodeHash), 10, 300);
 
+    $activationTrace['phase'] = 'database_connect';
     $pdo = karen_db();
     // Match refresh/maintenance when reading TIMESTAMP columns and DB expiry.
     $pdo->exec("SET time_zone = '+00:00'");
 
-    $abort = static function (int $status, string $error) use ($pdo): void {
+    $abort = static function (int $status, string $error) use ($pdo, $activationReject): void {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
 
-        karen_fail($status, $error);
+        $activationReject($status, $error);
     };
 
+    $activationTrace['phase'] = 'license_lookup';
     // Locate only, outside the transaction: do not start an RR snapshot here.
     $stmt = $pdo->prepare(<<<'SQL'
 SELECT id
@@ -116,11 +221,13 @@ SQL
     $stmt->bindValue(':activation_code_hash', $activationCodeHash, PDO::PARAM_STR);
     $stmt->execute();
     $licenseId = (int) $stmt->fetchColumn();
+    $activationTrace['locator_license_id'] = $licenseId > 0 ? $licenseId : null;
 
     if ($licenseId <= 0) {
         $abort(404, 'invalid_activation_code');
     }
 
+    $activationTrace['phase'] = 'license_recheck';
     $pdo->beginTransaction();
 
     // Match refresh/admin: lock the license PK before shared metadata or devices.
@@ -147,6 +254,9 @@ SQL
         $abort(404, 'invalid_activation_code');
     }
 
+    $publicId = (string) $license['public_id'];
+    $activationTrace['license_public_id'] = preg_match('/^[A-Za-z0-9_-]{1,64}$/', $publicId) ? $publicId : null;
+    $activationTrace['phase'] = 'account_recheck';
     $stmt = $pdo->prepare(<<<'SQL'
 SELECT p.code AS product_code, c.reference_code AS customer_reference
 FROM products p
@@ -173,6 +283,7 @@ SQL
 
     $expectedDevicePem = karen_ed25519_public_pem($devicePublicKey);
 
+    $activationTrace['phase'] = 'device_lookup';
     $stmt = $pdo->prepare(<<<'SQL'
 SELECT *
 FROM license_devices
@@ -186,6 +297,7 @@ SQL
 
     $existingDevice = $stmt->fetch();
 
+    $activationTrace['phase'] = 'code_expiry_after_lock';
     // The first statement's UTC_TIMESTAMP can predate a license/device lock wait.
     $clock = $pdo->prepare('SELECT UNIX_TIMESTAMP()');
     $clock->execute();
@@ -201,6 +313,7 @@ SQL
         $abort(404, 'invalid_activation_code');
     }
 
+    $activationTrace['phase'] = 'device_binding';
     if ($existingDevice) {
         if ((int) $existingDevice['license_id'] !== (int) $license['id']) {
             $abort(409, 'device_already_registered');
@@ -227,6 +340,7 @@ SQL
 
         $eventType = 'activation.reused';
     } else {
+        $activationTrace['phase'] = 'device_capacity';
         $stmt = $pdo->prepare(<<<'SQL'
 SELECT COUNT(*)
 FROM license_devices
@@ -243,6 +357,7 @@ SQL
             $abort(403, 'device_limit_reached');
         }
 
+        $activationTrace['phase'] = 'device_insert';
         $stmt = $pdo->prepare(<<<'SQL'
 INSERT INTO license_devices (
     license_id,
@@ -274,6 +389,7 @@ SQL
         $eventType = 'activation.created';
     }
 
+    $activationTrace['phase'] = 'token_lifetime';
     $now = time();
     $tokenExpiresAt = $now + 7 * 86400;
 
@@ -303,8 +419,10 @@ SQL
         'exp' => $tokenExpiresAt,
     ];
 
+    $activationTrace['phase'] = 'token_signing';
     $signed = karen_sign_license($claims);
 
+    $activationTrace['phase'] = 'event_insert';
     $stmt = $pdo->prepare(<<<'SQL'
 INSERT INTO license_events (
     license_id,
@@ -336,6 +454,7 @@ SQL
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), PDO::PARAM_STR);
     $stmt->execute();
 
+    $activationTrace['phase'] = 'precommit_clock';
     // Fail closed if DB work/signing consumed the remaining code/token lifetime.
     // These are point-in-time gates, not a guarantee against arbitrary clock jumps.
     $clock->execute();
@@ -346,6 +465,7 @@ SQL
         throw new RuntimeException('database_clock_invalid');
     }
 
+    $activationTrace['phase'] = 'precommit_expiry';
     if ($activationCodeExpiresAt <= $dbNow) {
         $abort(404, 'invalid_activation_code');
     }
@@ -354,7 +474,12 @@ SQL
         $abort(400, 'license_expired');
     }
 
+    $activationTrace['phase'] = 'commit';
     $pdo->commit();
+    $activationTrace['phase'] = 'committed';
+    $activationTrace['committed'] = true;
+    $activationTrace['outcome'] = 'succeeded';
+    $activationTrace['http_status'] = 200;
 
     karen_json(200, [
         'ok' => true,
@@ -379,6 +504,10 @@ SQL
         $pdo->rollBack();
     }
 
-    error_log('karen staging activation failed: ' . $e->getMessage());
+    $activationTrace['outcome'] = 'failed';
+    $activationTrace['http_status'] = 500;
+    $activationTrace['error_code'] = 'activation_failed';
+    $activationTrace['database_error_code'] = $e instanceof PDOException ? (int) ($e->errorInfo[1] ?? 0) : null;
+    error_log('karen staging activation failed at ' . $activationTrace['phase']);
     karen_fail(500, 'activation_failed');
 }

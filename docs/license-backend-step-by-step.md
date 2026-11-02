@@ -200,7 +200,7 @@ npm run test:staging-app-deploy
 
 ---
 
-## گام ۳ — پذیرش محدود ۳D بسته شد؛ بررسی همزمانی فعال‌سازی/تمدید/لغو در مخزن
+## گام ۳ — ۳D بسته؛ ۳E-۱ روی هاست با پیام invalid code متوقف شد؛ عیب‌یابی فقط لایسنس تست
 
 ### یافتهٔ کد و اصلاح محدود ۳A
 
@@ -496,7 +496,7 @@ candidate public **۳۸۲ خط**، SHA **`9b7fb91dc901eefc2e521ebdb9b66729ee802b
 
 بهبود بعدی نمایش نتیجهٔ refresh باید موفقیت واقعیِ پاسخ/بررسی trust و ذخیرهٔ نشست را از no-op، آفلاین و خطا جدا کند. `sync()` فعلی `Promise<void>` است و خطاها را داخل خود مدیریت می‌کند؛ صرف `await sync(true)` مجوز نمایش toast موفقیت نیست. این تغییر رابط در این مرحله پیاده‌سازی یا منتشر نشده است.
 
-#### ۳E-۱ — candidate فعال‌سازی license-first و پوشش واقعی endpoint؛ native در انتظار
+#### ۳E-۱ — native ۱۱۵/۱۱۵، Save/GET تأیید؛ activation تست خطا داد و پذیرش متوقف است
 
 مرور کد، JOIN اولیهٔ `activations.php` را نشان داد که license/product/customer را همزمان `FOR UPDATE` می‌گرفت؛ ترتیب واقعی قفل جدول‌های آن از متن SQL تضمین نمی‌شد. این مشاهده به‌تنهایی اثبات deadlock رخ‌داده روی هاست یا هر دو optimizer نیست. candidate جدید لایسنس را با locator صرفاً id **خارج** از تراکنش پیدا می‌کند، سپس داخل تراکنش یک SELECT تک‌جدولی با PK و recheck همان activation hash/status/expiry، بعد metadata فعال و بعد device unique-key را قفل می‌کند. code locator مجوز محسوب نمی‌شود و تعویض کد در فاصلهٔ locator/lock باید رد شود. source قبلی **۳۱۷ خط** / SHA **`296f2e911bfc011c98b9d67239d6a9bceffc3748eb8fb12aedd2f165bfc2e125`** بود؛ این fingerprint مخزن است، نه اندازه‌گیری فایل هاست.
 
@@ -504,15 +504,205 @@ candidate public **۳۸۲ خط**، SHA **`9b7fb91dc901eefc2e521ebdb9b66729ee802b
 
 harness حالا **خود `activations.php`** را در worker جدا اجرا می‌کند؛ تنها خط جایگزین‌شدهٔ endpoint، مسیر require bootstrap است، نه SQL آن. fixture صریحاً ستون‌های `licenses.activation_code_hash`/`activation_code_expires_at` و AUTO_INCREMENT دستگاه را اضافه می‌کند تا INSERT واقعی اجرا شود؛ این فقط schema مصنوعی دیتابیس موقتی CI است، **migration یا دستور SQL هاست نیست**. hasher تستیِ کد با مقدار PUBLIC مصنوعی، HTTP و rate limiter double هستند؛ hasher/private bootstrap واقعی در دسترس/تست‌شده نیستند. PDO همان SQL واقعی را اجرا می‌کند و error number واقعی را فقط در trace خصوصی fixture ثبت می‌کند؛ هیچ SQL حذف یا شبیه‌سازی نشده است.
 
-۲۵ سناریوی جدید در `scripts/fixtures/license-activation-transaction-cases.php`، به‌علاوهٔ ۹۰ قبلی، **هدف ۱۱۵ سناریو در هر engine**: create/reuse و امضای واقعی fixture/claim/cap/ترتیب read؛ legacy base64؛ invalid code/cap/key mismatch/revoked/cross-license؛ دو متقاضی آخرین slot؛ create سپس reuse برای همان key؛ مسابقهٔ key غایب بین دو product/customer مستقل؛ rotation کد بعد از locator؛ تغییر وضعیت product/customer هنگام انتظار license؛ پر/خالی‌شدن slot با تراکنش PDO با پروتکل مدیریتی license→device؛ activation↔refresh واقعی در هر دو ترتیب؛ انقضای واقعی کد هنگام lock wait و expiry کد/لایسنس بعد از event با clock session تستی؛ event failure/lock timeout واقعی و retry؛ non-UTC؛ و شکست هرکدام از دو clock query. تغییر مدیریتی در دو سناریو **PDO model** است، نه اجرای `admin/index.php`/CSRF/REMOTE_USER/redirect/event actor؛ پوشش endpoint ادمین هنوز باز است.
+۲۵ سناریوی جدید در `scripts/fixtures/license-activation-transaction-cases.php`، به‌علاوهٔ ۹۰ قبلی، **۱۱۵ سناریو در هر engine، اکنون native PASS**: create/reuse و امضای واقعی fixture/claim/cap/ترتیب read؛ legacy base64؛ invalid code/cap/key mismatch/revoked/cross-license؛ دو متقاضی آخرین slot؛ create سپس reuse برای همان key؛ مسابقهٔ key غایب بین دو product/customer مستقل؛ rotation کد بعد از locator؛ تغییر وضعیت product/customer هنگام انتظار license؛ پر/خالی‌شدن slot با تراکنش PDO با پروتکل مدیریتی license→device؛ activation↔refresh واقعی در هر دو ترتیب؛ انقضای واقعی کد هنگام lock wait و expiry کد/لایسنس بعد از event با clock session تستی؛ event failure/lock timeout واقعی و retry؛ non-UTC؛ و شکست هرکدام از دو clock query. تغییر مدیریتی در دو سناریو **PDO model** است، نه اجرای `admin/index.php`/CSRF/REMOTE_USER/redirect/event actor؛ پوشش endpoint ادمین هنوز باز است.
 
 **قرارداد گذرای cross-license هنوز حل‌شده اعلام نمی‌شود:** UNIQUE binding باید فقط یک برنده داشته باشد؛ بازنده در deadlock/timeout/duplicate همچنان می‌تواند `500 activation_failed` بگیرد و retry پس از commit برنده باید `409 device_already_registered` بدهد. تست باید error number واقعی و نبود token/تغییر ماندگار بازنده را تأیید کند؛ این نه تبدیل همهٔ خطاها به ۴۰۹ است، نه retry خودکار/بی‌کران. timeout و event failure هم با retry بعد از برطرف‌شدن علت بررسی می‌شوند. سمت کلاینت activation error قبل از نوشتن session پرتاب می‌شود و مالی حذف نمی‌شود؛ مسیر sync برای permanent rejection جداست و یکدست‌سازی بیشتر آن هنوز باز است.
 
-candidate **۳۸۴ خط** / SHA **`9d45db80afd59b294aa3ddd33bd74cf9b96aa285c66d3a02280ee952f8a07b9a`** است. parser ده PHP مرتبط PASS؛ typecheck/lint و **۲۵۸ تست وب محلی PASS**. PHP/MySQL محلی نداریم؛ parser runtime نیست. **native هنوز اجرا/تأیید نشده و هیچ فایل جدیدی برای هاست ارسال یا جایگزینی آن درخواست نشده است.** refresh پذیرفته‌شده **9b7fb91d…**، helper/Cron خصوصی **9a98f1db…** و ZIP **2a88c326…** بدون تغییر هستند. پس از قبولی native، قدم احتمالی هاست ابتدا فقط backup فایل **`v1/activations.php`** در پوشهٔ private جدید است؛ نه backup تکراری refresh و نه نصب candidate همزمان با backup. متن کامل فایل فقط در قدم جداگانه و پس از تأیید backup داده می‌شود.
+candidate **۳۸۴ خط** / SHA **`9d45db80afd59b294aa3ddd33bd74cf9b96aa285c66d3a02280ee952f8a07b9a`** است. parser ده PHP مرتبط PASS؛ typecheck/lint و **۲۵۸ تست وب محلی PASS**. PHP/MySQL محلی نداریم؛ parser runtime نیست.
+
+**native تأیید شد:** commit **`eab412c32fbbc391d6f466910f0eab6b68167110`**، [run **41361087821**](https://github.com/rahmaniho/KarenYar/actions/runs/41361087821) **SUCCESS**؛ PHP 8.3/REPEATABLE READ، **۱۱۵ سناریو روی هرکدام** از MySQL **`8.0.46`** (job **`125011405319`**) و MariaDB **`10.11.19-MariaDB-ubu2204`** (job **`125011405335`**). هر دو annotation مستقل «115 cases passed» با `gh api` خوانده شدند. این شامل ۲۵ مورد اجرای activation/تداخل با refresh و ۹۰ regression قبلی refresh/cleanup است؛ به معنی اجرای واقعی POST ادمین یا رفع تمام transient conflictها نیست. web job **`125011405043`** نیز typecheck/lint/۲۵۸ تست، build/license/backend/installer/staging build را گذراند؛ audit report غیرمسدودکننده exit1 و هشدار Node20→24 همچنان بازند. watcher **`activation-concurrency-checks-9e9d8968` / PID `8007`** با exit **0** تمام شد و تکرار watch/run لازم نیست. CI build معادل deploy نیست.
+
+**backup هاست تأیید شد:** کاربر پس از همان قدم Copy در ۲۰۲۶-۱۱-۰۲ صریحاً نوشت **«بک‌آپ activations ساخته شد»**. مسیر اعلام‌شدهٔ آن قدم **`/home/karensof/private/karen-staging/backups/pre-activation-locks-20261102/activations.php`** است؛ این تأیید انجام کپی از سوی کاربر است، نه خواندن مستقل bytes/hash هاست. backup/تصویر آن دوباره درخواست نمی‌شود. این فقط backup کد PHP است؛ دادهٔ مالی نیست و اصل فایل تا این نقطه تغییرکرده/Saveشده فرض نمی‌شود.
+
+**کل فایل تحویل و Save تأیید شد:** تمام نسخهٔ نهایی **۳۸۴خطی**، از `<?php` تا `}` آخر، در پاسخ قبلی inline داده شد؛ path و hash منبع با checkpoint تست‌شده تطبیق داشتند: **`9d45db80afd59b294aa3ddd33bd74cf9b96aa285c66d3a02280ee952f8a07b9a`** / commit **`eab412c32fbbc391d6f466910f0eab6b68167110`**. دستور فقط File Manager → `/home/karensof/public_html/staging.karen-soft.ir/v1/` → **`activations.php`** → Edit → select all/delete → paste تمام فایل → Save بود. کاربر در ۲۰۲۶-۱۱-۰۲ صریحاً گفت **«activations جدید ذخیره شد»**. این تأیید جایگزینی/Save از سوی کاربر است، نه خواندن مستقل bytes/hash هاست یا قبولی اجرای واقعی activation. **Save، ارسال همین فایل یا backup دوباره درخواست نمی‌شوند.** backup private تأییدشده برای rollback احتمالی محفوظ است؛ اکنون rollback لازم نیست.
+
+**GET بارگذاری پاسخ مورد انتظار داد:** کاربر بعد از بازکردن لینک **`https://staging.karen-soft.ir/v1/activations.php?check=activation-locks-20261102`** عین پاسخ **`{"ok":false,"error":"method_not_allowed"}`** را فرستاد. این همان guard مورد انتظار است؛ status مورد انتظار از source، 405 است، ولی header/status شبکه مستقلاً از گزارش متنی اندازه‌گیری نشده است. این شاهد محدود parse/load/مسیر guard است؛ GET پیش از body/rate-limit/locator/transaction فعال‌سازی رد می‌شود. **نه اثبات SQL/cap/expiry/امضای توکن/ذخیرهٔ نشست است، نه اندازه‌گیری مستقل hash نصب‌شده و نه پذیرش activation.** GET مشابه یا Save دوباره درخواست نمی‌شود.
+
+**صدور لایسنس تست اعلام شد:** بعد از دستور صدور جداگانه از صفحهٔ موجود **`https://staging.karen-soft.ir/admin/issue-license.php`**، کاربر شناسهٔ جدید **`03c0c8b7-5672-4cd3-ab52-4056cf195a61`** و انقضای کد **`2026-11-02 23:29:44 UTC`** را فرستاد. این UUID با لایسنس اصلی متفاوت است؛ هیچ activation code، token یا secret دریافت/درخواست نشد. پارامترهای خواسته‌شده مشتری فعال لایسنس فعلی، product `hesabyar`، plan `pro`، max_devices=`1` / license_days=`1` / activation_code_days=`1` بودند؛ پیام صدور نخست فقط UUID و code expiry داشت؛ مشخصات plan/cap/license expiry/دستگاه‌ها بعداً در متن صفحهٔ جزئیات ادمین زیر تأیید شدند. صدور یا نمایش مجدد کد دوباره درخواست نمی‌شود؛ نه customer حدسی ساخته می‌شود و نه لایسنس اصلی ویرایش می‌شود. source issuer خوانده‌شده فقط `INSERT` لایسنس جدید برای customer/product فعال موجود دارد؛ source/host issuer تغییر نکرده است.
+
+**تلاش فعال‌سازی تست با خطا گزارش شد؛ موفقیت تأیید نشده:** برای UUID تست **`03c0c8b7-5672-4cd3-ab52-4056cf195a61`**، قدم قبلی یک بار ورود کد فقط نزد کاربر در Chrome Incognitoِ بدون دادهٔ مالی، روی **`https://staging.karen-soft.ir/app/settings?check=activation-test-20261102#license`** بود؛ main profile/PWA اصلی و private session دارای اطلاعات قبلی نباید استفاده/پاک/بسته می‌شدند. کاربر در پاسخ عین پیام **«کد فعال‌سازی معتبر نیست یا منقضی شده است. کد جدید بگیرید.»** را فرستاد. این متن در `ACTIVATION_ERROR_MESSAGES` با `invalid_activation_code` متناظر است؛ HTTP status/body خام، کد خصوصی واردشده، نوع مقداری که از فرم صدور کپی شده، شناسهٔ دستگاه تست یا وجود ردیف/event از سمت سرور هنوز مشاهده نشده‌اند. صدور/ثبت دستگاه/صدور توکن/rollback واقعی یا انقضای قطعی از این پیام فرض نمی‌شوند. **پذیرش stagingِ activation متوقف است، نه قبول‌شده.**
+
+source دوباره بررسی شد: مقدار خالی/طول >۱۲۸ (۴۰۰)، locator بدون hash match، license/code hash/status/expiry هنگام lock، product/customer فعال و product code، و clock code-expiry پس از device lock یا قبل commit (۴۰۴)، همگی می‌توانند همین code را بدهند. این پیام از خطاهای cap/device binding/issuer key جداست ولی علت دقیق آن تعیین نمی‌شود. private hasher/bootstrap و schema پایه همچنان محلی در دسترس/واقعی تست‌شده نیستند؛ ۱۱۵ native به معنی پوشش آن‌ها یا رفع مشکل هاست نیستند. هیچ patch، تغییر Source/clock/schema، rollback، فایل debug/test، Source reinstall یا CI run تکراری برای این پیام آماده/اعمال نشده است. source/JSON fields و byte hashهای checkpoint ثابت مانده‌اند.
+
+**رسید جزئیات همان لایسنس تست دریافت شد:** متن صفحهٔ ادمین از کاربر: UUID **`03c0c8b7-5672-4cd3-ab52-4056cf195a61`**، مشتری **`STAGING-CUSTOMER-001`**، محصول **`hesabyar`**، plan **`pro`**، license status **`active`**، max_devices **`1`**، انقضای لایسنس عین نمایش **`2026-11-02 23:29:44`**؛ **«دستگاهی ثبت نشده است»** و تنها event ارائه‌شده **`license.issued` در `2026-11-01 23:29:44`**. بنابراین مشخصات خواسته‌شدهٔ product/plan/cap موجودند و در این خواندن، binding/event موفق activation برای تست مشاهده نمی‌شود. این GET برای UUID تست جدید بود، نه بازآزمایی ۳D روی license اصلی. status متنی `active` به‌تنهایی به معنی منقضی‌نبودن نسبت به clock DB/PHP نیست؛ clock جاری، code hash match و وضعیت product/customer در این پنل نمایش داده نشده‌اند. انقضای کد با برچسب UTC قبلاً از صفحهٔ صدور گزارش شد؛ timezone این مقدار خامِ صفحهٔ جزئیات مستقلاً اندازه‌گیری نشده است. هیچ POST ادمین یا تغییر device از متن این پاسخ نتیجه گرفته نمی‌شود.
+
+**نوع فیلد با سؤال بسته روشن شد:** کاربر گزینهٔ **«کدِ زیر عنوان کد فعال‌سازی»** (`activation_code_field`) را انتخاب کرد، نه گزینهٔ UUID. هیچ secret دریافت نشد. این تأیید منشأ کپی است، نه اثبات مستقل برابری بایت‌های کد با hash ذخیره‌شده یا نبودن فاصله/کاراکتر اضافه. نباید خطا را به واردکردن UUID یا انقضا نسبت داد. سؤال یکسان دوباره پرسیده نمی‌شود؛ توصیهٔ متن UI برای صدور فوری کد جدید فعلاً دنبال نمی‌شود.
+
+**اسکریپت تشخیصی اول، برای سابقه — مقادیر ۱۳ ردیف از تصویر دریافت شد؛ دوباره اجرا نمی‌شود:** نام واقعی دیتابیس در پاسخ تازهٔ کاربر مشخص شد: **`karensof_karen_staging`**. مسیر اجرا cPanel → phpMyAdmin → SQL همین دیتابیس است؛ برای مستقل‌بودن از context رابط، اسکریپت کامل زیر ابتدا `USE` همین نامِ ارائه‌شده، سپس SET SESSION time_zone UTC و یک SELECT بدون `FOR UPDATE` فقط روی UUID تست دارد؛ **نه ساعت OS/DB تغییر می‌کند، نه متغیر GLOBAL، نه رکوردی INSERT/UPDATE/DELETE می‌شود**. هیچ فایل/fixture/debug endpoint نصب نمی‌شود. خروجی برای گوشی دو ستون و ۱۳ ردیف دارد؛ فقط جدول نتیجه یا خطای عمومی همان query خواسته می‌شود، نه نمای کامل پنل/credentials، نه code/hash/token/کلید یا دادهٔ مالی. شرط `code_hash_present` فقط وجود غیرخالی hash است، نه محتوای آن یا اثبات match با ورودی.
+
+```sql
+USE `karensof_karen_staging`;
+SET SESSION time_zone = '+00:00';
+
+SELECT
+    CASE diag_fields.n
+        WHEN 1 THEN 'public_id'
+        WHEN 2 THEN 'db_utc_now'
+        WHEN 3 THEN 'session_time_zone'
+        WHEN 4 THEN 'license_status'
+        WHEN 5 THEN 'product_code'
+        WHEN 6 THEN 'product_status'
+        WHEN 7 THEN 'customer_status'
+        WHEN 8 THEN 'max_devices'
+        WHEN 9 THEN 'license_expires_at_utc'
+        WHEN 10 THEN 'code_expires_at_utc'
+        WHEN 11 THEN 'license_time_ok'
+        WHEN 12 THEN 'code_time_ok'
+        WHEN 13 THEN 'code_hash_present'
+    END AS check_name,
+    CASE diag_fields.n
+        WHEN 1 THEN l.public_id
+        WHEN 2 THEN CAST(UTC_TIMESTAMP() AS CHAR)
+        WHEN 3 THEN @@session.time_zone
+        WHEN 4 THEN l.status
+        WHEN 5 THEN p.code
+        WHEN 6 THEN p.status
+        WHEN 7 THEN c.status
+        WHEN 8 THEN CAST(l.max_devices AS CHAR)
+        WHEN 9 THEN COALESCE(CAST(l.expires_at AS CHAR), 'NULL')
+        WHEN 10 THEN COALESCE(CAST(l.activation_code_expires_at AS CHAR), 'NULL')
+        WHEN 11 THEN IF(l.expires_at IS NULL OR l.expires_at > UTC_TIMESTAMP(), '1', '0')
+        WHEN 12 THEN IF(l.activation_code_expires_at > UTC_TIMESTAMP(), '1', '0')
+        WHEN 13 THEN IF(l.activation_code_hash IS NOT NULL AND OCTET_LENGTH(l.activation_code_hash) > 0, '1', '0')
+    END AS check_value
+FROM licenses l
+INNER JOIN products p ON p.id = l.product_id
+INNER JOIN customers c ON c.id = l.customer_id
+CROSS JOIN (
+    SELECT 1 AS n UNION ALL SELECT 2 UNION ALL SELECT 3
+    UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6
+    UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
+    UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12
+    UNION ALL SELECT 13
+) AS diag_fields
+WHERE l.public_id = '03c0c8b7-5672-4cd3-ab52-4056cf195a61'
+ORDER BY diag_fields.n;
+```
+
+**اجرای تشخیصی به خطای انتخاب دیتابیس خورد:** کاربر از phpMyAdmin خطای **`#1046 - No database selected`** برای SELECT بالا فرستاد. هیچ‌یک از ۱۳ مقدار تشخیصی هنوز دریافت نشده؛ این خطا دربارهٔ context اتصال phpMyAdmin است، نه نتیجهٔ اعتبارسنجی لایسنس، نه اثبات انقضا/اشکال syntax یا خطای endpoint. ممکن است SET SESSION ابتدایی اجرا شده باشد ولی تداوم آن بین درخواست‌های phpMyAdmin مفروض نیست. خروجی کوتاه‌شدهٔ query در صفحهٔ خطا، دلیل تغییر خود SQL نیست. هیچ رکوردی با این اسکریپت تغییر نمی‌کرد.
+
+**نام دیتابیس و جدول‌ها اکنون از کاربر دریافت شد:** کاربر با «ادامه بده» عنوان **`Database operations karensof_karen_staging`** و جدول‌های **`customers`، `device_refresh_nonces`، `licenses`، `license_devices`، `license_events`، `products`، `rate_limits` و `schema_migrations`** را فرستاد. این نام دادهٔ واقعیِ ارائه‌شده است و حدس/credential نیست؛ دیگر انتخاب مجدد/تأیید تکراری همین نام لازم نیست. وجود نام جدول‌ها به معنی دریافت flagها، شناخت schema کامل یا قبولی activation نیست.
+
+**اجرای کامل با نام واقعی دیتابیس موفق گزارش شد، اما مقادیر جدول نرسیده‌اند:** کاربر برای `USE karensof_karen_staging` و `SET SESSION time_zone = '+00:00'` دو پیام **«MySQL returned an empty result set»** و برای SELECT پیام **«Showing rows 0 - 12 (13 total, Query took 0.0010 seconds.)»** را فرستاد. متن SQL در پیام از `CAST(UTC_TIMESTAMP()` به بعد کوتاه شده؛ مقادیر هیچ‌کدام از `check_name`/`check_value` ارسال نشده‌اند. نبود result row برای USE/SET طبیعی است؛ SELECT واقعاً طبق گزارش ۱۳ ردیف دارد، نه نتیجهٔ خالی یا خطای #1046. پیام **«Current selection does not contain a unique column»** مربوط به نداشتن grid-edit/copy/delete در نتیجهٔ محاسباتی است، نه نیاز به تغییر primary key/schema. هیچ source/SQL جدیدی برای رفع این هشدار لازم نیست.
+
+**تصویرِ خود جدول ۱۳ردیفی دریافت شد:** فایل پیوست کاربر `Screenshot_2026-11-02-05-43-48-856_com.android.chrome.png`؛ مقادیر خوانده‌شده:
+
+| check_name             | check_value                            |
+| ---------------------- | -------------------------------------- |
+| public_id              | `03c0c8b7-5672-4cd3-ab52-4056cf195a61` |
+| db_utc_now             | `2026-11-02 01:51:51`                  |
+| session_time_zone      | `+00:00`                               |
+| license_status         | `active`                               |
+| product_code           | `hesabyar`                             |
+| product_status         | `active`                               |
+| customer_status        | `active`                               |
+| max_devices            | `1`                                    |
+| license_expires_at_utc | `2026-11-02 23:29:44`                  |
+| code_expires_at_utc    | `2026-11-02 23:29:44`                  |
+| license_time_ok        | `1`                                    |
+| code_time_ok           | `1`                                    |
+| code_hash_present      | `1`                                    |
+
+در **همان لحظهٔ DB**، انقضا و وضعیت license/product/customer برای UUID تست مانع نبودند و hash غیرخالی وجود داشت. این داده، برابری ورودی با hash، clock/DB connection واقعی PHP، bytes نسخهٔ نصب‌شده، یا اینکه locator واقعاً همین لایسنس را پیدا کرده، ثابت نمی‌کند؛ علت را به کاربر/انقضا/Hasher یا Source خاص نسبت نمی‌دهیم. این شاهد فقط مربوط به همین زمان است و rollback clock دلخواه/تغییر وضعیت بعدی/لحظهٔ دقیق تلاش قبلی را اثبات نمی‌کند. هیچ ۱۳ردیف یا تأیید انتخاب DB تکراری خواسته نمی‌شود.
+
+**تشخیص دوم، شکل ذخیره‌سازی و احتمال ابهام locator — شش مقدار دریافت شد؛ query مرجع زیر دوباره اجرا نمی‌شود:** source فعلی locator `SELECT id ... WHERE activation_code_hash = :hash LIMIT 1` و سپس cast به int دارد؛ fixture بومی `licenses.id INT UNSIGNED` و hash `VARBINARY(32) UNIQUE` فرض کرده است، درحالی‌که base schema/private hasher هاست در مخزن نیستند. بدون دیدن کد یا hash، شش مقدار زیر خوانده می‌شوند تا نوع واقعی id/hash، طول مقدار ذخیره‌شده و تعداد لایسنس‌های دارای همان hash معلوم شوند. این صرفاً آزمون یک فرض compatibility است؛ **تکراری/خراب‌بودن hash یا تفاوت schema هنوز ادعا نمی‌شود**. count یک نیز وجود UNIQUE constraint یا صحت کد واردشده را اثبات نمی‌کند. هیچ default مقدار column یا مقدار hash/secret انتخاب نمی‌شود. فقط `USE` اتصال و یک SELECT بدون قفل/ویرایش، روی UUID تست و metadata همان جدول است؛ timezone/clock/GLOBAL/schema/data دست نمی‌خورند.
+
+```sql
+USE `karensof_karen_staging`;
+
+SELECT
+    CASE diag_fields.n
+        WHEN 1 THEN 'internal_license_id'
+        WHEN 2 THEN 'id_sql_type'
+        WHEN 3 THEN 'hash_sql_type'
+        WHEN 4 THEN 'hash_collation'
+        WHEN 5 THEN 'stored_hash_bytes'
+        WHEN 6 THEN 'licenses_with_same_hash'
+    END AS check_name,
+    CASE diag_fields.n
+        WHEN 1 THEN CAST(l.id AS CHAR)
+        WHEN 2 THEN (
+            SELECT sc.COLUMN_TYPE
+            FROM information_schema.COLUMNS sc
+            WHERE sc.TABLE_SCHEMA = DATABASE()
+              AND sc.TABLE_NAME = 'licenses'
+              AND sc.COLUMN_NAME = 'id'
+            LIMIT 1
+        )
+        WHEN 3 THEN (
+            SELECT sc.COLUMN_TYPE
+            FROM information_schema.COLUMNS sc
+            WHERE sc.TABLE_SCHEMA = DATABASE()
+              AND sc.TABLE_NAME = 'licenses'
+              AND sc.COLUMN_NAME = 'activation_code_hash'
+            LIMIT 1
+        )
+        WHEN 4 THEN (
+            SELECT COALESCE(sc.COLLATION_NAME, 'NULL')
+            FROM information_schema.COLUMNS sc
+            WHERE sc.TABLE_SCHEMA = DATABASE()
+              AND sc.TABLE_NAME = 'licenses'
+              AND sc.COLUMN_NAME = 'activation_code_hash'
+            LIMIT 1
+        )
+        WHEN 5 THEN CAST(OCTET_LENGTH(l.activation_code_hash) AS CHAR)
+        WHEN 6 THEN CAST((
+            SELECT COUNT(*)
+            FROM licenses other_license
+            WHERE other_license.activation_code_hash = l.activation_code_hash
+        ) AS CHAR)
+    END AS check_value
+FROM licenses l
+CROSS JOIN (
+    SELECT 1 AS n UNION ALL SELECT 2 UNION ALL SELECT 3
+    UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6
+) AS diag_fields
+WHERE l.public_id = '03c0c8b7-5672-4cd3-ab52-4056cf195a61'
+ORDER BY diag_fields.n;
+```
+
+**نتیجهٔ تشخیص دوم دریافت و خوانده شد:** پیوست کاربر `Screenshot_2026-11-02-06-09-52-272_com.android.chrome.jpg` بود. جدول کوچک تصویر در محیط ابزار crop/بزرگ‌نمایی شد؛ نیازی به درخواست تصویر یا اجرای query تکراری نیست. مقدارها:
+
+| check_name              | check_value        |
+| ----------------------- | ------------------ |
+| internal_license_id     | `5`                |
+| id_sql_type             | `int(10) unsigned` |
+| hash_sql_type           | `varbinary(32)`    |
+| hash_collation          | `NULL`             |
+| stored_hash_bytes       | `32`               |
+| licenses_with_same_hash | `1`                |
+
+شناسهٔ ۵ برای cast عددی locator معتبر است؛ شکل ستون hash و اندازهٔ مقدارِ همین رکورد با فرض ۳۲بایتی fixture سازگارند و مقدار همین hash در لحظهٔ خواندن فقط یک رکورد داشته است. `NULL` بودن collation برای varbinary طبیعی است. این داده نه وجود UNIQUE constraint کل جدول، نه خروجی/کلید/normalization private hasher، نه برابر بودن کد واردشده با hash، نه context PDO درخواست وب یا bytes نصب‌شده را ثابت می‌کند. علت واقعی پیام invalid-code هنوز **نامعلوم** است؛ خطا را به ورود UUID/کاربر، expiry، schema، hasher یا source خاص نسبت نمی‌دهیم. دو خواندن DB تکمیل شده‌اند؛ هیچ SQL دیگری در قدم فعلی لازم/خواسته نیست.
+
+**تنها قدم جاری جدید: یک بار تلاش کنترل‌شده با جایگزینی کامل ورودی در همان پروفایل آزمایشی.** بعد از دریافت هر دو خواندن معتبر، فقط برای کنترل احتمال copy/متن اضافه، کاربر در **همان برگهٔ ناشناسِ خالیِ تست که باز نگه داشته**، فقط متن فیلد «کد فعال‌سازی» را select-all/delete کند و از نسخهٔ خصوصیِ ذخیره‌شدهٔ **همین کدِ لایسنس 03c0…** دوباره فقط مقدار خود کد را جایگزین کند؛ حروف/علامت‌های خود کد دست‌نخورده، بدون عنوان/UUID/تاریخ یا متن پیرامونی. این نه سؤال تکراری دربارهٔ منشأ کد است (پاسخ activation_code_field قبلاً ثبت شده)، نه فرض اشتباه‌بودن ورودی؛ یک آزمون محدود با ورودی مجدد است. **فقط یک بار Activate**، بدون sync/refresh/deactivate/clear-data/ساخت پروفایل جدید یا صدور کد/لایسنس تازه. پیش از پاک/جایگزین‌کردن حتی متن فیلد، باید نسخهٔ خصوصیِ جداگانهٔ همین کد در دسترس و همان برگهٔ ناشناس باز باشد. اگر کد خصوصی در دسترس نیست یا برگهٔ قبلی بسته شده، **هیچ متن یا داده‌ای پاک نشود**؛ توقف و همان موضوع گزارش شود، نه حدس، بازیابی hash یا reissue خودکار. فقط **متن نتیجه** خواسته می‌شود؛ تصویر حاوی کد، token یا کلید نباید فرستاده شود. اگر همان خطا تکرار شد، دیگر retry نشود و مرحلهٔ بعد تفکیک مسیر ردشدن واقعی backend با مشاهدهٔ محدود و غیرsecret خواهد بود؛ نه patch حدسی. **آخرین توضیح کاربر دربارهٔ آدرس دریافت شد:** کاربر بین `https://hesabyar.karen-soft.ir/settings` و `https://staging.karen-soft.ir/app/` سؤال کرد و گفت «من کد رو داخل staging فعال کردم ولی نسخه فعال نشد». پس staging را محل تلاش اعلام کرده؛ این را اشتباه‌بودن origin، موفقیت activation، اتمام قطعی تک‌تلاش کنترل‌شده، ماندن در همان پروفایل ناشناس، یا تکرار قطعیِ متن invalid-code فرض نمی‌کنیم. **قدم فعلی فقط روشن‌کردن نشانی و خواندن نتیجهٔ همان تلاش موجود است، نه تلاش تازه:** تست فقط در همان برگهٔ ناشناس staging، بخش `https://staging.karen-soft.ir/app/settings` انجام می‌شود؛ لینک/برگهٔ عادی تازه باز نشود. production `hesabyar.karen-soft.ir` دست‌نخورده و کد staging آنجا امتحان نشود؛ وضعیت محلی staging خودکار به origin دیگر منتقل نمی‌شود. باید معلوم شود «فعال نشد» یعنی خود staging هنوز خطا/Free است یا staging فعال و فقط production Free مانده؛ اگر خود staging ناموفق است، فقط متن دقیق پیام همان تلاش آخر خواسته می‌شود، نه code/token/screenshot حاوی آن. هیچ retry/refresh/صدور تازه/پاک‌سازی یا query تکراری تا این روشن‌شدن درخواست نمی‌شود. **توضیح تازهٔ کاربر:** «کد فعال سازی رو قبول کرد ولی به نسخه فعال تبدیل نشد». این فقط گزارشِ پذیرش در UI همراه با تغییرنکردن نسخه است؛ متن دقیق پیام موفقیت/خطا، HTTP status/body، token verification/IndexedDB persistence و فعال‌شدن روی سرور هنوز مشاهده نشده‌اند. نباید از آن ادامهٔ قطعی invalid-code، موفقیت قطعی POST یا رگرسیون مشخص frontend را نتیجه گرفت. **قدم جاری بعدی فقط یک GET تازهٔ read-only از جزئیات همین لایسنس تست است:** `https://staging.karen-soft.ir/admin/?license=03c0c8b7-5672-4cd3-ab52-4056cf195a61` در پنل ادمین معمول، با بازماندن برگهٔ ناشناس برنامه. فقط بخش‌های «دستگاه‌ها» (UUID عمومی، وضعیت، activated_at/last_seen_at) و «رویدادهای اخیر» (به‌ویژه license.activated و زمان آن) خواسته می‌شوند. active بالای کارت license از زمان صدور هم وجود داشت و معیار موفقیت activation نیست. این مشاهدهٔ تازه به دلیل گزارش جدید پذیرش انجام می‌شود، نه تکرار بی‌هدف رسید قدیمی no-devices/only-issued و نه تکرار ۳D یا رسید license اصلی. هیچ دکمهٔ مسدودکردن/فعال‌سازی مجدد/صدور، retry activation، بررسی آنلاین/refresh، clear-data یا تغییر فایل/schema/Cron در این قدم انجام نشود؛ GET فقط بخواند. اگر هنوز device/event فعال‌سازی وجود نداشت همان متن، و اگر وجود داشت همان دو بخش، بدون کد/توکن/کلید یا دادهٔ مالی فرستاده شود. نتیجهٔ GET تازه **هنوز دریافت نشده**؛ قبولی عملکردی activation/UI همچنان تأیید نشده است.
+
+این اجازهٔ یک‌بار آزمون ورودی پس از شواهد جدید جایگزین منع retry در قدم‌های پیشینِ انتظار DB است؛ دستور تکرار نامحدود/صدور مجدد/نصب مجدد نیست. هیچ source/fixture/schema/clock/GLOBAL یا Cron عوض نشده است. برگهٔ ناشناس/هویت دستگاه تست حفظ، و main/license اصلی/دادهٔ مالی دست‌نخورده بمانند. حتی گزارش UI فعال‌شدن به‌تنهایی قبولی نهایی نیست؛ در صورت موفقیت، تأیید جداگانهٔ رویداد و دستگاه **همین لایسنس تست** لازم می‌شود، نه تکرار ۳D/refresh/admin اصلی. Native ۱۱۵گانه تاریخی همان checkpoint است؛ هیچ CI/native test تازه یا قبولی واقعی activation نداریم.
+
+**رسید تازهٔ ادمین پس از گزارش پذیرش UI دریافت شد:** تصویر `Screenshot_2026-11-02-06-48-47-556_com.android.chrome.jpg` دوباره همان UUID تست **03c0c8b7-5672-4cd3-ab52-4056cf195a61**، STAGING-CUSTOMER-001/hesabyar/pro/active/cap1/expiry خام 2026-11-02 23:29:44 را نشان می‌دهد؛ **هیچ دستگاهی ثبت نشده** و تنها رویداد **license.issued در 2026-11-01 23:29:44** است. پس حتی پس از گزارش تازهٔ UI، برای این لایسنس هیچ device/commit موفق مشاهده نشده و مسئله را صرفاً نمایش plan فرض نمی‌کنیم. «فعال‌سازی اصلاً به endpoint نرسیده»، «همان HTTP404 دوباره رخ داده»، «کد حتماً غلط بوده» یا «هیچ لایسنس دیگری فعال نشده» از این عکس ثابت نمی‌شوند. علت همچنان نامعلوم است؛ retry/SQL/صدور مجدد متوقف شده‌اند.
+
+**تصحیح نام رویداد برای معیارهای بعدی:** نام واقعی source activation **`activation.created` / `activation.reused`** است، نه `license.activated` که در درخواست قبلی به اشتباه نام برده شد. عکس جدید مستقل از این نام‌گذاری، فقط license.issued و صفر دستگاه دارد؛ بنابراین شاهد موفقیت نیست. refresh پذیرفته‌شده همچنان `license.refreshed` و خارج از این تشخیص است.
+
+### ۳E-۱D۱ — مشاهدهٔ خصوصیِ آخرین درخواست، نه fix حدسی (نسخهٔ آماده در مخزن؛ هنوز روی هاست نصب نیست)
+
+کاندید فعلی `activations.php` **۵۱۳ خط** با SHA-256 **`420d1dcce27d9f5d3acac2d91d9e4895d33767c0a8695952824a6cb9af372bb9`** است؛ روی هاست همچنان نسخهٔ قبلیِ Save‌شده (checkpoint ۳۸۴خطی/9d45db80…) مدنظر است و کاندید تحویل/نصب نشده. برای تفکیک ورودی/lookup/recheck/expiry/exception/commit، `activations.php` آماده شده تا **فقط POST و فقط KAREN_ENV=staging** در shutdown، یک گزارش metadata محدود در **`/home/karensof/private/karen-staging/activation-last-attempt.json`** بنویسد. GET/OPTIONS گزارش نمی‌سازند؛ هیچ debug endpoint/helper/fixture عمومی اضافه نمی‌شود. فایل JSON بیرون webroot، owner-only **0600**، با temp اختصاصی ساخته‌شده به حالت x و chmod پیش از نوشتن، سپس rename اتمیک جایگزین می‌شود؛ فقط آخرین تلاش **تمام‌شده** نگه داشته می‌شود، نه تاریخچهٔ append. مقصد symlink دنبال نمی‌شود و عدم دسترسی/handler پرتاب‌کننده نباید نتیجهٔ API را عوض کند.
+
+گزارش فقط phase/outcome/status/error enum، تعداد بایت ورودی و flag غیرASCII، طول digest **نه مقدارش**، UUID عمومیِ معتبر دستگاه، شناسهٔ locator و public_id رکورد واقعاً پیدا‌شده، commit flag، کد عددی خطای DB، زمان‌ها، fingerprint **فایل عمومی endpoint** و PHP version/SAPI و schema/timezone/UTC همین PDO را دارد. هیچ کد/hash واقعی، token، public/private key، label/UA/IP/header، DSN/password، متن exception یا فایل bootstrap/env انتخاب/ذخیره/درخواست نمی‌شود. error_log استثنای endpoint نیز به phase ثابت محدود شده، نه getMessage. گزارش نشانهٔ cryptographic parity با private bootstrap نیست؛ private hasher/auth/rate/HTTP همچنان در native fixture بدل‌اند.
+
+تمام **۸ business SQL block دقیقاً byte-identical** مانده‌اند؛ ترتیب license→metadata→device، PDO binding، rate-limit، plan/features/claims، status/body عمومی، ۷روز، cap و reuse و expiry gates/rollback تغییر نکرده‌اند. فقط اگر PDO از قبل وجود داشته و تراکنش بسته باشد، در shutdown یک SELECT tableless برای DATABASE/UTC/session timezone اجرا می‌شود؛ اتصال تازه یا business-table snapshot/lock/DML برای گزارش ایجاد نمی‌شود. setup گزارش **PDO global احتمالی bootstrap را reset نمی‌کند**. تراکنش باز غیرمنتظره فقط با flag گزارش می‌شود؛ reporter خودش transaction را تغییر نمی‌دهد.
+
+Native fixture، مسیر گزارش را با constant خصوصی تست به scratch همان worker هدایت می‌کند (نه input endpoint). ۱۵ سناریوی اضافه: موفقیت و شکل ثابت پاسخ، unmatched+Unicode بدون افشای مقدار، ورودی خالی بدون ایجاد PDO، ID نامعتبر بدون log متن، license/account recheck، precommit expiry، exception/rollback بدون متن exception، sink ناموجود، جایگزینی bounded/0600، symlink، GET، nonstaging، bootstrap با PDO global آماده، و PHP error handler پرتاب‌کننده. پوشش runtime DB هنوز در انتظار CI این نسخه است؛ parse PHP8.3 چهار فایل، typecheck/lint، ۲۵۸ unit test و پنج build guard محلی PASS شدند. PHP/DB بومی محلی وجود ندارد و parse به جای runtime معرفی نمی‌شود.
+
+**محدودیت تفسیر:** گزارش یک تلاش ممکن است با درخواست همزمان دیگری جایگزین شود؛ باید timestamp/UUID/matched public_id کنترل شود. فایلِ مفقود به تنهایی ثابت نمی‌کند POST نرسیده: bootstrap failure، config/env، permission، runtime/opcache یا مسیر دیگر هم ممکن‌اند. گزارش succeeded/committed باید با device/event همین UUID و UI corroborate شود، نه به‌تنهایی قبولی همهٔ ۳E/production. این ابزار هنوز root cause را تعیین نکرده و حل‌شدن مشکل ادعا نشده است.
+
+**قدم هاست بعد از سبزشدن CI، فقط بک‌آپ نسخهٔ فعلی پیش از instrumentation است:** backup اصلی pre-activation-locks-20261102 (baseline قدیمی ۳۱۷خطی) محفوظ است و جایگزین نمی‌شود. از **activations.php فعلی** در `/home/karensof/public_html/staging.karen-soft.ir/v1/` فقط Copy به **`/home/karensof/private/karen-staging/backups/pre-activation-diagnostics-20261102/activations.php`** خواسته می‌شود؛ **Move/Delete یا تعویض فایل زنده نه**. بک‌آپ جدیدِ ۳۸۴خطی هنوز ساخته/تأیید نشده و کد جدید هنوز به کاربر برای نصب تحویل نشده است. پس از تأیید بک‌آپ، کل فایل یکپارچه inline با select-all/delete/paste/Save ارائه خواهد شد؛ هیچ فایل دانلودی/نصب debug عمومی یا private bootstrap ارسال نمی‌شود. فعلاً اصل/مالی/برگهٔ ناشناس/کد خصوصی/Cron/refresh/ZIP/production محفوظ و هیچ retry جدیدی درخواست نمی‌شود.
+
+**metadata محلی Git بدون تغییر محتوا بازیابی شد:** شاخهٔ ثابت از ابتدا همین arena/c373199a-karenyar بود. fetch فقط همین شاخه، eab412c32fbbc391d6f466910f0eab6b68167110 را آورد؛ مقایسهٔ blob تک‌تک فایل‌های tracked با working tree نشان داد تنها تفاوت محتوا پیش از کار جدید همین progress doc بود و هیچ staged path وجود نداشت. سپس reset **mixed همان شاخه** فقط index/ref را به همان commit تاریخی برگرداند؛ هیچ working file دور ریخته/overwrite یا branch عوض نشد. npm ci قفل‌شده اجرا شد؛ تغییر dependencies/lockfile/Frontend/ZIP نداریم. source کاندید + fixture/test/docs این مرحله جداگانه commit/test می‌شوند؛ eab/native115 checkpoint rollback قبلی باقی است.
+
+**مرز حفاظت:** لایسنس اصلی **`6f78de1e-c775-4368-a343-6aa0436ba2e9`** و دستگاه اصلی **`1da50714-9ea8-4a10-a7c4-19130ad8b2ed`** دست‌نخورده می‌مانند. UUID تست **`03c0c8b7-5672-4cd3-ab52-4056cf195a61`** متفاوت است و فقط همین لایسنس برای مراحل تست بعدی مدنظر است؛ هیچ تست revocation یا deactivate روی license/device اصلی مجاز/درخواست‌شده نیست. refresh پذیرفته‌شده **9b7fb91d…**، helper/Cron خصوصی **9a98f1db…** و ZIP **2a88c326…** دوباره در مخزن بدون تغییر بودند. قبولی محدود ۳D بسته است و refresh/Cron/admin receipt آن تکرار نمی‌شود. production/اپ/کلید و دادهٔ مالی تغییر نمی‌کنند؛ این مراحل هنوز پایان Step3 یا پذیرش عملکردی activation نیستند.
 
 ### باقی‌ماندهٔ گام ۳
 
-- تست همزمانی فعال‌سازی/تمدید/لغو و سقف دستگاه؛ بررسی race ثبت یک device key برای دو license و مدیریت خطاهای قابل‌تکرار تراکنش.
+- بخش activation/refresh و cap/cross-license در ۳E-۱ به ۱۱۵ سناریوی native رسید؛ اجرای واقعی POST ادمین/لغو/فعال‌سازی مجدد و actor/CSRF/redirect، مدیریت bounded retry خطاهای گذرای 1205/1213/1062 و پذیرش مرحله‌ای هاست هنوز باز هستند.
 - پوشش replay/timestamp/nonce در checkpoint ۹۰گانه ثبت شد؛ حدود clock jump/تأخیر تصمیم و سناریوهای خارج از آن، بدون ادعای پوشش کامل یا تکرار پذیرش بسته‌شده، باز هستند.
 - یکدست‌سازی خطاهای لغو دستگاه/لایسنس با حفظ رفتار امن کلاینت.
 - پاک‌سازی مستقل و حذف purge وب در ۳B/۳D انجام و برای مسیر محدود پذیرفته شدند؛ پایش سلامت و تازگی Cron خصوصی پیش از production و در عملیات ادامه دارد. nonce معتبر نباید زود پاک شود.

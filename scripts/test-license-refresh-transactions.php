@@ -13,7 +13,7 @@ if (getenv('KAREN_LICENSE_DB_TESTS') !== '1') {
 }
 if (($argv[1] ?? '') === '--worker') {
     $GLOBALS['karen_test_request'] = json_decode((string) file_get_contents($argv[2]), true, 512, JSON_THROW_ON_ERROR);
-    $_SERVER['REQUEST_METHOD'] = 'POST';
+    $_SERVER['REQUEST_METHOD'] = (string) ($GLOBALS['karen_test_request']['method'] ?? 'POST');
     $_SERVER['HTTP_USER_AGENT'] = 'isolated-refresh-test';
     require $argv[3];
     exit;
@@ -462,6 +462,7 @@ try {
     require __DIR__ . '/fixtures/license-refresh-clock-cases.php';
     require __DIR__ . '/fixtures/license-refresh-cleanup-handoff-cases.php';
     require __DIR__ . '/fixtures/license-activation-transaction-cases.php';
+    require __DIR__ . '/fixtures/license-activation-diagnostics-cases.php';
     echo json_encode(['ok' => true, 'database' => $version, 'isolation' => 'REPEATABLE READ', 'passed' => count($passed), 'tests' => $passed], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT) . "\n";
     if (getenv('GITHUB_ACTIONS') === 'true') {
         echo '::notice title=License transaction tests::' . count($passed) . ' cases passed on ' . $version . ' with REPEATABLE READ' . "\n";

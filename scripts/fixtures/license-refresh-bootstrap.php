@@ -5,7 +5,10 @@ declare(strict_types=1);
 // SQL, transactions and Ed25519 are real; HTTP/rate limiting and the code hasher are doubles.
 if (PHP_SAPI !== 'cli' || getenv('KAREN_LICENSE_DB_TESTS') !== '1') { exit(1); }
 
-define('KAREN_ENV', 'staging');
+define('KAREN_ENV', !empty($GLOBALS['karen_test_request']['production_environment']) ? 'production' : 'staging');
+// Keep endpoint diagnostics entirely inside this disposable native fixture.
+define('KAREN_ACTIVATION_REPORT_FILE', (string) ($GLOBALS['karen_test_request']['activation_report_file']
+    ?? $GLOBALS['karen_test_request']['trace'] . '.activation-report.json'));
 define('KAREN_ISSUER', 'karen-license-test');
 define('KAREN_AUDIENCE', 'hesabyar-app');
 
@@ -165,6 +168,7 @@ function karen_activation_code_hash(string $code): string
 }
 function karen_db(): PDO
 {
+    if (!empty($GLOBALS['karen_test_request']['preopened_global_pdo'])) { return $GLOBALS['pdo']; }
     static $pdo;
     return $pdo ??= new KarenRefreshTestPDO();
 }
@@ -198,4 +202,14 @@ function karen_sign_license(array $claims): array
         'kid' => 'test-issuer',
         'issuer_public_key_b64' => base64_encode(sodium_crypto_sign_publickey($pair)),
     ];
+}
+
+// Compatibility probes for private bootstrap implementations; fixture-only.
+if (!empty($GLOBALS['karen_test_request']['preopened_global_pdo'])) {
+    $GLOBALS['pdo'] = new KarenRefreshTestPDO();
+}
+if (!empty($GLOBALS['karen_test_request']['throw_on_report_io_warning'])) {
+    set_error_handler(static function (int $severity, string $message, string $file, int $line): never {
+        throw new ErrorException($message, 0, $severity, $file, $line);
+    });
 }
