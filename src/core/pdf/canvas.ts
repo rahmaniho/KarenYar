@@ -179,6 +179,29 @@ export class PdfCanvas {
     return { x, y: this.height - y };
   }
 
+  /**
+   * ثبت حالت شفافیت در منابع صفحه و برگرداندن نام آن.
+   * برای واترمارک و لایه‌های کم‌رنگ لازم است؛ بدون ExtGState، متن با شفافیت کامل
+   * روی محتوا می‌نشیند.
+   */
+  private alphaState(opacity: number): PDFName {
+    const page = this.currentPage;
+    const name = `GS${Math.round(Math.min(1, Math.max(0, opacity)) * 100)}`;
+    const resources = page.node.Resources()!;
+    let group = resources.lookupMaybe(PDFName.of('ExtGState'), PDFDict);
+    if (!group) {
+      group = this.doc.context.obj({}) as PDFDict;
+      resources.set(PDFName.of('ExtGState'), group);
+    }
+    if (!group.has(PDFName.of(name))) {
+      group.set(
+        PDFName.of(name),
+        this.doc.context.obj({ Type: 'ExtGState', ca: opacity, CA: opacity }),
+      );
+    }
+    return PDFName.of(name);
+  }
+
   static mm(value: number): number {
     return value * MM;
   }
@@ -215,8 +238,13 @@ export class PdfCanvas {
    * رسم یک خط متن فارسی. y خط پایه (baseline) است.
    * x بسته به align به‌عنوان لبه‌ی راست / مرکز / لبه‌ی چپ استفاده می‌شود.
    */
-  text(value: string, x: number, y: number, options: TextOptions = {}): number {
+  text(rawValue: string, x: number, y: number, options: TextOptions = {}): number {
     const weight = options.weight ?? 'regular';
+    // اگر عرض بیشینه داده شده باشد، متن به‌جای سرریز شدن با «…» کوتاه می‌شود
+    const value =
+      options.maxWidth && options.maxWidth > 0
+        ? this.ellipsize(rawValue, options.maxWidth, options.size ?? 10, weight)
+        : rawValue;
     const font = this.font(weight);
     const size = options.size ?? 10;
     // اول شکل‌دهی (اتصال حروف در ترتیب منطقی)، بعد چینش دوجهته روی همان گلیف‌های شکل‌گرفته
@@ -254,6 +282,16 @@ export class PdfCanvas {
       );
     }
     const drawGlyphs = () => {
+      // شفافیت واقعی PDF تا لایه‌ی زیرین (خطوط جدول، واترمارک) دیده شود
+      const needsAlpha = opacity < 1;
+      if (needsAlpha) {
+        page.pushOperators(
+          PDFOperator.of(PDFOperatorNames.PushGraphicsState),
+          PDFOperator.of(PDFOperatorNames.SetGraphicsStateParams, [
+            this.alphaState(opacity),
+          ] as never),
+        );
+      }
       let cursor = 0;
       for (const glyphId of visual) {
         const hex = glyphId.toString(16).padStart(4, '0');
@@ -271,6 +309,7 @@ export class PdfCanvas {
         );
         cursor += (font.advanceWidth(glyphId) * size) / font.unitsPerEm;
       }
+      if (needsAlpha) page.pushOperators(PDFOperator.of(PDFOperatorNames.PopGraphicsState));
     };
 
     if (options.rotate) {
@@ -348,6 +387,19 @@ export class PdfCanvas {
       lines.push(current);
     }
     return lines;
+  }
+
+  /** بزرگ‌ترین اندازه‌ی فونت که متن در عرض مشخص جا شود (برای نام‌های بلند) */
+  fitSize(
+    value: string,
+    maxWidth: number,
+    startSize: number,
+    weight: FontWeight = 'regular',
+    minSize = 6,
+  ): number {
+    let size = startSize;
+    while (size > minSize && this.measure(value, size, weight) > maxWidth) size -= 0.25;
+    return size;
   }
 
   /** کوتاه‌کردن با «…» تا جا‌شدن در عرض مشخص */
@@ -605,10 +657,7 @@ function roundedRectPath(x: number, y: number, w: number, h: number, r: number):
 }
 
 /** رنگ و شفافیت برای متن (اپراتورهای خام) */
-function applyColor(color: Color, opacity: number, page: PDFPage, doc: PDFDocument) {
-  void doc;
-  void page;
-  void opacity;
+function applyColor(color: Color, _opacity: number, _page: PDFPage, _doc: PDFDocument) {
   return PDFOperator.of(PDFOperatorNames.NonStrokingColorRgb, colorComponents(color));
 }
 

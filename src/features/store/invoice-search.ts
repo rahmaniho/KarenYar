@@ -5,11 +5,13 @@
  * جستجوی مبلغ با یا بدون جداکننده، و جستجوی هم‌زمان در شماره، مشتری،
  * یادداشت و نام اقلام فاکتور.
  */
-import type { Invoice, InvoiceItem } from '@/core/db/db';
+import type { CustomerPayment, Invoice, InvoiceItem } from '@/core/db/db';
 import { dateToJalali, jalaliMonthKey, type JalaliDate } from '@/core/jalali/jalali';
 import { invoicePaymentMethod } from './payment';
+import { invoiceLifecycle, invoicePaymentState, type InvoiceLifecycle } from './invoice-domain';
 
-export type InvoiceStatusFilter = 'all' | 'completed' | 'voided' | 'credit' | 'cash';
+export type InvoiceStatusFilter =
+  'all' | 'completed' | 'voided' | 'credit' | 'cash' | 'paid' | 'partial' | 'unpaid' | 'overdue';
 export type InvoiceSortKey =
   'date-desc' | 'date-asc' | 'number-desc' | 'number-asc' | 'total-desc' | 'total-asc';
 
@@ -25,6 +27,12 @@ export interface InvoiceQuery {
   minTotal?: number;
   maxTotal?: number;
   sort?: InvoiceSortKey;
+  /** پرداخت‌های ثبت‌شده — برای فیلتر وضعیت پرداخت و مانده */
+  payments?: CustomerPayment[];
+  /** بازه‌ی روزهای اخیر (فقط فاکتورهای n روز گذشته) */
+  lastDays?: number;
+  /** مبنای «امروز» برای آزمون‌پذیری */
+  now?: Date;
 }
 
 /** نرمال‌سازی متن فارسی برای جستجو (بدون حساسیت به ی/ک عربی، نیم‌فاصله و ارقام) */
@@ -74,6 +82,38 @@ export interface InvoiceRow {
   invoice: Invoice;
   items: InvoiceItem[];
   itemCount: number;
+  /** وضعیت چرخه‌ی عمر (تسویه/جزئی/سررسیدگذشته/باطل) */
+  lifecycle: InvoiceLifecycle;
+  /** مبلغ پرداخت‌شده */
+  paid: number;
+  /** مانده‌ی قابل پرداخت */
+  remaining: number;
+}
+
+/** یک صفحه از ردیف‌ها (صفحه‌بندی واقعی روی نتیجه‌ی فیلترشده) */
+export interface InvoicePage {
+  rows: InvoiceRow[];
+  page: number;
+  pageCount: number;
+  total: number;
+  from: number;
+  to: number;
+}
+
+export function paginateInvoices(rows: InvoiceRow[], page: number, pageSize: number): InvoicePage {
+  const size = Math.max(1, Math.floor(pageSize));
+  const total = rows.length;
+  const pageCount = Math.max(1, Math.ceil(total / size));
+  const current = Math.min(Math.max(1, Math.floor(page) || 1), pageCount);
+  const start = (current - 1) * size;
+  return {
+    rows: rows.slice(start, start + size),
+    page: current,
+    pageCount,
+    total,
+    from: total === 0 ? 0 : start + 1,
+    to: Math.min(start + size, total),
+  };
 }
 
 /** گروه‌بندی اقلام بر اساس شماره‌ی فاکتور برای جستجو و نمایش تعداد اقلام */
@@ -98,20 +138,40 @@ export function queryInvoices(
   const status = query.status ?? 'all';
   const method = query.method ?? 'all';
 
+  const payments = query.payments ?? [];
+  const now = query.now ?? new Date();
+  const since =
+    query.lastDays != null && query.lastDays > 0
+      ? now.getTime() - query.lastDays * 86_400_000
+      : null;
+
   const rows: InvoiceRow[] = [];
   for (const invoice of invoices) {
     const ownItems = grouped.get(invoice.id ?? -1) ?? [];
     const isVoided = invoice.status === 'voided';
+    const payState = invoicePaymentState(invoice, payments);
     if (status === 'completed' && isVoided) continue;
     if (status === 'voided' && !isVoided) continue;
     if (status === 'credit' && (!invoice.isCredit || isVoided)) continue;
     if (status === 'cash' && (invoice.isCredit || isVoided)) continue;
+    if (status === 'paid' && (isVoided || payState.remaining > 0 || payState.paid <= 0)) continue;
+    if (status === 'partial' && (isVoided || payState.status !== 'partial')) continue;
+    if (status === 'unpaid' && (isVoided || payState.paid > 0)) continue;
+    if (status === 'overdue' && invoiceLifecycle(invoice, payments, now) !== 'overdue') continue;
     if (method !== 'all' && invoicePaymentMethod(invoice) !== method) continue;
     if (query.month && jalaliMonthKey(new Date(invoice.date)) !== query.month) continue;
+    if (since != null && new Date(invoice.date).getTime() < since) continue;
     if (query.minTotal != null && invoice.total < query.minTotal) continue;
     if (query.maxTotal != null && invoice.total > query.maxTotal) continue;
     if (needle && !invoiceSearchText(invoice, ownItems).includes(needle)) continue;
-    rows.push({ invoice, items: ownItems, itemCount: ownItems.length });
+    rows.push({
+      invoice,
+      items: ownItems,
+      itemCount: ownItems.length,
+      lifecycle: invoiceLifecycle(invoice, payments, now),
+      paid: payState.paid,
+      remaining: payState.remaining,
+    });
   }
 
   const sort = query.sort ?? 'date-desc';
@@ -147,6 +207,12 @@ export interface InvoiceSummary {
   voidedTotal: number;
   creditTotal: number;
   average: number;
+  /** تعداد فاکتورهای نسیه‌ی معتبر */
+  creditCount: number;
+  /** جمع پرداخت‌شده‌ها */
+  paidTotal: number;
+  /** مانده‌ی وصول‌نشده */
+  remainingTotal: number;
 }
 
 /** خلاصه‌ی آماری نتیجه‌ی جستجو (برای کارت‌های بالای فهرست) */
@@ -156,6 +222,9 @@ export function summarizeInvoices(rows: InvoiceRow[]): InvoiceSummary {
   let activeTotal = 0;
   let voidedTotal = 0;
   let creditTotal = 0;
+  let paidTotal = 0;
+  let remainingTotal = 0;
+  let creditCount = 0;
   for (const row of rows) {
     const { invoice } = row;
     if (invoice.status === 'voided') {
@@ -164,7 +233,12 @@ export function summarizeInvoices(rows: InvoiceRow[]): InvoiceSummary {
     } else {
       activeCount += 1;
       activeTotal += invoice.total;
-      if (invoice.isCredit) creditTotal += invoice.total;
+      if (invoice.isCredit) {
+        creditTotal += invoice.total;
+        creditCount += 1;
+      }
+      paidTotal += row.paid ?? 0;
+      remainingTotal += row.remaining ?? 0;
     }
   }
   return {
@@ -175,7 +249,10 @@ export function summarizeInvoices(rows: InvoiceRow[]): InvoiceSummary {
     activeTotal,
     voidedTotal,
     creditTotal,
+    creditCount,
     average: activeCount ? Math.round(activeTotal / activeCount) : 0,
+    paidTotal,
+    remainingTotal,
   };
 }
 
@@ -205,23 +282,30 @@ export function invoiceCsvRows(rows: InvoiceRow[]): (string | number)[][] {
     'تخفیف',
     'مالیات',
     'مبلغ کل',
+    'پرداخت‌شده',
+    'مانده',
     'وضعیت',
     'یادداشت',
   ];
   return [
     header,
-    ...rows.map(({ invoice, itemCount }) => [
-      invoice.number,
-      jalaliDateKey(new Date(invoice.date)).split(' ')[0],
-      invoice.customerName ?? 'مشتری گذری',
-      invoicePaymentMethod(invoice),
-      itemCount,
-      invoice.subtotal,
-      invoice.discountAmount,
-      invoice.taxAmount,
-      invoice.total,
-      invoice.status === 'voided' ? 'باطل‌شده' : invoice.isCredit ? 'نسیه' : 'تسویه‌شده',
-      invoice.note ?? '',
-    ]),
+    ...rows.map((row) => {
+      const { invoice, itemCount } = row;
+      return [
+        invoice.number,
+        jalaliDateKey(new Date(invoice.date)).split(' ')[0],
+        invoice.customerName ?? 'مشتری گذری',
+        invoicePaymentMethod(invoice),
+        itemCount,
+        invoice.subtotal,
+        invoice.discountAmount,
+        invoice.taxAmount,
+        invoice.total,
+        row.paid ?? 0,
+        row.remaining ?? 0,
+        invoice.status === 'voided' ? 'باطل‌شده' : invoice.isCredit ? 'نسیه' : 'تسویه‌شده',
+        invoice.note ?? '',
+      ];
+    }),
   ];
 }

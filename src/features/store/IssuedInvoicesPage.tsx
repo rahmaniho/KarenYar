@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { toast } from 'sonner';
@@ -10,17 +10,20 @@ import {
   FileDown,
   FileText,
   Filter,
+  LayoutDashboard,
   Plus,
+  Printer,
   Receipt,
   Search,
   ShoppingCart,
   Trash2,
   Undo2,
+  Wallet,
   X,
 } from 'lucide-react';
-import { db, type Invoice } from '@/core/db/db';
+import { db, type CustomerPayment, type Invoice } from '@/core/db/db';
 import { formatMoney, formatNumber, toFaDigits } from '@/core/currency/currency';
-import { formatJalaliFull, formatJalaliNumeric, jalaliMonthLabel } from '@/core/jalali/jalali';
+import { currentJalaliMonthKey, formatJalaliNumeric, jalaliMonthLabel } from '@/core/jalali/jalali';
 import { downloadCsv } from '@/core/utils/csv';
 import { useSettingsStore } from '@/store/settings-store';
 import { useLicenseStore } from '@/store/license-store';
@@ -50,15 +53,19 @@ import {
 } from '@/components/ui/table';
 import { downloadInvoicePdf } from './invoice-pdf';
 import { invoicePaymentMethod, PAYMENT_LABELS } from './payment';
+import { InvoicePaymentDialog } from './InvoicePaymentDialog';
 import {
   invoiceCsvRows,
   invoiceMonthOptions,
+  paginateInvoices,
   queryInvoices,
   summarizeInvoices,
   type InvoiceSortKey,
   type InvoiceStatusFilter,
 } from './invoice-search';
+import { LIFECYCLE_LABELS } from './invoice-domain';
 import { VoidInvoiceDialog } from './VoidInvoiceDialog';
+import { useUrlState } from './use-url-state';
 
 const SORT_LABELS: Record<InvoiceSortKey, string> = {
   'date-desc': 'جدیدترین تاریخ',
@@ -71,15 +78,32 @@ const SORT_LABELS: Record<InvoiceSortKey, string> = {
 
 const STATUS_LABELS: Record<InvoiceStatusFilter, string> = {
   all: 'همهٔ وضعیت‌ها',
-  completed: 'فقط معتبر',
-  voided: 'فقط باطل‌شده',
+  paid: 'تسویه‌شده',
+  partial: 'پرداخت جزئی',
+  unpaid: 'پرداخت‌نشده',
+  overdue: 'سررسید گذشته',
   credit: 'فروش نسیه',
-  cash: 'تسویه‌شده',
+  cash: 'نقدی (بدون نسیه)',
+  completed: 'فقط معتبر',
+  voided: 'باطل‌شده',
+};
+
+const PAGE_SIZES = [10, 25, 50, 100] as const;
+
+const FILTER_DEFAULTS = {
+  q: '',
+  status: 'all',
+  method: 'all',
+  month: 'all',
+  sort: 'date-desc',
+  page: '1',
+  size: '25',
 };
 
 /**
- * «فاکتورهای صادرشده» — فهرست تخصصی با جستجوی چندفیلدی،
- * خروجی PDF (factor-<شماره>.pdf)، چاپ و CSV.
+ * «فاکتورهای صادرشده» — فهرست حرفه‌ای با جستجوی چندفیلدی، وضعیت پرداخت،
+ * صفحه‌بندی واقعی، خروجی PDF (factor-<شماره>.pdf)، چاپ، CSV و ثبت پرداخت.
+ * فیلترها در آدرس صفحه ذخیره می‌شوند و با بازگشت از صفحه‌ی فاکتور حفظ می‌مانند.
  */
 export function IssuedInvoicesPage() {
   const navigate = useNavigate();
@@ -96,16 +120,16 @@ export function IssuedInvoicesPage() {
   const invoices = useLiveQuery(() => db.invoices.orderBy('number').reverse().toArray(), [], []);
   const items = useLiveQuery(() => db.invoiceItems.toArray(), [], []);
   const customers = useLiveQuery(() => db.customers.toArray(), [], []);
+  const payments = useLiveQuery(() => db.customerPayments.toArray(), [], [] as CustomerPayment[]);
 
-  const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<InvoiceStatusFilter>('all');
-  const [method, setMethod] = useState('all');
-  const [month, setMonth] = useState('all');
-  const [sort, setSort] = useState<InvoiceSortKey>('date-desc');
+  const { values, update } = useUrlState(FILTER_DEFAULTS);
+  const [showFilters, setShowFilters] = useState(
+    values.status !== 'all' || values.method !== 'all' || values.month !== 'all',
+  );
   const [minTotal, setMinTotal] = useState('');
   const [maxTotal, setMaxTotal] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
   const [voiding, setVoiding] = useState<Invoice | null>(null);
+  const [paying, setPaying] = useState<Invoice | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
@@ -113,17 +137,28 @@ export function IssuedInvoicesPage() {
   const rows = useMemo(
     () =>
       queryInvoices(invoices, items, {
-        search,
-        status,
-        method,
-        month: month === 'all' ? undefined : month,
+        search: values.q,
+        status: values.status as InvoiceStatusFilter,
+        method: values.method,
+        month: values.month === 'all' ? undefined : values.month,
         minTotal: minTotal ? Number(minTotal.replace(/\D/g, '')) : undefined,
         maxTotal: maxTotal ? Number(maxTotal.replace(/\D/g, '')) : undefined,
-        sort,
+        sort: values.sort as InvoiceSortKey,
+        payments,
       }),
-    [invoices, items, search, status, method, month, minTotal, maxTotal, sort],
+    [invoices, items, values, minTotal, maxTotal, payments],
   );
   const summary = useMemo(() => summarizeInvoices(rows), [rows]);
+  const page = useMemo(
+    () => paginateInvoices(rows, Number(values.page) || 1, Number(values.size) || 25),
+    [rows, values.page, values.size],
+  );
+
+  // صفحه‌ی خارج از محدوده (مثلاً بعد از تغییر فیلتر) به آخرین صفحه برمی‌گردد
+  useEffect(() => {
+    if (page.page !== Number(values.page)) update({ page: String(page.page) });
+  }, [page.page, values.page, update]);
+
   const customerById = useMemo(() => {
     const map = new Map<number, (typeof customers)[number]>();
     for (const customer of customers) if (customer.id != null) map.set(customer.id, customer);
@@ -131,24 +166,20 @@ export function IssuedInvoicesPage() {
   }, [customers]);
 
   const activeFilters = [
-    search && 'جستجو',
-    status !== 'all' && 'وضعیت',
-    method !== 'all' && 'روش پرداخت',
-    month !== 'all' && 'ماه',
+    values.q && 'جستجو',
+    values.status !== 'all' && 'وضعیت',
+    values.method !== 'all' && 'روش پرداخت',
+    values.month !== 'all' && 'ماه',
     (minTotal || maxTotal) && 'بازه مبلغ',
   ].filter(Boolean).length;
 
   const resetFilters = () => {
-    setSearch('');
-    setStatus('all');
-    setMethod('all');
-    setMonth('all');
-    setSort('date-desc');
+    update({ q: '', status: 'all', method: 'all', month: 'all', sort: 'date-desc', page: '1' });
     setMinTotal('');
     setMaxTotal('');
   };
 
-  const exportPdf = async (
+  const buildPdf = async (
     invoice: Invoice,
     invoiceItems = items.filter((i) => i.invoiceId === invoice.id),
   ) => {
@@ -162,6 +193,7 @@ export function IssuedInvoicesPage() {
         invoice,
         items: invoiceItems,
         customer: invoice.customerId != null ? customerById.get(invoice.customerId) : null,
+        payments: payments.filter((payment) => payment.invoiceId === invoice.id),
         settings: {
           shopName,
           shopPhone,
@@ -189,7 +221,7 @@ export function IssuedInvoicesPage() {
     }
     for (const row of targets) {
       // پشت‌سرهم تا پنجره‌ی ذخیره‌ی مرورگر برای هر فایل جداگانه باز شود
-      await exportPdf(row.invoice, row.items);
+      await buildPdf(row.invoice, row.items);
     }
   };
 
@@ -214,13 +246,23 @@ export function IssuedInvoicesPage() {
     });
   };
 
+  const allOnPageSelected =
+    page.rows.length > 0 &&
+    page.rows.every((row) => row.invoice.id != null && selected.has(row.invoice.id));
+
   return (
     <div>
       <PageHeader
         title="فاکتورهای صادرشده"
-        subtitle="جستجو، مشاهده، چاپ و خروجی PDF هر فاکتور با نام factor-شماره"
+        subtitle="جستجو، وضعیت پرداخت، چاپ و خروجی PDF هر فاکتور با نام factor-شماره"
         actions={
           <>
+            <Button asChild variant="outline">
+              <Link to="/store/invoices/dashboard">
+                <LayoutDashboard aria-hidden />
+                داشبورد فاکتور
+              </Link>
+            </Button>
             <Button variant="outline" onClick={() => void exportCsvFile()} disabled={!rows.length}>
               <Download aria-hidden />
               CSV
@@ -233,16 +275,10 @@ export function IssuedInvoicesPage() {
               <FileDown aria-hidden />
               PDF انتخاب‌شده‌ها ({formatNumber(selected.size)})
             </Button>
-            <Button asChild variant="outline">
+            <Button asChild variant="neon">
               <Link to="/store/invoices/new">
                 <Plus aria-hidden />
                 فاکتور جدید
-              </Link>
-            </Button>
-            <Button asChild variant="neon">
-              <Link to="/store/pos">
-                <ShoppingCart aria-hidden />
-                صندوق فروش
               </Link>
             </Button>
           </>
@@ -265,18 +301,18 @@ export function IssuedInvoicesPage() {
           tone="neon"
         />
         <StatCard
-          title="فروش نسیه"
-          value={formatMoney(summary.creditTotal, unit)}
-          hint="مانده‌ی حساب مشتریان در بخش مشتریان قابل پیگیری است"
-          icon={Undo2}
-          tone="warning"
+          title="وصول‌شده"
+          value={formatMoney(summary.paidTotal, unit)}
+          hint={`از ${formatMoney(summary.activeTotal, unit)} مبلغ صادرشده`}
+          icon={Wallet}
+          tone="success"
         />
         <StatCard
-          title="مبلغ فاکتورهای باطل"
-          value={formatMoney(summary.voidedTotal, unit)}
-          hint="سند باطل‌شده در سوابق می‌ماند و در درآمد حساب نمی‌شود"
-          icon={Trash2}
-          tone="danger"
+          title="مانده‌ی وصول‌نشده"
+          value={formatMoney(summary.remainingTotal, unit)}
+          hint={`${formatNumber(summary.creditCount)} فاکتور نسیه`}
+          icon={Undo2}
+          tone="warning"
         />
       </div>
 
@@ -286,15 +322,15 @@ export function IssuedInvoicesPage() {
             <Search className="absolute start-3 top-3 h-4 w-4 text-muted-foreground" aria-hidden />
             <Input
               className="ps-9"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              value={values.q}
+              onChange={(event) => update({ q: event.target.value, page: '1' })}
               placeholder="شماره فاکتور، نام مشتری، کالا، یادداشت یا مبلغ…"
               aria-label="جستجوی فاکتور"
             />
-            {search && (
+            {values.q && (
               <button
                 type="button"
-                onClick={() => setSearch('')}
+                onClick={() => update({ q: '', page: '1' })}
                 aria-label="پاک کردن جستجو"
                 className="absolute end-2 top-2 rounded-md p-1 text-muted-foreground hover:bg-secondary"
               >
@@ -302,13 +338,28 @@ export function IssuedInvoicesPage() {
               </button>
             )}
           </div>
-          <Select value={sort} onValueChange={(value) => setSort(value as InvoiceSortKey)}>
+          <Select value={values.sort} onValueChange={(value) => update({ sort: value, page: '1' })}>
             <SelectTrigger className="w-44" aria-label="ترتیب نمایش">
               <ArrowDownUp className="h-4 w-4" aria-hidden />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {Object.entries(SORT_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={values.status}
+            onValueChange={(value) => update({ status: value, page: '1' })}
+          >
+            <SelectTrigger className="w-40" aria-label="وضعیت فاکتور">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(STATUS_LABELS).map(([value, label]) => (
                 <SelectItem key={value} value={value}>
                   {label}
                 </SelectItem>
@@ -339,26 +390,11 @@ export function IssuedInvoicesPage() {
         {showFilters && (
           <div className="mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1.5">
-              <Label>وضعیت</Label>
-              <Select
-                value={status}
-                onValueChange={(value) => setStatus(value as InvoiceStatusFilter)}
-              >
-                <SelectTrigger aria-label="وضعیت فاکتور">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
               <Label>روش پرداخت</Label>
-              <Select value={method} onValueChange={setMethod}>
+              <Select
+                value={values.method}
+                onValueChange={(value) => update({ method: value, page: '1' })}
+              >
                 <SelectTrigger aria-label="روش پرداخت">
                   <SelectValue />
                 </SelectTrigger>
@@ -374,7 +410,10 @@ export function IssuedInvoicesPage() {
             </div>
             <div className="space-y-1.5">
               <Label>ماه صدور</Label>
-              <Select value={month} onValueChange={setMonth}>
+              <Select
+                value={values.month}
+                onValueChange={(value) => update({ month: value, page: '1' })}
+              >
                 <SelectTrigger aria-label="ماه صدور">
                   <CalendarDays className="h-4 w-4" aria-hidden />
                   <SelectValue />
@@ -386,6 +425,11 @@ export function IssuedInvoicesPage() {
                       {jalaliMonthLabel(value)}
                     </SelectItem>
                   ))}
+                  {!months.includes(currentJalaliMonthKey()) && (
+                    <SelectItem value={currentJalaliMonthKey()}>
+                      {jalaliMonthLabel(currentJalaliMonthKey())}
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -397,7 +441,10 @@ export function IssuedInvoicesPage() {
                   dir="ltr"
                   className="text-left"
                   value={minTotal}
-                  onChange={(event) => setMinTotal(event.target.value)}
+                  onChange={(event) => {
+                    setMinTotal(event.target.value);
+                    update({ page: '1' });
+                  }}
                   placeholder="از"
                   aria-label="حداقل مبلغ"
                 />
@@ -407,11 +454,32 @@ export function IssuedInvoicesPage() {
                   dir="ltr"
                   className="text-left"
                   value={maxTotal}
-                  onChange={(event) => setMaxTotal(event.target.value)}
+                  onChange={(event) => {
+                    setMaxTotal(event.target.value);
+                    update({ page: '1' });
+                  }}
                   placeholder="تا"
                   aria-label="حداکثر مبلغ"
                 />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>تعداد در صفحه</Label>
+              <Select
+                value={values.size}
+                onValueChange={(value) => update({ size: value, page: '1' })}
+              >
+                <SelectTrigger aria-label="تعداد ردیف در صفحه">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAGE_SIZES.map((size) => (
+                    <SelectItem key={size} value={String(size)}>
+                      {toFaDigits(size)} ردیف
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         )}
@@ -446,154 +514,223 @@ export function IssuedInvoicesPage() {
           }
         />
       ) : (
-        <Card className="overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">
-                  <input
-                    type="checkbox"
-                    aria-label="انتخاب همهٔ فاکتورهای نمایش‌داده‌شده"
-                    checked={
-                      rows.length > 0 &&
-                      rows.every((row) => row.invoice.id != null && selected.has(row.invoice.id))
-                    }
-                    onChange={(event) => {
-                      setSelected(
-                        event.target.checked
-                          ? new Set(
-                              rows
-                                .map((row) => row.invoice.id)
-                                .filter((id): id is number => id != null),
-                            )
-                          : new Set(),
-                      );
-                    }}
-                  />
-                </TableHead>
-                <TableHead>شماره / تاریخ</TableHead>
-                <TableHead>مشتری</TableHead>
-                <TableHead>روش پرداخت</TableHead>
-                <TableHead>اقلام</TableHead>
-                <TableHead>مبلغ کل</TableHead>
-                <TableHead>وضعیت</TableHead>
-                <TableHead>عملیات</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map(({ invoice, itemCount }) => {
-                const isVoided = invoice.status === 'voided';
-                const id = invoice.id ?? 0;
-                return (
-                  <TableRow
-                    key={id}
-                    className={isVoided ? 'bg-muted/30 text-muted-foreground' : ''}
-                    data-state={selected.has(id) ? 'selected' : undefined}
-                  >
-                    <TableCell>
-                      <input
-                        type="checkbox"
-                        aria-label={`انتخاب فاکتور ${invoice.number}`}
-                        checked={selected.has(id)}
-                        onChange={() => toggleSelected(id)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <p className="font-bold">#{toFaDigits(invoice.number)}</p>
-                      <p className="mt-1 whitespace-nowrap text-xs text-muted-foreground">
-                        {formatJalaliNumeric(new Date(invoice.date))}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      <p>{invoice.customerName ?? 'مشتری گذری'}</p>
-                      <p className="mt-1 text-[10px] text-muted-foreground">
-                        {invoice.source === 'pos' ? 'ثبت از صندوق' : 'صدور دستی'}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={invoice.isCredit ? 'warning' : 'secondary'}>
-                        {PAYMENT_LABELS[invoicePaymentMethod(invoice)]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{formatNumber(itemCount)} قلم</TableCell>
-                    <TableCell
-                      className={`whitespace-nowrap font-bold ${isVoided ? 'line-through' : ''}`}
+        <>
+          <Card className="overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10">
+                    <input
+                      type="checkbox"
+                      aria-label="انتخاب همهٔ فاکتورهای این صفحه"
+                      checked={allOnPageSelected}
+                      onChange={(event) => {
+                        setSelected((prev) => {
+                          const next = new Set(prev);
+                          for (const row of page.rows) {
+                            const id = row.invoice.id;
+                            if (id == null) continue;
+                            if (event.target.checked) next.add(id);
+                            else next.delete(id);
+                          }
+                          return next;
+                        });
+                      }}
+                    />
+                  </TableHead>
+                  <TableHead>شماره / تاریخ</TableHead>
+                  <TableHead className="hidden lg:table-cell">مشتری</TableHead>
+                  <TableHead className="hidden sm:table-cell">مبلغ کل</TableHead>
+                  <TableHead>مانده</TableHead>
+                  <TableHead>وضعیت</TableHead>
+                  <TableHead className="text-end">عملیات</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {page.rows.map(({ invoice, lifecycle, paid, remaining }) => {
+                  const isVoided = invoice.status === 'voided';
+                  const id = invoice.id ?? 0;
+                  const tone =
+                    lifecycle === 'voided'
+                      ? 'destructive'
+                      : lifecycle === 'paid'
+                        ? 'success'
+                        : lifecycle === 'overdue'
+                          ? 'destructive'
+                          : lifecycle === 'partial'
+                            ? 'warning'
+                            : 'secondary';
+                  return (
+                    <TableRow
+                      key={id}
+                      className={isVoided ? 'bg-muted/30 text-muted-foreground' : ''}
+                      data-state={selected.has(id) ? 'selected' : undefined}
                     >
-                      {formatMoney(invoice.total, unit)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          isVoided ? 'destructive' : invoice.isCredit ? 'warning' : 'success'
-                        }
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          aria-label={`انتخاب فاکتور ${invoice.number}`}
+                          checked={selected.has(id)}
+                          onChange={() => toggleSelected(id)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <p className="font-bold">#{toFaDigits(invoice.number)}</p>
+                        <p className="mt-1 whitespace-nowrap text-xs text-muted-foreground">
+                          {formatJalaliNumeric(new Date(invoice.date))}
+                        </p>
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        <p className="max-w-40 truncate">{invoice.customerName ?? 'مشتری گذری'}</p>
+                        <p className="mt-1 text-[10px] text-muted-foreground">
+                          {PAYMENT_LABELS[invoicePaymentMethod(invoice)]}
+                        </p>
+                      </TableCell>
+                      <TableCell
+                        className={`hidden whitespace-nowrap font-bold sm:table-cell ${isVoided ? 'line-through' : ''}`}
                       >
-                        {isVoided ? 'باطل‌شده' : invoice.isCredit ? 'نسیه' : 'تسویه‌شده'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className="flex gap-1">
-                        <Button asChild variant="ghost" size="icon" className="h-8 w-8">
-                          <Link
-                            to={`/store/invoices/${id}`}
-                            aria-label={`مشاهده فاکتور ${invoice.number}`}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          aria-label={`چاپ فاکتور ${invoice.number}`}
-                          onClick={() => navigate(`/store/invoices/${id}?print=1`)}
-                        >
-                          <FileText className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-primary"
-                          aria-label={`دریافت PDF فاکتور ${invoice.number}`}
-                          disabled={busyId === id}
-                          onClick={() => void exportPdf(invoice)}
-                        >
-                          <FileDown className="h-4 w-4" />
-                        </Button>
-                        {!isVoided && (
+                        {formatMoney(invoice.total, unit)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {isVoided ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : remaining > 0 ? (
+                          <span className="font-bold text-destructive">
+                            {formatMoney(remaining, unit)}
+                          </span>
+                        ) : (
+                          <span className="text-emerald-700 dark:text-emerald-400">تسویه</span>
+                        )}
+                        {paid > 0 && remaining > 0 && (
+                          <p className="mt-1 text-[10px] text-muted-foreground">
+                            پرداخت‌شده: {formatMoney(paid, unit)}
+                          </p>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={tone}>{LIFECYCLE_LABELS[lifecycle]}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className="flex justify-end gap-1">
+                          <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+                            <Link
+                              to={`/store/invoices/${id}`}
+                              aria-label={`مشاهده فاکتور ${invoice.number}`}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Link>
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-destructive"
-                            aria-label={`ابطال فاکتور ${invoice.number}`}
-                            onClick={() => setVoiding(invoice)}
+                            className="hidden h-8 w-8 sm:inline-flex"
+                            aria-label={`چاپ فاکتور ${invoice.number}`}
+                            onClick={() => navigate(`/store/invoices/${id}?print=1`)}
                           >
-                            <Undo2 className="h-4 w-4" />
+                            <Printer className="h-4 w-4" />
                           </Button>
-                        )}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Card>
-      )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-primary"
+                            aria-label={`دریافت PDF فاکتور ${invoice.number}`}
+                            disabled={busyId === id}
+                            onClick={() => void buildPdf(invoice)}
+                          >
+                            <FileDown className="h-4 w-4" />
+                          </Button>
+                          {!isVoided && invoice.isCredit && remaining > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-emerald-700 dark:text-emerald-400"
+                              aria-label={`ثبت پرداخت فاکتور ${invoice.number}`}
+                              onClick={() => setPaying(invoice)}
+                            >
+                              <Wallet className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {!isVoided && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                              aria-label={`ابطال فاکتور ${invoice.number}`}
+                              onClick={() => setVoiding(invoice)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Card>
 
-      {rows.length > 0 && (
-        <p className="mt-3 text-xs text-muted-foreground">
-          آخرین به‌روزرسانی فهرست: {formatJalaliFull(new Date())} — خروجی PDF هر فاکتور با نام
-          <span dir="ltr" className="mx-1 font-mono">
-            factor-{toFaDigits('شماره')}.pdf
-          </span>
-          ذخیره می‌شود.
-        </p>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
+            <p className="text-muted-foreground">
+              نمایش {toFaDigits(page.from)} تا {toFaDigits(page.to)} از {toFaDigits(page.total)}{' '}
+              فاکتور
+              {selected.size > 0 && ` — ${toFaDigits(selected.size)} انتخاب‌شده`}
+            </p>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page.page <= 1}
+                onClick={() => update({ page: String(page.page - 1) })}
+              >
+                قبلی
+              </Button>
+              {Array.from({ length: page.pageCount }, (_, index) => index + 1)
+                .filter(
+                  (number) =>
+                    page.pageCount <= 7 ||
+                    Math.abs(number - page.page) <= 2 ||
+                    number === 1 ||
+                    number === page.pageCount,
+                )
+                .map((number, index, list) => (
+                  <span key={number} className="flex items-center gap-1">
+                    {index > 0 && number - list[index - 1] > 1 && (
+                      <span className="px-1 text-muted-foreground">…</span>
+                    )}
+                    <Button
+                      variant={number === page.page ? 'default' : 'outline'}
+                      size="sm"
+                      className="min-w-9"
+                      onClick={() => update({ page: String(number) })}
+                      aria-current={number === page.page ? 'page' : undefined}
+                    >
+                      {toFaDigits(number)}
+                    </Button>
+                  </span>
+                ))}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page.page >= page.pageCount}
+                onClick={() => update({ page: String(page.page + 1) })}
+              >
+                بعدی
+              </Button>
+            </div>
+          </div>
+        </>
       )}
 
       <VoidInvoiceDialog
         invoice={voiding}
         onOpenChange={(open) => !open && setVoiding(null)}
         onVoided={() => setVoiding(null)}
+      />
+      <InvoicePaymentDialog
+        invoice={paying}
+        onOpenChange={(open) => !open && setPaying(null)}
+        onPaid={() => setPaying(null)}
       />
     </div>
   );

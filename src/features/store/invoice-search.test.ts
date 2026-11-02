@@ -6,11 +6,12 @@ import {
   invoiceCsvRows,
   invoiceSearchText,
   normalizeQuery,
+  paginateInvoices,
   queryInvoices,
   summarizeInvoices,
   type InvoiceRow,
 } from '@/features/store/invoice-search';
-import type { Invoice, InvoiceItem } from '@/core/db/db';
+import type { CustomerPayment, Invoice, InvoiceItem } from '@/core/db/db';
 
 const cps = (value: string) => [...value].map((ch) => ch.codePointAt(0)!);
 
@@ -197,5 +198,91 @@ describe('آینه‌سازی نویسه‌های جفتی در متن راست�
 
   it('پرانتز در متن لاتین دست‌نخورده می‌ماند', () => {
     expect(bidiReorder('(abc)')).toBe('(abc)');
+  });
+});
+
+describe('فیلتر وضعیت پرداخت و صفحه‌بندی', () => {
+  const credit = invoice({ id: 2, number: 1002, isCredit: true, paymentMethod: 'credit' });
+  const pay = (amount: number, invoiceId = 2): CustomerPayment => ({
+    id: 1,
+    customerId: 5,
+    invoiceId,
+    amount,
+    date: '2026-10-04T09:00:00.000Z',
+    createdAt: '2026-10-04T09:00:00.000Z',
+  });
+  const now = new Date('2026-10-10T09:00:00.000Z');
+
+  it('فیلتر «پرداخت‌نشده» فقط فاکتورهای بدون پرداخت را برمی‌گرداند', () => {
+    const rows = queryInvoices([credit], [], { status: 'unpaid', now });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].remaining).toBe(credit.total);
+  });
+
+  it('فیلتر «پرداخت جزئی» با پرداخت ناقص فعال می‌شود', () => {
+    const rows = queryInvoices([credit], [], {
+      status: 'partial',
+      payments: [pay(400_000)],
+      now,
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].paid).toBe(400_000);
+    expect(rows[0].remaining).toBe(600_000);
+    expect(rows[0].lifecycle).toBe('partial');
+  });
+
+  it('فیلتر «سررسید گذشته» فقط نسیه‌ی معوق را نشان می‌دهد', () => {
+    // سررسید پیش‌فرض = تاریخ صدور + ۳۰ روز → ۲ Nov 2026 (بعد از now)
+    const futureRows = queryInvoices([credit], [], { status: 'overdue', now });
+    expect(futureRows).toHaveLength(0);
+    const past = queryInvoices([credit], [], { status: 'overdue', now: new Date('2026-12-01') });
+    expect(past).toHaveLength(1);
+  });
+
+  it('فاکتور تسویه‌شده در فیلتر «تسویه‌شده» است و مانده ندارد', () => {
+    const rows = queryInvoices([credit], [], {
+      status: 'paid',
+      payments: [pay(credit.total)],
+      now,
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].remaining).toBe(0);
+  });
+
+  it('صفحه‌بندی واقعی، بازه‌ی درست را برمی‌گرداند', () => {
+    const many = Array.from({ length: 25 }, (_, index) =>
+      invoice({ id: index + 1, number: 1000 + index }),
+    );
+    const result = paginateInvoices(queryInvoices(many, [], { sort: 'number-asc' }), 3, 10);
+    expect(result.total).toBe(25);
+    expect(result.pageCount).toBe(3);
+    expect(result.rows).toHaveLength(5);
+    expect(result.from).toBe(21);
+    expect(result.to).toBe(25);
+    expect(result.rows[0].invoice.number).toBe(1020);
+  });
+
+  it('صفحه‌ی خارج از محدوده به آخرین صفحه محدود می‌شود', () => {
+    const result = paginateInvoices(queryInvoices([invoice()], [], {}), 9, 10);
+    expect(result.page).toBe(1);
+    expect(result.rows).toHaveLength(1);
+  });
+
+  it('خلاصه‌ی آماری، وصول و مانده را جدا نشان می‌دهد', () => {
+    const summary = summarizeInvoices(
+      queryInvoices([credit], [], { payments: [pay(300_000)], now }),
+    );
+    expect(summary.paidTotal).toBe(300_000);
+    expect(summary.remainingTotal).toBe(700_000);
+    expect(summary.creditCount).toBe(1);
+  });
+
+  it('CSV شامل ستون‌های پرداخت‌شده و مانده است', () => {
+    const rows = queryInvoices([credit], [], { payments: [pay(250_000)], now });
+    const [header, first] = invoiceCsvRows(rows);
+    expect(header).toContain('پرداخت‌شده');
+    expect(header).toContain('مانده');
+    expect(first).toContain(250_000);
+    expect(first).toContain(750_000);
   });
 });

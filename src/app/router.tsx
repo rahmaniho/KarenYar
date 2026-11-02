@@ -26,6 +26,10 @@ const IssuedInvoicesPage = lazyPage(
   () => import('@/features/store/IssuedInvoicesPage'),
   'IssuedInvoicesPage',
 );
+const InvoiceDashboardPage = lazyPage(
+  () => import('@/features/store/InvoiceDashboardPage'),
+  'InvoiceDashboardPage',
+);
 const InvoiceViewPage = lazyPage(
   () => import('@/features/store/InvoiceViewPage'),
   'InvoiceViewPage',
@@ -69,6 +73,7 @@ export const router = createBrowserRouter(
         { path: 'store/finance', element: <BusinessFinancePage /> },
         { path: 'store/products', element: <ProductsPage /> },
         { path: 'store/invoices', element: <InvoicesPage /> },
+        { path: 'store/invoices/dashboard', element: <InvoiceDashboardPage /> },
         { path: 'store/invoices/issued', element: <IssuedInvoicesPage /> },
         { path: 'store/invoices/new', element: <NewInvoicePage /> },
         { path: 'store/invoices/:id', element: <InvoiceViewPage /> },

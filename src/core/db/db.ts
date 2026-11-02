@@ -48,6 +48,8 @@ export interface Invoice {
   taxPercent: number;
   taxAmount: number;
   total: number;
+  /** سررسید پرداخت (ISO میلادی) — اگر خالی باشد، ۳۰ روز پس از صدور در نظر گرفته می‌شود */
+  dueDate?: string;
   /** فاکتورهای قدیمی بدون status معتبر و فعال هستند. */
   status?: 'completed' | 'voided';
   source?: 'pos' | 'invoice';
