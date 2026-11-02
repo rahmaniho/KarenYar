@@ -52,7 +52,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { assetUrl, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 const SUPPORT_PHONE = import.meta.env.VITE_SUPPORT_PHONE ?? '';
 
@@ -771,54 +771,13 @@ export function SettingsPage() {
           <CardHeader>
             <SectionTitle icon={Info}>درباره‌ی حساب‌یار کارن سافت</SectionTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm leading-7 text-muted-foreground">
+          <CardContent className="text-sm leading-8 text-muted-foreground">
             <p>
-              <b className="text-foreground">حساب‌یار کارن سافت</b> — نسخه‌ی ۱٫۲٫۵
+              کارن سافت، طراح و توسعه‌دهنده‌ی نرم‌افزارهای مالی فارسی برای کسب‌وکارها و کاربران
+              فارسی‌زبان است. حساب‌یار، محصول این مجموعه، فروش و انبار، درآمد و هزینه‌ها، حقوق و
+              دستمزد و ابزارهای محاسباتی را در یک محیط ساده و یکپارچه گرد هم می‌آورد. این نرم‌افزار
+              کاملاً آفلاین کار می‌کند و تمام داده‌های مالی تنها روی همان دستگاه ذخیره می‌شود.
             </p>
-            <p>
-              اپلیکیشن مالی فارسی و کاملاً آفلاین برای فروشگاه‌های کوچک، کارمندان و حسابداران:
-              فروشگاه، امور مالی شخصی، حقوق و دستمزد طبق قانون کار و ماشین‌حساب حرفه‌ای؛ بدون نیاز
-              به اینترنت و بدون ارسال هیچ داده‌ای به بیرون.
-            </p>
-            <p>
-              ساخته‌شده با React و TypeScript — داده‌ها فقط روی دستگاه شما (IndexedDB) ذخیره
-              می‌شوند.
-            </p>
-            {/* قفل برند کارن‌سافت با artwork اصلی لوگو */}
-            <a
-              href="https://www.karen-soft.ir"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2 flex items-center gap-3 rounded-xl border p-3 transition hover:bg-secondary/60"
-              aria-label="وب‌سایت کارن سافت"
-            >
-              <img
-                src={assetUrl('images/karensoft/mark.png')}
-                alt="نشان کارن سافت"
-                width={256}
-                height={256}
-                className="h-12 w-12 object-contain"
-              />
-              <span className="flex flex-col items-start gap-1">
-                <span className="inline-flex rounded-md bg-white px-2 py-1 ring-1 ring-border">
-                  <img
-                    src={assetUrl('images/karensoft/wordmark-fa.png')}
-                    alt="کارن سافت"
-                    width={383}
-                    height={96}
-                    className="h-5 w-auto"
-                  />
-                </span>
-                <img
-                  src={assetUrl('images/karensoft/wordmark-en.png')}
-                  alt="Karensoft"
-                  width={410}
-                  height={48}
-                  className="h-3 w-auto opacity-70 dark:invert"
-                />
-              </span>
-              <span className="ms-auto text-xs text-muted-foreground">karen-soft.ir ←</span>
-            </a>
           </CardContent>
         </Card>
       </div>

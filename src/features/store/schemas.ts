@@ -5,7 +5,11 @@ import { z } from 'zod';
 export const productSchema = z.object({
   name: z.string().trim().min(2, 'نام کالا حداقل ۲ نویسه باشد.'),
   barcode: z.string().trim().max(64).optional().or(z.literal('')),
-  category: z.string().trim().min(1, 'دسته‌بندی را وارد کنید.'),
+  category: z
+    .string()
+    .trim()
+    .min(1, 'دسته‌بندی را وارد کنید.')
+    .max(60, 'نام دسته‌بندی حداکثر ۶۰ نویسه باشد.'),
   buyPrice: z
     .number({ invalid_type_error: 'قیمت خرید را وارد کنید.' })
     .min(0, 'قیمت خرید نامعتبر است.'),

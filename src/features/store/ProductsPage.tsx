@@ -3,7 +3,16 @@ import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Package, Pencil, Plus, ScanBarcode, Search, Trash2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  Package,
+  Pencil,
+  Plus,
+  ScanBarcode,
+  Search,
+  Tags,
+  Trash2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { db, nowISO, type Product } from '@/core/db/db';
 import { FREE_LIMITS } from '@/core/license/license-core';
@@ -50,10 +59,20 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { DEFAULT_PRODUCT_CATEGORIES, PRODUCT_UNITS, mergeCategories } from '../personal/categories';
+import { PRODUCT_UNITS } from '../personal/categories';
 import { productSchema, type ProductFormValues } from './schemas';
 import { cn } from '@/lib/utils';
 import { saveProduct, deleteProduct } from './inventory.service';
+import { useProductCategories } from './useProductCategories';
+import { ProductCategoriesDialog } from './ProductCategoriesDialog';
+import { ProductCategoryField } from './ProductCategoryField';
+import { CategoryDot, CategoryTag } from './CategoryBadge';
+import {
+  ALL_CATEGORIES_FILTER,
+  colorForCategory,
+  sameCategory,
+  type ProductCategory,
+} from './product-categories';
 
 function stockBadge(product: Product) {
   if (product.stock <= 0) return <Badge variant="destructive">ناموجود</Badge>;
@@ -75,31 +94,27 @@ export function ProductsPage() {
     const q = searchParams.get('q');
     if (q) setSearch(q);
   }, [searchParams]);
-  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>(ALL_CATEGORIES_FILTER);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [lowOnly, setLowOnly] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState<Product | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
 
-  const categories = useMemo(
-    () =>
-      mergeCategories(
-        DEFAULT_PRODUCT_CATEGORIES,
-        products.map((p) => p.category),
-      ),
-    [products],
-  );
+  const { categories, add, update, remove, register } = useProductCategories(products);
 
   const filtered = useMemo(
     () =>
       products.filter((p) => {
-        if (categoryFilter !== 'all' && p.category !== categoryFilter) return false;
+        // فیلتر بر اساس شناسهی دسته است؛ بنابراین نامهای دلخواه (حتی «all») تداخلی ایجاد نمیکنند
+        const active = categories.find((c) => c.id === categoryFilter);
+        if (active && !sameCategory(p.category, active.name)) return false;
         if (lowOnly && p.stock > p.minStock) return false;
         if (search && !`${p.name} ${p.barcode ?? ''} ${p.category}`.includes(search)) return false;
         return true;
       }),
-    [products, search, categoryFilter, lowOnly],
+    [products, search, categoryFilter, lowOnly, categories],
   );
 
   const atFreeLimit = !can('unlimited-products') && products.length >= FREE_LIMITS.products;
@@ -121,10 +136,16 @@ export function ProductsPage() {
         title="کالاها"
         subtitle="مدیریت کالاها، قیمت تمام‌شده، سود و هشدار کمبود موجودی"
         actions={
-          <Button variant="neon" onClick={openCreate}>
-            <Plus aria-hidden />
-            کالای جدید
-          </Button>
+          <>
+            <Button variant="outline" onClick={() => setCategoriesOpen(true)}>
+              <Tags aria-hidden />
+              دسته‌بندیها
+            </Button>
+            <Button variant="neon" onClick={openCreate}>
+              <Plus aria-hidden />
+              کالای جدید
+            </Button>
+          </>
         }
       />
 
@@ -158,10 +179,13 @@ export function ProductsPage() {
               <SelectValue placeholder="همه‌ی دسته‌ها" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">همه‌ی دسته‌ها</SelectItem>
-              {categories.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
+              <SelectItem value={ALL_CATEGORIES_FILTER}>همه‌ی دسته‌ها</SelectItem>
+              {categories.map((category) => (
+                <SelectItem key={category.id} value={category.id}>
+                  <span className="flex items-center gap-2">
+                    <CategoryDot color={category.color} />
+                    {category.name}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -222,7 +246,12 @@ export function ProductsPage() {
                           <p className="text-xs text-muted-foreground">بارکد: {p.barcode}</p>
                         )}
                       </TableCell>
-                      <TableCell>{p.category}</TableCell>
+                      <TableCell>
+                        <CategoryTag
+                          name={p.category}
+                          color={colorForCategory(categories, p.category)}
+                        />
+                      </TableCell>
                       <TableCell>{formatMoney(p.costPrice, unit)}</TableCell>
                       <TableCell className="font-semibold">
                         {formatMoney(p.sellPrice, unit)}
@@ -279,8 +308,9 @@ export function ProductsPage() {
                   <p className="font-semibold">{p.name}</p>
                   {stockBadge(p)}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {p.category} — موجودی: {formatDecimal(p.stock, 6)} {p.unit}
+                <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <CategoryTag name={p.category} color={colorForCategory(categories, p.category)} />
+                  موجودی: {formatDecimal(p.stock, 6)} {p.unit}
                 </p>
                 <div className="flex items-center justify-between text-sm">
                   <span>
@@ -332,6 +362,17 @@ export function ProductsPage() {
         onOpenChange={setDialogOpen}
         editing={editing}
         categories={categories}
+        registerCategory={register}
+      />
+
+      <ProductCategoriesDialog
+        open={categoriesOpen}
+        onOpenChange={setCategoriesOpen}
+        categories={categories}
+        products={products}
+        add={add}
+        update={update}
+        remove={remove}
       />
 
       <ConfirmDialog
@@ -357,11 +398,13 @@ function ProductFormDialog({
   onOpenChange,
   editing,
   categories,
+  registerCategory,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editing: Product | null;
-  categories: string[];
+  categories: ProductCategory[];
+  registerCategory: (name: string) => Promise<void>;
 }) {
   const unit = useSettingsStore((s) => s.currencyUnit);
   const defaultMinStock = useSettingsStore((s) => s.defaultMinStock);
@@ -460,6 +503,8 @@ function ProductFormDialog({
       updatedAt: nowISO(),
     };
     try {
+      // نام دلخواه تایپشده را در دفتر دستهبندیها ثبت میکنیم تا قابل شخصیسازی باشد
+      await registerCategory(v.category);
       if (editing?.id != null) {
         await saveProduct(payload, editing.id, editing.stock);
         toast.success('کالا ویرایش شد.');
@@ -510,16 +555,20 @@ function ProductFormDialog({
               />
               {err('barcode')}
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="p-category">دسته‌بندی *</Label>
-              <Input id="p-category" list="p-categories" {...form.register('category')} />
-              <datalist id="p-categories">
-                {categories.map((c) => (
-                  <option key={c} value={c} />
-                ))}
-              </datalist>
-              {err('category')}
-            </div>
+            <Controller
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <ProductCategoryField
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  inputRef={field.ref}
+                  categories={categories}
+                  error={errors.category?.message}
+                />
+              )}
+            />
             <div className="space-y-1.5">
               <Label htmlFor="p-unit">واحد *</Label>
               <Controller
