@@ -11,10 +11,11 @@ import {
   Package,
   Plus,
   Search,
+  Tags,
   Warehouse,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { db, type StockMovementType } from '@/core/db/db';
+import { db, type Product, type StockMovementType } from '@/core/db/db';
 import { formatDecimal, formatMoney, parseAmountInput } from '@/core/currency/currency';
 import { formatJalaliNumeric } from '@/core/jalali/jalali';
 import { downloadCsv } from '@/core/utils/csv';
@@ -54,10 +55,14 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { changeStock, MOVEMENT_LABELS } from './inventory.service';
 import { normalizeSearch } from './payment';
+import { useProductCategories } from './useProductCategories';
+import { ProductCategoriesDialog } from './ProductCategoriesDialog';
+import { CategoryDot, CategoryTag } from './CategoryBadge';
+import { ALL_CATEGORIES_FILTER, colorForCategory, sameCategory } from './product-categories';
 
 export function InventoryPage() {
   const unit = useSettingsStore((s) => s.currencyUnit);
-  const products = useLiveQuery(() => db.products.orderBy('name').toArray(), [], []);
+  const products = useLiveQuery(() => db.products.orderBy('name').toArray(), [], [] as Product[]);
   const movements = useLiveQuery(
     () => db.stockMovements.orderBy('createdAt').reverse().toArray(),
     [],
@@ -68,6 +73,8 @@ export function InventoryPage() {
   const [productFilter, setProductFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [lowOnly, setLowOnly] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<string>(ALL_CATEGORIES_FILTER);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [productId, setProductId] = useState('');
   const [direction, setDirection] = useState<'in' | 'out'>('in');
@@ -75,16 +82,26 @@ export function InventoryPage() {
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const selectedProduct = products.find((p) => String(p.id) === productId);
+  const { categories, add, update, remove } = useProductCategories(products);
+  const productCategoryById = useMemo(
+    () => new Map(products.map((p) => [p.id, p.category])),
+    [products],
+  );
+  const activeCategoryName = useMemo(
+    () => categories.find((c) => c.id === categoryFilter)?.name ?? '',
+    [categories, categoryFilter],
+  );
   const filteredProducts = useMemo(
     () =>
       products.filter(
         (p) =>
           (!lowOnly || p.stock <= p.minStock) &&
+          (!activeCategoryName || sameCategory(p.category, activeCategoryName)) &&
           normalizeSearch(`${p.name} ${p.barcode ?? ''} ${p.category}`).includes(
             normalizeSearch(search),
           ),
       ),
-    [products, lowOnly, search],
+    [products, lowOnly, search, activeCategoryName],
   );
   const filteredMovements = useMemo(
     () =>
@@ -92,9 +109,11 @@ export function InventoryPage() {
         (m) =>
           (productFilter === 'all' || String(m.productId) === productFilter) &&
           (typeFilter === 'all' || m.type === typeFilter) &&
+          (!activeCategoryName ||
+            sameCategory(productCategoryById.get(m.productId) ?? '', activeCategoryName)) &&
           normalizeSearch(`${m.productName} ${m.note ?? ''}`).includes(normalizeSearch(search)),
       ),
-    [movements, productFilter, typeFilter, search],
+    [movements, productFilter, typeFilter, search, activeCategoryName, productCategoryById],
   );
   const valuation = products.reduce((sum, p) => sum + p.stock * p.costPrice, 0);
   const lowCount = products.filter((p) => p.stock <= p.minStock).length;
@@ -158,6 +177,10 @@ export function InventoryPage() {
         subtitle="ردیابی ورود، فروش، اصلاح و برگشت کالا با موجودی قبل و بعد از هر عملیات"
         actions={
           <>
+            <Button variant="outline" onClick={() => setCategoriesOpen(true)}>
+              <Tags />
+              دسته‌بندیها
+            </Button>
             <Button variant="outline" onClick={() => void exportCsv()}>
               <Download />
               خروجی CSV
@@ -220,6 +243,22 @@ export function InventoryPage() {
               </button>
             ))}
           </div>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-44" aria-label="فیلتر دسته‌بندی انبار">
+              <SelectValue placeholder="همه‌ی دسته‌ها" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_CATEGORIES_FILTER}>همه‌ی دسته‌ها</SelectItem>
+              {categories.map((category) => (
+                <SelectItem key={category.id} value={category.id}>
+                  <span className="flex items-center gap-2">
+                    <CategoryDot color={category.color} />
+                    {category.name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="relative min-w-40 flex-1">
             <Search className="absolute start-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
@@ -303,8 +342,11 @@ export function InventoryPage() {
                   <TableRow key={product.id}>
                     <TableCell>
                       <p className="font-bold">{product.name}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {product.category}
+                      <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <CategoryTag
+                          name={product.category}
+                          color={colorForCategory(categories, product.category)}
+                        />
                         {product.barcode ? ` · ${product.barcode}` : ''}
                       </p>
                     </TableCell>
@@ -542,6 +584,16 @@ export function InventoryPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ProductCategoriesDialog
+        open={categoriesOpen}
+        onOpenChange={setCategoriesOpen}
+        categories={categories}
+        products={products}
+        add={add}
+        update={update}
+        remove={remove}
+      />
     </div>
   );
 }
