@@ -1,6 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useLiveQuery } from 'dexie-react-hooks';
 import {
   Bell,
   BellRing,
@@ -11,18 +10,9 @@ import {
   ShieldCheck,
   TriangleAlert,
 } from 'lucide-react';
-import {
-  db,
-  type Budget,
-  type Customer,
-  type CustomerPayment,
-  type Debt,
-  type Invoice,
-  type Product,
-  type Transaction,
-} from '@/core/db/db';
 import { toFaDigits } from '@/core/currency/currency';
-import { computeAlerts, type AlertKind } from '@/features/alerts/alerts';
+import { type AlertKind } from '@/features/alerts/alerts';
+import { useAppAlerts } from '@/features/alerts/use-app-alerts';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -46,31 +36,7 @@ export function AlertsBell() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
-  const products = useLiveQuery(() => db.products.toArray(), [], [] as Product[]);
-  const debts = useLiveQuery(() => db.debts.toArray(), [], [] as Debt[]);
-  const budgets = useLiveQuery(() => db.budgets.toArray(), [], [] as Budget[]);
-  const transactions = useLiveQuery(() => db.transactions.toArray(), [], [] as Transaction[]);
-  const invoices = useLiveQuery(() => db.invoices.toArray(), [], [] as Invoice[]);
-  const customerPayments = useLiveQuery(
-    () => db.customerPayments.toArray(),
-    [],
-    [] as CustomerPayment[],
-  );
-  const customers = useLiveQuery(() => db.customers.toArray(), [], [] as Customer[]);
-
-  const alerts = useMemo(
-    () =>
-      computeAlerts({
-        products,
-        debts,
-        budgets,
-        transactions,
-        invoices,
-        customerPayments,
-        customers,
-      }),
-    [products, debts, budgets, transactions, invoices, customerPayments, customers],
-  );
+  const alerts = useAppAlerts();
 
   const dangerCount = alerts.filter((a) => a.severity === 'danger').length;
 

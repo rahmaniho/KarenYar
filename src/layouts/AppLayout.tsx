@@ -1,7 +1,15 @@
-import { Suspense, useEffect, useState } from 'react';
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type TouchEvent,
+} from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Crown, Download, LockKeyhole, Menu, Moon, Sun, Wifi, WifiOff, X } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { Crown, Download, LockKeyhole, Menu, Moon, Sun, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TIER_LABELS } from '@/core/license/license-core';
@@ -9,18 +17,20 @@ import { useLicenseStore } from '@/store/license-store';
 import { useSettingsStore } from '@/store/settings-store';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { useInstallPrompt } from '@/hooks/use-install-prompt';
-import { NAV_GROUPS, MOBILE_NAV } from './nav-items';
-import { KarenSoftCredit } from '@/components/KarenSoftCredit';
+import { MOBILE_NAV } from './nav-items';
 import { GlobalSearch } from '@/components/GlobalSearch';
 import { useLockStore } from '@/store/lock-store';
 import { AlertsBell } from '@/components/AlertsBell';
 import { assetUrl, cn } from '@/lib/utils';
+import { GlassSidebar, SIDEBAR_WIDTH, SIDEBAR_WIDTH_COLLAPSED } from './sidebar/GlassSidebar';
+import { useSidebarUi } from './sidebar/useSidebarUi';
+import '@/styles/glass-sidebar.css';
 
-function BrandMark({ compact = false }: { compact?: boolean }) {
+/** نشان کوچک برند در هدر موبایل (همان لوگوی واقعی پروژه، بدون تغییر نسبت) */
+function CompactBrand() {
   return (
-    <Link to="/" className="flex items-center gap-2.5" aria-label="حساب‌یار کارن سافت — داشبورد">
-      {/* لوگوی خودِ برنامه (حساب‌یار) */}
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-glow ring-1 ring-black/10">
+    <Link to="/" aria-label="حساب‌یار کارن سافت — داشبورد" className="shrink-0">
+      <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl border border-black/10 shadow-sm">
         <img
           src={assetUrl('images/karensoft/KarenYar.png')}
           alt=""
@@ -29,71 +39,23 @@ function BrandMark({ compact = false }: { compact?: boolean }) {
           className="h-full w-full object-cover"
         />
       </span>
-      {!compact && (
-        <span className="leading-tight">
-          <span className="block text-[15px] font-extrabold">حساب‌یار</span>
-          <span className="block text-[11px] text-muted-foreground">کارن سافت</span>
-        </span>
-      )}
     </Link>
   );
 }
 
-function NavContent({ onNavigate }: { onNavigate?: () => void }) {
-  const tier = useLicenseStore((s) => s.info.tier);
-  return (
-    <div className="flex h-full flex-col">
-      <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4" aria-label="ناوبری اصلی">
-        {NAV_GROUPS.map((group) => (
-          <div key={group.title}>
-            <p className="px-2 pb-1.5 text-[11px] font-semibold text-white/40">{group.title}</p>
-            <ul className="space-y-0.5">
-              {group.items.map((item) => (
-                <li key={item.to}>
-                  <NavLink
-                    to={item.to}
-                    end={item.end}
-                    onClick={onNavigate}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-white/75 transition hover:bg-white/10 hover:text-white',
-                        isActive &&
-                          'bg-white/10 text-white shadow-[inset_2px_0_0_0_#39FF88] [&_svg]:text-neon-500',
-                      )
-                    }
-                  >
-                    <item.icon className="h-[18px] w-[18px]" aria-hidden />
-                    {item.label}
-                  </NavLink>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </nav>
-      <div className="border-t border-white/10 p-3">
-        <Link
-          to="/settings#license"
-          onClick={onNavigate}
-          className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2.5 text-sm text-white/85 transition hover:bg-white/10"
-        >
-          <Crown className="h-4 w-4 text-neon-500" aria-hidden />
-          نسخه‌ی {TIER_LABELS[tier]}
-          {tier === 'free' && <span className="ms-auto text-xs text-neon-400">ارتقا ←</span>}
-        </Link>
-        <p className="px-2 pt-2 text-[11px] text-white/40">نسخه ۱٫۳٫۰ — کاملاً آفلاین</p>
-        <KarenSoftCredit className="mt-1.5" />
-      </div>
-    </div>
-  );
-}
-
 export function AppLayout() {
+  const ui = useSidebarUi();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [lowPower] = useState(() => {
+    const cores = navigator.hardwareConcurrency ?? 0;
+    return cores > 0 && cores <= 4;
+  });
+  const reduceMotion = useReducedMotion();
   const location = useLocation();
-  useEffect(() => {
-    if (!location.hash) window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
-  }, [location.pathname, location.hash]);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
   const online = useOnlineStatus();
   const { canInstall, promptInstall } = useInstallPrompt();
   const theme = useSettingsStore((s) => s.theme);
@@ -107,69 +69,132 @@ export function AppLayout() {
     (window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false);
   const isDark = theme === 'dark' || (theme === 'system' && systemDark);
 
+  const closeDrawer = useCallback(() => {
+    setMobileMenuOpen(false);
+    menuButtonRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (!location.hash) window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    setMobileMenuOpen(false);
+  }, [location.pathname, location.hash]);
+
+  // قفل اسکرول صفحهی زیرین کشو + بستن با Escape + فوکوس اولیه
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileMenuOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    const frame = requestAnimationFrame(() => {
+      drawerRef.current?.querySelector<HTMLElement>('[data-drawer-close]')?.focus();
+    });
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+      cancelAnimationFrame(frame);
+    };
+  }, [mobileMenuOpen]);
+
+  const onTouchStart = (event: TouchEvent) => {
+    const touch = event.touches[0];
+    touchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  };
+  const onTouchEnd = (event: TouchEvent) => {
+    const start = touchStartRef.current;
+    const touch = event.changedTouches[0];
+    touchStartRef.current = null;
+    if (!start || !touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    // کشو در RTL از راست باز میشود؛ swipe به راست آن را میبندد (اسکرول عمودی تداخل نمیکند)
+    if (dx > 64 && Math.abs(dx) > Math.abs(dy) * 1.4) closeDrawer();
+  };
+
+  const navWidth = ui.collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH;
+  const shellStyle = { '--nav-width': `${navWidth}px` } as CSSProperties;
+
   return (
-    <div className="min-h-dvh bg-background">
-      {/* سایدبار دسکتاپ */}
-      <aside className="fixed inset-y-0 start-0 z-40 hidden w-64 bg-navy-900 text-white lg:block">
-        <div className="border-b border-white/10 px-4 py-4 [&_span]:text-white [&_.text-muted-foreground]:text-white/50">
-          <BrandMark />
-        </div>
-        <NavContent />
+    <div
+      className={cn('app-shell relative min-h-dvh bg-background', lowPower && 'glass-lite')}
+      style={shellStyle}
+      dir="rtl"
+    >
+      <div className="app-ambient" aria-hidden />
+
+      {/* سایدبار شناور دسکتاپ */}
+      <aside className="fixed inset-y-4 start-4 z-40 hidden md:block" aria-label="منوی اصلی">
+        <GlassSidebar
+          ui={ui}
+          onNavigate={() => undefined}
+          shortcutActive={!mobileMenuOpen}
+          searchId="nav-search-desktop"
+        />
       </aside>
 
-      {/* منوی موبایل (کشویی) */}
+      {/* کشوی موبایل */}
       <AnimatePresence>
         {mobileMenuOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-navy-950/60 backdrop-blur-sm lg:hidden"
-              onClick={() => setMobileMenuOpen(false)}
-              aria-hidden
+          <motion.div
+            key="drawer-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.22 }}
+            className="drawer-backdrop fixed inset-0 z-50 md:hidden"
+            onClick={closeDrawer}
+            aria-hidden
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.aside
+            key="drawer"
+            ref={drawerRef}
+            data-nav-drawer
+            role="dialog"
+            aria-modal="true"
+            aria-label="منوی موبایل"
+            initial={{ x: '100%', opacity: 0.7 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '100%', opacity: 0.7 }}
+            transition={{ duration: reduceMotion ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+            className="fixed inset-y-3 start-3 z-50 w-[min(86vw,340px)] max-w-[86vw] touch-pan-y md:hidden"
+          >
+            <GlassSidebar
+              ui={ui}
+              isDrawer
+              onClose={closeDrawer}
+              onNavigate={closeDrawer}
+              shortcutActive
+              searchId="nav-search-mobile"
             />
-            <motion.aside
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'tween', duration: 0.22 }}
-              className="fixed inset-y-0 start-0 z-50 flex w-72 max-w-[85vw] flex-col bg-navy-900 text-white shadow-2xl lg:hidden"
-              aria-label="منوی موبایل"
-            >
-              <div className="flex items-center justify-between border-b border-white/10 px-4 py-4 [&_span]:text-white [&_.text-muted-foreground]:text-white/50">
-                <BrandMark />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-white hover:bg-white/10"
-                  aria-label="بستن منو"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  <X className="h-5 w-5" />
-                </Button>
-              </div>
-              <NavContent onNavigate={() => setMobileMenuOpen(false)} />
-            </motion.aside>
-          </>
+          </motion.aside>
         )}
       </AnimatePresence>
 
-      <div className="lg:ps-64">
-        {/* هدر */}
-        <header className="sticky top-0 z-30 border-b bg-background/85 backdrop-blur-md">
-          <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-4">
+      <div className="app-content relative z-10">
+        {/* هدر — تمام کنترلهای قبلی بدون تغییر عملکرد */}
+        <header className="sticky top-0 z-30 px-3 pt-3">
+          <div className="glass-topbar mx-auto flex h-16 max-w-6xl items-center gap-2 rounded-2xl px-3">
             <Button
+              ref={menuButtonRef}
               variant="ghost"
               size="icon"
-              className="lg:hidden"
+              className="md:hidden"
               aria-label="باز کردن منو"
+              aria-expanded={mobileMenuOpen}
               onClick={() => setMobileMenuOpen(true)}
             >
               <Menu className="h-5 w-5" />
             </Button>
-            <div className="lg:hidden">
-              <BrandMark compact />
+            <div className="md:hidden">
+              <CompactBrand />
             </div>
             <div className="ms-auto flex items-center gap-1.5 sm:gap-2">
               <GlobalSearch />
@@ -186,7 +211,7 @@ export function AppLayout() {
                   size="sm"
                   variant="neon"
                   onClick={promptInstall}
-                  className="hidden md:inline-flex"
+                  className="hidden lg:inline-flex"
                 >
                   <Download className="h-4 w-4" />
                   نصب اپلیکیشن
@@ -194,7 +219,7 @@ export function AppLayout() {
               )}
               <AlertsBell />
               {pinHash && (
-                <Button variant="ghost" size="icon" aria-label="قفل‌کردن برنامه" onClick={lock}>
+                <Button variant="ghost" size="icon" aria-label="قفل کردن برنامه" onClick={lock}>
                   <LockKeyhole className="h-5 w-5" />
                 </Button>
               )}
@@ -210,14 +235,14 @@ export function AppLayout() {
                 asChild
                 size="sm"
                 variant={tier === 'free' ? 'outline' : 'neon'}
-                className="hidden sm:inline-flex"
+                className="hidden lg:inline-flex"
               >
                 <Link to="/settings#license">
                   <Crown className="h-4 w-4" />
                   {TIER_LABELS[tier]}
                 </Link>
               </Button>
-              <span className="hidden text-sm font-bold md:block">حساب‌یار کارن سافت</span>
+              <span className="hidden text-sm font-bold lg:block">حساب‌یار کارن سافت</span>
             </div>
           </div>
         </header>
@@ -227,8 +252,8 @@ export function AppLayout() {
           key={location.pathname}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.22 }}
-          className="mx-auto w-full max-w-6xl px-4 pb-24 pt-5 lg:pb-10"
+          transition={{ duration: reduceMotion ? 0 : 0.22 }}
+          className="mx-auto w-full max-w-6xl px-4 pb-28 pt-5 md:pb-10"
         >
           <Suspense
             fallback={
@@ -250,7 +275,8 @@ export function AppLayout() {
 
       {/* ناوبری پایینی موبایل */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-40 border-t bg-card/92 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
+        className="glass-bottom-nav fixed inset-x-3 bottom-3 z-40 rounded-[22px] border md:hidden"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.25rem)' }}
         aria-label="ناوبری موبایل"
       >
         <ul className="mx-auto grid max-w-md grid-cols-5">
