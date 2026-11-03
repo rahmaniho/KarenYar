@@ -253,8 +253,18 @@ const MIRROR_PAIRS: Record<string, string> = {
   '>': '<',
 };
 
-export function bidiReorder(text: string): string {
-  const cps = [...text].map((ch) => ch.codePointAt(0) ?? 0);
+/**
+ * نسخه‌ی generic همان الگوریتم bidi روی آرایه‌ی «سلول‌ها».
+ * کاربرد: موتور PDF هر گلیف را با موقعیت دقیق خودش (Tm) رسم می‌کند، پس ترتیب
+ * انتشار Tj در استریم محتوا می‌تواند «منطقی» باشد (برای کپی/جستجو در همه‌ی خواننده‌ها)
+ * و در همان حال هر گلیف در جای دیداری درست قرار می‌گیرد.
+ */
+export function bidiReorderCells<T>(
+  cells: T[],
+  codePointOf: (cell: T) => number,
+  withChar: (cell: T, ch: string) => T,
+): T[] {
+  const cps = cells.map(codePointOf);
   // طبقه‌بندی ساده‌ی UAX#9: RTL، LTR، اعداد و خنثی
   type Kind = 'rtl' | 'ltr' | 'num' | 'neutral';
   const kind = (cp: number): Kind =>
@@ -295,20 +305,54 @@ export function bidiReorder(text: string): string {
   }
   if (kinds.length && kinds[0] === 'neutral') kinds[0] = 'rtl';
 
-  const runs: { rtl: boolean; chars: string[] }[] = [];
+  const runs: { rtl: boolean; cells: T[] }[] = [];
   for (let i = 0; i < cps.length; i++) {
     const rtl = kinds[i] === 'rtl';
     const ch = String.fromCodePoint(cps[i]);
     // پرانتز، گیومه و کروشه در بلوک راست‌به‌چپ باید آینه شوند
     const glyph = rtl && MIRROR_PAIRS[ch] ? MIRROR_PAIRS[ch] : ch;
+    const cell = glyph === ch ? cells[i] : withChar(cells[i], glyph);
     const last = runs[runs.length - 1];
-    if (last && last.rtl === rtl) last.chars.push(glyph);
-    else runs.push({ rtl, chars: [glyph] });
+    if (last && last.rtl === rtl) last.cells.push(cell);
+    else runs.push({ rtl, cells: [cell] });
   }
   return runs
-    .map((run) => (run.rtl ? [...run.chars].reverse().join('') : run.chars.join('')))
+    .map((run) => (run.rtl ? [...run.cells].reverse() : run.cells))
     .reverse()
-    .join('');
+    .reduce<T[]>((acc, run) => acc.concat(run), []);
+}
+
+export function bidiReorder(text: string): string {
+  return bidiReorderCells(
+    [...text],
+    (ch) => ch.codePointAt(0) ?? 0,
+    (_ch, glyph) => glyph,
+  ).join('');
+}
+
+/**
+ * نگاشت شکل‌های نمایشی (Arabic Presentation Forms-B, U+FB50–U+FEFF) به نویسه‌های پایه.
+ * برای ToUnicodeِ فونت لازم است: گلیف شکل نمایشی باید در متن استخراج‌شده به حرف اصلی
+ * (نه به کد FBxx/FExx) نگاشت شود تا کپی/جستجو با حروف معمولی کار کند.
+ * legature لا/لآ به دو نویسه‌ی «لام + الف» نگاشت می‌شود.
+ */
+export function presentationToBase(cp: number): number[] | null {
+  if (cp < 0xfb50 || cp > 0xfeff) return null;
+  // legatureهای لا/لآ که در shapePersian ساخته می‌شوند
+  if (cp === 0xfefb || cp === 0xfefc) return [0x0644, 0x0627];
+  if (cp === 0xfef5 || cp === 0xfef6) return [0x0644, 0x0622];
+  for (const [base, forms] of Object.entries(LETTERS)) {
+    const b = Number(base);
+    if (
+      forms.isolated === cp ||
+      forms.final === cp ||
+      forms.initial === cp ||
+      forms.medial === cp
+    ) {
+      return [b];
+    }
+  }
+  return null;
 }
 
 /** متن آماده‌ی رسم روی PDF: شکل‌دهی + چینش راست‌به‌چپ */

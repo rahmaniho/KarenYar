@@ -253,6 +253,11 @@ export class TrueTypeFont {
     return this.cmap.has(codePoint);
   }
 
+  /** همه‌ی نگاشت‌های cmap به‌صورت [codePoint, glyphId] (برای ساخت ToUnicode) */
+  cmapEntries(): [number, number][] {
+    return [...this.cmap.entries()];
+  }
+
   advanceWidth(glyphId: number): number {
     return this.advances[glyphId] ?? this.advances[this.advances.length - 1] ?? 0;
   }
