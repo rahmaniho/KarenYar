@@ -51,9 +51,10 @@ def main() -> None:
         round_im.putalpha(mask)
         round_im.save(folder / 'ic_launcher_round.png', optimize=True)
         canvas = Image.new('RGB', (adaptive, adaptive), bg)
-        inner = icon.resize((round(adaptive * 0.72),) * 2, Image.LANCZOS)
-        off = (adaptive - inner.width) // 2
-        canvas.paste(inner, (off, off))
+        # The supplied icon already has generous safe padding around the mark.
+        # Fill the adaptive layer so it does not get double-shrunk by Android's 72% safe zone.
+        foreground = icon.resize((adaptive, adaptive), Image.Resampling.LANCZOS)
+        canvas.paste(foreground, (0, 0))
         canvas.save(folder / 'ic_launcher_foreground.png', optimize=True)
         print(name, size, adaptive)
 
@@ -66,16 +67,27 @@ def main() -> None:
         )
         print('launcher background', bg)
 
-    logo = Image.open(LOGO).convert('RGB')
+    logo = Image.open(LOGO).convert('RGBA')
     for splash in sorted(RES.glob('drawable*/splash.png')):
         w, h = Image.open(splash).size
         im = Image.new('RGB', (w, h), DARK)
         max_w = round(w * 0.72)
         max_h = round(h * 0.42)
-        ratio = min(max_w / logo.width, max_h / logo.height)
+        # Reserve room for a white backing so the logo's navy wordmark stays readable on dark splash.
+        ratio = min(max_w / (logo.width * 1.08), max_h / (logo.height * 1.2))
         lw, lh = round(logo.width * ratio), round(logo.height * ratio)
-        resized = logo.resize((lw, lh), Image.LANCZOS)
-        im.paste(resized, ((w - lw) // 2, (h - lh) // 2))
+        resized = logo.resize((lw, lh), Image.Resampling.LANCZOS)
+        pad_x, pad_y = round(lw * 0.04), round(lh * 0.1)
+        backing = Image.new('RGBA', (lw + 2 * pad_x, lh + 2 * pad_y), (255, 255, 255, 255))
+        backing.alpha_composite(resized, (pad_x, pad_y))
+        mask = Image.new('L', backing.size, 0)
+        ImageDraw.Draw(mask).rounded_rectangle(
+            (0, 0, backing.width - 1, backing.height - 1),
+            radius=round(min(backing.size) * 0.08),
+            fill=255,
+        )
+        backing.putalpha(mask)
+        im.paste(backing.convert('RGB'), ((w - backing.width) // 2, (h - backing.height) // 2))
         im.save(splash, optimize=True)
         print('splash', splash.parent.name, (w, h))
 

@@ -66,9 +66,9 @@ export function LockScreen() {
           <img
             src={assetUrl('images/hesabyar/logo.png')}
             alt="لوگوی حساب‌یار"
-            width={951}
-            height={462}
-            className="mb-4 h-20 w-auto max-w-full rounded-2xl object-contain shadow-glow ring-1 ring-black/10"
+            width={771}
+            height={283}
+            className="mb-4 h-20 w-auto max-w-full rounded-2xl bg-white p-2 object-contain shadow-glow ring-1 ring-black/10"
           />
           <h1 className="text-xl font-extrabold">حساب‌یار قفل است</h1>
           <p className="mt-1 text-sm text-muted-foreground">برای ورود، پین خود را وارد کنید.</p>

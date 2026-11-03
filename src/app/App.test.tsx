@@ -6,9 +6,10 @@ import { App } from './App';
 describe('اپلیکیشن حساب‌یار', () => {
   it('بدون خطا رندر می‌شود و برند و ناوبری فارسی نمایش داده می‌شود', async () => {
     render(<App />);
-    // برند در سایدبار/هدر
-    expect((await screen.findAllByText('حساب‌یار')).length).toBeGreaterThan(0);
-    expect(screen.getAllByText('کارن سافت').length).toBeGreaterThan(0);
+    // وردمارک رسمی حساب‌یار در سربرند سایت
+    const logos = await screen.findAllByRole('img', { name: 'لوگوی حساب‌یار' });
+    expect(logos.length).toBeGreaterThan(0);
+    expect(logos[0]).toHaveAttribute('src', expect.stringContaining('images/hesabyar/logo.png'));
     // آیتم‌های ناوبری اصلی
     expect(screen.getAllByText('داشبورد').length).toBeGreaterThan(0);
     expect(screen.getAllByText('ماشین‌حساب حرفه‌ای').length).toBeGreaterThan(0);

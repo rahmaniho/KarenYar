@@ -21,9 +21,16 @@ const env = {
   GITHUB_RUN_ATTEMPT: '1',
 };
 const sdk = resolve('test-sdk/build-tools/36.0.0');
+const packageVersion = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+).version;
+const packageVersionCode = packageVersion
+  .split('.')
+  .map(Number)
+  .reduce((code, part, index) => code + part * [10000, 100, 1][index], 0);
 const certificates = 'Verifies\nSigner #1 certificate DN: CN=Android Debug, O=Android, C=US\n';
 const manifest = [
-  "package: name='ir.karensoft.hesabyar' versionCode='10400' versionName='1.4.0' platformBuildVersionName='16'",
+  `package: name='ir.karensoft.hesabyar' versionCode='${packageVersionCode}' versionName='${packageVersion}' platformBuildVersionName='16'`,
   "sdkVersion:'24'",
   "targetSdkVersion:'36'",
   'application-debuggable',
@@ -71,6 +78,21 @@ test('automatic publication requires both the allowed branch and an explicit tes
   assert.equal(
     resolveBuildTarget({ ...automatic, GITHUB_REF: 'refs/tags/v1.3.0' }),
     'signed-release',
+  );
+});
+
+test('the current Arena branch builds a private testing artifact, not a public prerelease', () => {
+  const automatic = {
+    ...env,
+    GITHUB_EVENT_NAME: 'push',
+    GITHUB_REF: 'refs/heads/arena/bec0e04f-karenyar',
+    ANDROID_TEST_PUSH: 'true',
+  };
+  assert.equal(resolveBuildTarget(automatic), 'test-apk');
+  assert.throws(() => resolveBuildTarget({ ...automatic, ANDROID_TEST_PUSH: 'false' }), /Select/);
+  assert.throws(
+    () => resolveBuildTarget({ ...automatic, GITHUB_REF: 'refs/heads/main' }),
+    /Select/,
   );
 });
 
@@ -138,7 +160,7 @@ test('repository, commit, run numbers and version cannot inject commands or outp
 
 test('verifies the actual APK signature and manifest with the exact selected build tools', () => {
   const { run, calls } = tools();
-  assert.deepEqual(verifyTestApk('app-debug.apk', sdk, '1.4.0', run), {
+  assert.deepEqual(verifyTestApk('app-debug.apk', sdk, packageVersion, run), {
     certificates: certificates.trim(),
     minSdk: 24,
   });
@@ -155,7 +177,7 @@ test('an unsigned or damaged APK stops before manifest inspection', () => {
   const error = new Error('DOES NOT VERIFY');
   const { run, calls } = tools({ signingError: error });
   assert.throws(
-    () => verifyTestApk('test.apk', sdk, '1.4.0', run),
+    () => verifyTestApk('test.apk', sdk, packageVersion, run),
     (caught) => caught === error,
   );
   assert.equal(calls.length, 1);
@@ -168,7 +190,10 @@ test('release certificates, mixed signers and missing certificates cannot be pub
     certificates + 'Signer #2 certificate DN: CN=Private Release\n',
   ]) {
     const { run } = tools({ cert });
-    assert.throws(() => verifyTestApk('test.apk', sdk, '1.4.0', run), /standard Android Debug/);
+    assert.throws(
+      () => verifyTestApk('test.apk', sdk, packageVersion, run),
+      /standard Android Debug/,
+    );
   }
 });
 
@@ -176,19 +201,19 @@ test('debug certificate matching supports reordered subjects and CRLF', () => {
   const { run } = tools({
     cert: 'Signer #1 certificate DN: C=US, O=Android, CN="android debug"\r\n',
   });
-  assert.doesNotThrow(() => verifyTestApk('test.apk', sdk, '1.4.0', run));
+  assert.doesNotThrow(() => verifyTestApk('test.apk', sdk, packageVersion, run));
 });
 
 test('wrong package/version/SDK and a non-debuggable manifest are rejected', () => {
   for (const badging of [
     manifest.replace('ir.karensoft.hesabyar', 'example.other'),
-    manifest.replace("versionName='1.4.0'", "versionName='1.2.5'"),
-    manifest.replace("versionCode='10400'", "versionCode='0'"),
+    manifest.replace(`versionName='${packageVersion}'`, "versionName='1.2.5'"),
+    manifest.replace(new RegExp(`versionCode='${packageVersionCode}'`), "versionCode='0'"),
     manifest.replace("sdkVersion:'24'", "sdkVersion:'26'"),
     manifest.replace('application-debuggable', ''),
   ]) {
     const { run } = tools({ badging });
-    assert.throws(() => verifyTestApk('test.apk', sdk, '1.4.0', run));
+    assert.throws(() => verifyTestApk('test.apk', sdk, packageVersion, run));
   }
 });
 
@@ -196,7 +221,7 @@ test('manifest tool failures and missing paths do not produce unchecked releases
   const error = new Error('aapt failed');
   const { run } = tools({ manifestError: error });
   assert.throws(
-    () => verifyTestApk('test.apk', sdk, '1.4.0', run),
+    () => verifyTestApk('test.apk', sdk, packageVersion, run),
     (caught) => caught === error,
   );
   assert.throws(() => verifyTestApk(undefined, sdk, '1.3.0'), /paths are required/);
@@ -238,10 +263,9 @@ test('publisher writes a checksum, warnings, provenance and download link for th
     );
     const output = join(directory, plan.tag, plan.fileName);
     assert.equal(readFileSync(output, 'utf8'), readFileSync(apk, 'utf8'));
-    assert.match(
-      readFileSync(`${output}.sha256`, 'utf8'),
-      /^[a-f0-9]{64}  hesabyar-1\.4\.0-test\.apk\n$/,
-    );
+    const checksum = readFileSync(`${output}.sha256`, 'utf8');
+    assert.match(checksum, /^[a-f0-9]{64}  .+\.apk\n$/);
+    assert.ok(checksum.endsWith(`  ${plan.fileName}\n`));
     const notes = readFileSync(join(directory, plan.tag, 'release-notes.md'), 'utf8');
     assert.match(notes, /TEST \/ DEBUG/);
     assert.match(notes, /بازار/);

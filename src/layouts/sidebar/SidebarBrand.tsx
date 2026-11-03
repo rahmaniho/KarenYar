@@ -29,23 +29,35 @@ export function SidebarBrand({
     <Link
       to="/"
       onClick={onNavigate}
-      className="flex shrink-0 items-center justify-center rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#d6b46a]"
+      className={`flex shrink-0 items-center rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#d6b46a] ${
+        collapsed ? 'justify-center' : 'min-w-0 flex-1 justify-start'
+      }`}
       aria-label="حساب‌یار کارن سافت — داشبورد"
     >
-      <span
-        className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/20"
-        style={{
-          boxShadow: '0 0 22px -6px rgb(56 189 248 / 0.65), inset 0 1px 0 rgb(255 255 255 / 0.3)',
-        }}
-      >
+      {collapsed ? (
+        <span
+          className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/20"
+          style={{
+            boxShadow: '0 0 22px -6px rgb(56 189 248 / 0.65), inset 0 1px 0 rgb(255 255 255 / 0.3)',
+          }}
+        >
+          <img
+            src={assetUrl('images/hesabyar/mark.png')}
+            alt=""
+            width={512}
+            height={512}
+            className="h-full w-full object-cover"
+          />
+        </span>
+      ) : (
         <img
-          src={assetUrl('images/hesabyar/mark.png')}
-          alt=""
-          width={512}
-          height={512}
-          className="h-full w-full object-cover"
+          src={assetUrl('images/hesabyar/logo.png')}
+          alt="لوگوی حساب‌یار"
+          width={771}
+          height={283}
+          className="h-11 w-auto max-w-full rounded-xl bg-white p-1 object-contain"
         />
-      </span>
+      )}
     </Link>
   );
 
@@ -100,16 +112,8 @@ export function SidebarBrand({
 
   return (
     <div className="relative z-10 px-4 pb-3 pt-4">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-3">
         {logo}
-        <div className="min-w-0 flex-1 leading-tight">
-          <span className="block truncate text-[15px] font-extrabold text-[var(--glass-ink)]">
-            حساب‌یار
-          </span>
-          <span className="block truncate text-[11px] font-medium text-[var(--glass-muted)]">
-            کارن سافت
-          </span>
-        </div>
         {toggle}
       </div>
 
