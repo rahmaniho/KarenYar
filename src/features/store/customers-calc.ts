@@ -25,9 +25,8 @@ export function customerBalance(
     (i) => i.customerId === customerId && i.isCredit && isActiveInvoice(i),
   );
   const creditTotal = creditInvoices.reduce((s, i) => s + i.total, 0);
-  const paidTotal = payments
-    .filter((p) => p.customerId === customerId)
-    .reduce((s, p) => s + p.amount, 0);
+  const own = payments.filter((p) => p.customerId === customerId);
+  const paidTotal = own.reduce((s, p) => s + (p.kind === 'refund' ? -p.amount : p.amount), 0);
   return {
     creditTotal,
     paidTotal,
@@ -51,7 +50,7 @@ export function totalReceivables(invoices: Invoice[], payments: CustomerPayment[
 
 export type StatementRow =
   | { kind: 'invoice'; date: string; id: number; number: number; amount: number }
-  | { kind: 'payment'; date: string; id: number; amount: number; note?: string };
+  | { kind: 'payment'; date: string; id: number; amount: number; note?: string; refund?: boolean };
 
 /** صورت‌حساب مشتری: فاکتورهای نسیه و پرداخت‌ها به ترتیب زمانی با مانده‌ی جاری */
 export function customerStatement(
@@ -76,13 +75,14 @@ export function customerStatement(
         date: p.date,
         id: p.id!,
         amount: p.amount,
-        note: p.note,
+        note: p.reversalReason ?? p.note,
+        refund: p.kind === 'refund',
       })),
   ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   let running = 0;
   return rows.map((row) => {
-    running += row.kind === 'invoice' ? row.amount : -row.amount;
+    running += row.kind === 'invoice' || row.refund ? row.amount : -row.amount;
     return { ...row, runningBalance: running };
   });
 }

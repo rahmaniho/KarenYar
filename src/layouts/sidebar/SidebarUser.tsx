@@ -77,7 +77,7 @@ export function SidebarUser({ collapsed, onExpand, onNavigate }: SidebarUserProp
       style={{ boxShadow: 'inset 0 1px 0 rgb(255 255 255 / 0.25)' }}
     >
       <img
-        src={assetUrl('images/karensoft/KarenYar.png')}
+        src={assetUrl('images/hesabyar/mark.png')}
         alt=""
         width={512}
         height={512}

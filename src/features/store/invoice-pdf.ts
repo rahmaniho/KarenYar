@@ -26,6 +26,7 @@ import {
   LIFECYCLE_LABELS,
 } from './invoice-domain';
 import { amountInWords } from './amount-words';
+import { allocateInvoiceDiscount } from './invoice-calc';
 
 export interface InvoiceDocumentSettings {
   shopName: string;
@@ -120,8 +121,8 @@ export async function buildInvoicePdf(input: InvoiceDocumentInput): Promise<Blob
   const issueDate = new Date(invoice.date);
   const paymentLabel = PAYMENT_LABELS[invoicePaymentMethod(invoice)];
   const buyerName = invoice.customerName?.trim() || input.customer?.name?.trim() || 'مشتری گذری';
-  const buyerPhone = input.customer?.phone?.trim() ?? '';
-  const buyerAddress = input.customer?.address?.trim() ?? '';
+  const buyerPhone = invoice.customerPhone?.trim() || input.customer?.phone?.trim() || '';
+  const buyerAddress = invoice.customerAddress?.trim() || input.customer?.address?.trim() || '';
   const sellerPhone = settings.shopPhone?.trim() ?? '';
   const sellerAddress = settings.shopAddress?.trim() ?? '';
   const sellerEconomic = settings.shopEconomicCode?.trim() ?? '';
@@ -130,14 +131,14 @@ export async function buildInvoicePdf(input: InvoiceDocumentInput): Promise<Blob
 
   const payState = invoicePaymentState(invoice, input.payments ?? []);
   const lifecycle = invoiceLifecycle(invoice, input.payments ?? []);
-  const statusLabel =
-    invoice.status === 'voided'
-      ? 'باطل‌شده'
-      : invoice.isCredit
-        ? LIFECYCLE_LABELS[lifecycle]
-        : 'تسویه‌شده';
+  const statusLabel = LIFECYCLE_LABELS[lifecycle];
+  const isDraft = invoice.status === 'draft';
+  const globalDiscountShares = allocateInvoiceDiscount(
+    invoice,
+    items.map((item) => ({ total: item.total - (item.discountAmount ?? 0) })),
+  );
   const statusTone =
-    invoice.status === 'voided' || lifecycle === 'overdue'
+    isVoided || lifecycle === 'overdue'
       ? { bg: C.dangerSurface, fg: C.danger }
       : lifecycle === 'paid'
         ? { bg: C.neonSoft, fg: C.neon }
@@ -217,7 +218,7 @@ export async function buildInvoicePdf(input: InvoiceDocumentInput): Promise<Blob
     }
     if (showLogo) {
       await canvas.image(
-        assetUrl('images/karensoft/KarenYar.png'),
+        assetUrl('images/hesabyar/mark.png'),
         RIGHT - logoSize,
         headTop - MM * 0.5,
         logoSize,
@@ -375,8 +376,8 @@ export async function buildInvoicePdf(input: InvoiceDocumentInput): Promise<Blob
     });
     y += cellH + MM * 6;
 
-    // ——— هشدار ابطال ———
-    if (isVoided) {
+    // ——— هشدار وضعیت غیرقطعی ———
+    if (isVoided || isDraft) {
       const bannerH = MM * 11;
       canvas.rect(LEFT, y, CONTENT_W, bannerH, {
         fill: C.dangerSurface,
@@ -393,7 +394,9 @@ export async function buildInvoicePdf(input: InvoiceDocumentInput): Promise<Blob
       });
       const reason = invoice.voidReason ? ` — دلیل: ${invoice.voidReason}` : '';
       canvas.text(
-        `این سند باطل شده است و از محاسبات فروش حذف می‌شود${reason}`,
+        isDraft
+          ? 'پیش‌نویس است و سند فروش قطعی محسوب نمی‌شود.'
+          : `این سند باطل شده است و از محاسبات فروش حذف می‌شود${reason}`,
         RIGHT - MM * 3,
         baseline(y, bannerH, 8),
         {
@@ -488,10 +491,8 @@ export async function buildInvoicePdf(input: InvoiceDocumentInput): Promise<Blob
     let cursorRight = RIGHT;
 
     // سهم این قلم از تخفیف کل فاکتور (برای نمایش در ستون تخفیف)
-    const share =
-      invoice.subtotal > 0 && invoice.discountAmount > 0
-        ? (item.total / invoice.subtotal) * invoice.discountAmount
-        : 0;
+    const share = (item.discountAmount ?? 0) + globalDiscountShares[index];
+    const netTotal = item.total - share;
 
     for (const column of columns) {
       const width = widthOf(column.key);
@@ -510,7 +511,7 @@ export async function buildInvoicePdf(input: InvoiceDocumentInput): Promise<Blob
           });
         });
       } else if (column.key === 'qty') {
-        canvas.text(faNumber(item.qty, 3), cursorRight - width / 2, middleY, {
+        canvas.text(faNumber(item.qty, 6), cursorRight - width / 2, middleY, {
           size: 8,
           color: C.ink,
           align: 'center',
@@ -533,7 +534,7 @@ export async function buildInvoicePdf(input: InvoiceDocumentInput): Promise<Blob
           },
         );
       } else {
-        canvas.text(amountOnly(item.total), cursorRight - MM * 3, middleY, {
+        canvas.text(amountOnly(netTotal), cursorRight - MM * 3, middleY, {
           size: 8.4,
           weight: 'bold',
           color: C.navy,
@@ -551,7 +552,7 @@ export async function buildInvoicePdf(input: InvoiceDocumentInput): Promise<Blob
   // راهنمای واحد پول پایین جدول
   if (items.length) {
     canvas.text(
-      `مبالغ به ${unitLabel} است.${invoice.discountAmount > 0 ? ' ستون تخفیف، سهم هر قلم از تخفیف کل سند است.' : ''}`,
+      `مبالغ به ${unitLabel} است. تخفیف شامل ردیف و سهم کل؛ مبلغ کل پس از تخفیف و پیش از مالیات.`,
       LEFT,
       y + MM * 4,
       { size: 6.6, color: C.navyMuted, align: 'left' },
@@ -562,12 +563,16 @@ export async function buildInvoicePdf(input: InvoiceDocumentInput): Promise<Blob
   // ════════════════════════ جمع‌بندی ════════════════════════
   const extraNotes: { title: string; body: string; size: number }[] = [];
   if (invoice.note) extraNotes.push({ title: 'یادداشت', body: invoice.note, size: 7.4 });
-  if (settings.invoiceFooterNote) {
-    extraNotes.push({ title: 'شرایط فروش', body: settings.invoiceFooterNote, size: 7.2 });
-  }
+  const terms = invoice.terms || settings.invoiceFooterNote;
+  if (terms) extraNotes.push({ title: 'شرایط پرداخت', body: terms, size: 7.2 });
 
   const totalsRows: { label: string; value: string; tone?: 'danger' | 'success' }[] = [
-    { label: 'جمع اقلام', value: money(invoice.subtotal) },
+    {
+      label: items.some((item) => (item.discountAmount ?? 0) > 0)
+        ? 'جمع پس از تخفیف ردیف'
+        : 'جمع اقلام',
+      value: money(invoice.subtotal),
+    },
   ];
   if (invoice.discountAmount > 0) {
     const discountLabel =
@@ -586,24 +591,28 @@ export async function buildInvoicePdf(input: InvoiceDocumentInput): Promise<Blob
       value: money(invoice.taxAmount),
     });
   }
+  if ((invoice.shippingAmount ?? 0) > 0)
+    totalsRows.push({ label: 'هزینه حمل', value: money(invoice.shippingAmount!) });
+  if ((invoice.otherAmount ?? 0) > 0)
+    totalsRows.push({ label: 'سایر هزینه‌ها', value: money(invoice.otherAmount!) });
   if (invoice.paymentMethod === 'cash' && invoice.cashTendered !== undefined) {
     totalsRows.push({ label: 'وجه نقد دریافتی', value: money(invoice.cashTendered) });
     totalsRows.push({ label: 'باقی پول مشتری', value: money(invoice.changeAmount ?? 0) });
   }
-  // پرداخت‌ها فقط برای فاکتور نسیه معنا دارند (نقدی هنگام صدور تسویه شده است)
-  if (!isVoided && invoice.isCredit && payState.paid > 0) {
-    totalsRows.push({ label: 'پرداخت‌شده', value: money(payState.paid), tone: 'success' });
-  }
+  if (!isVoided && !isDraft && payState.paid > 0)
+    totalsRows.push({ label: 'پرداخت خالص', value: money(payState.paid), tone: 'success' });
+  if (payState.refunded > 0)
+    totalsRows.push({ label: 'وجه برگشت‌خورده', value: money(payState.refunded), tone: 'danger' });
 
-  const finalLabel = isVoided
-    ? 'مبلغ سند باطل‌شده'
-    : invoice.isCredit
-      ? payState.remaining > 0 && payState.paid > 0
-        ? 'مانده قابل پرداخت'
-        : payState.remaining > 0
-          ? 'مبلغ نسیه'
+  const finalLabel = isDraft
+    ? 'مبلغ پیش‌نویس'
+    : isVoided
+      ? 'مبلغ سند باطل‌شده'
+      : invoice.isCredit
+        ? payState.remaining > 0
+          ? 'مانده قابل پرداخت'
           : 'تسویه‌شده'
-      : 'مبلغ قابل پرداخت';
+        : 'مبلغ سند';
 
   // ——— بلوک جمع‌بندی (هم‌عرض جدول) ———
   // ارتفاع بلوک یادداشت‌ها (عنوان + متن چندخطی)
@@ -732,13 +741,7 @@ export async function buildInvoicePdf(input: InvoiceDocumentInput): Promise<Blob
       maxWidth: totalsWidth * 0.42,
     },
   );
-  const finalValue = isVoided
-    ? invoice.total
-    : payState.remaining > 0 || !invoice.isCredit
-      ? invoice.isCredit
-        ? payState.remaining
-        : invoice.total
-      : 0;
+  const finalValue = isVoided || isDraft || !invoice.isCredit ? invoice.total : payState.remaining;
   const totalText = money(finalValue);
   const totalSize = canvas.fitSize(totalText, totalsWidth * 0.55, 11, 'bold', 7.5);
   canvas.text(totalText, totalsLeft + MM * 5, baseline(finalTop, finalH, totalSize), {
@@ -788,11 +791,11 @@ export async function buildInvoicePdf(input: InvoiceDocumentInput): Promise<Blob
   const tracking = invoice.checkoutKey?.slice(-10) ?? `INV-${invoice.number}`;
   canvas.onEachPage((pageNumber, total) => {
     // واترمارک ابطال: لایه‌ی بسیار کم‌رنگ روی کل صفحه (جلوگیری از جعل سند)
-    if (isVoided) {
-      canvas.text('باطل', PAGE_W / 2, PAGE_H / 2, {
+    if (isVoided || isDraft) {
+      canvas.text(isVoided ? 'باطل' : 'پیش‌نویس', PAGE_W / 2, PAGE_H / 2, {
         size: 118,
         weight: 'bold',
-        color: C.danger,
+        color: isVoided ? C.danger : C.amber,
         opacity: 0.1,
         align: 'center',
         rotate: 24,

@@ -5,7 +5,9 @@ import { saveBlob } from './file-save';
  */
 
 function escapeCsvCell(value: string | number): string {
-  const text = String(value);
+  let text = String(value);
+  // جلوگیری از اجرای فرمول در اکسل برای نام/یادداشت کاربر
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
   if (/[",\n;]/.test(text)) {
     return `"${text.replaceAll('"', '""')}"`;
   }

@@ -1,6 +1,5 @@
 import {
   Banknote,
-  FileText,
   Calculator,
   Contact,
   CreditCard,
@@ -74,22 +73,23 @@ export const NAV_GROUPS: NavGroup[] = [
         keywords: ['درآمد', 'هزینه', 'مالی'],
       },
       {
-        to: '/store/invoices',
+        to: '/store/invoices/issued',
         label: 'فاکتورها',
         icon: Receipt,
-        keywords: ['صورتحساب', 'فاکتور جدید', 'صدور فاکتور'],
+        keywords: [
+          'صورتحساب',
+          'فاکتور جدید',
+          'صدور فاکتور',
+          'آرشیو فاکتور',
+          'PDF فاکتور',
+          'factor',
+        ],
       },
       {
         to: '/store/invoices/dashboard',
         label: 'داشبورد فاکتور',
         icon: LayoutDashboard,
         keywords: ['گزارش فاکتور', 'وصول', 'مطالبات', 'سررسید'],
-      },
-      {
-        to: '/store/invoices/issued',
-        label: 'فاکتورهای صادرشده',
-        icon: FileText,
-        keywords: ['آرشیو فاکتور', 'جستجوی فاکتور', 'PDF فاکتور', 'factor'],
       },
       {
         to: '/store/customers',

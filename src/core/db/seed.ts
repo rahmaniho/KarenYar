@@ -84,6 +84,8 @@ function daysAgo(days: number): string {
 }
 
 export async function seedDemoData(): Promise<{ products: number; invoices: number }> {
+  if (!import.meta.env.DEV)
+    throw new Error('دادهٔ نمایشی در نسخهٔ عملیاتی غیرفعال است؛ داده‌های مالی شما تغییر نکرد.');
   const now = new Date().toISOString();
   let invoiceCount = 0;
 

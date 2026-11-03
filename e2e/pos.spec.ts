@@ -139,7 +139,7 @@ test.describe('صندوق فروش یکپارچه', () => {
     await page.getByRole('button', { name: 'ابطال فروش' }).click();
     await page.getByLabel('دلیل ابطال').fill('انصراف مشتری و برگشت کامل کالا');
     await page.getByRole('button', { name: 'تأیید ابطال و برگشت موجودی' }).click();
-    await expect(page.getByText('باطل‌شده — این سند فروش معتبر نیست')).toBeVisible();
+    await expect(page.getByText(/این سند باطل شده است و از محاسبات فروش حذف می‌شود/)).toBeVisible();
     const snapshot = await storeSnapshot(page);
     expect(snapshot.product.stock).toBe(2);
     expect(snapshot.invoices[0].status).toBe('voided');

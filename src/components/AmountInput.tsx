@@ -12,6 +12,7 @@ interface AmountInputProps {
   disabled?: boolean;
   className?: string;
   'aria-label'?: string;
+  'aria-invalid'?: boolean;
   autoFocus?: boolean;
 }
 
@@ -46,6 +47,7 @@ export function AmountInput({
       autoFocus={autoFocus}
       disabled={disabled}
       aria-label={rest['aria-label']}
+      aria-invalid={rest['aria-invalid']}
       className={cn('text-left', className)}
       placeholder={placeholder}
       value={text}

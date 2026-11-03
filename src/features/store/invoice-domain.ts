@@ -8,6 +8,7 @@
  * - فاکتور باطل‌شده هیچ‌گاه در فروش فعال و مطالبات حساب نمی‌شود.
  */
 import type { CustomerPayment, Invoice } from '@/core/db/db';
+import { sumMoney } from '@/core/currency/money';
 
 export type PaymentStatus = 'paid' | 'partial' | 'unpaid' | 'overpaid';
 
@@ -20,51 +21,55 @@ export interface InvoicePaymentState {
   remaining: number;
   /** اضافه‌پرداخت (اگر پرداخت‌ها از مبلغ فاکتور بیشتر باشد) */
   overpaid: number;
+  /** دریافت ناخالص و برگشت وجه، حتی برای سند باطل‌شده */
+  received: number;
+  refunded: number;
   status: PaymentStatus;
 }
 
 const isSafeAmount = (value: unknown): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 
-/** جمع پرداخت‌های یک فاکتور از دفتر پرداخت‌های مشتری */
+/** جمع خالص دریافت‌ها؛ برگشت وجه یک رکورد مثبت با نوع refund است. */
 export function paymentTotalForInvoice(invoiceId: number, payments: CustomerPayment[]): number {
-  let sum = 0;
-  for (const payment of payments) {
-    if (payment.invoiceId !== invoiceId) continue;
-    if (!isSafeAmount(payment.amount)) continue;
-    sum += payment.amount;
-  }
-  return sum;
+  const own = payments.filter(
+    (payment) => payment.invoiceId === invoiceId && isSafeAmount(payment.amount),
+  );
+  return (
+    sumMoney(own.filter((payment) => payment.kind !== 'refund').map((payment) => payment.amount)) -
+    sumMoney(own.filter((payment) => payment.kind === 'refund').map((payment) => payment.amount))
+  );
 }
 
-/**
- * وضعیت پرداخت یک فاکتور.
- * پرداخت‌های بدون شناسه‌ی فاکتور (علی‌الحساب) به فاکتور خاصی نسبت داده نمی‌شوند؛
- * مانده‌ی کل حساب در customers-calc محاسبه می‌شود.
- */
+/** وضعیت از دادهٔ ذخیره‌شده مشتق می‌شود؛ پیش‌نویس و باطل‌شده بدهی فعال ندارند. */
 export function invoicePaymentState(
   invoice: Invoice,
   payments: CustomerPayment[] = [],
 ): InvoicePaymentState {
   const total = isSafeAmount(invoice.total) ? invoice.total : 0;
-  const id = invoice.id;
-  // فروش نقدی/کارتی در لحظه‌ی صدور تسویه شده است و پرداخت جداگانه ثبت نمی‌شود.
-  const settledAtIssue = !invoice.isCredit && invoice.status !== 'voided';
-  const recordDed = id == null ? 0 : paymentTotalForInvoice(id, payments);
-  const paid = invoice.status === 'voided' ? 0 : Math.max(settledAtIssue ? total : 0, recordDed);
-  const remaining = Math.max(0, total - paid);
+  const own = payments.filter(
+    (payment) => payment.invoiceId === invoice.id && isSafeAmount(payment.amount),
+  );
+  const received = sumMoney(
+    own.filter((payment) => payment.kind !== 'refund').map((payment) => payment.amount),
+  );
+  const refunded = sumMoney(
+    own.filter((payment) => payment.kind === 'refund').map((payment) => payment.amount),
+  );
+  const inactive = invoice.status === 'voided' || invoice.status === 'draft';
+  const settledAtIssue = !invoice.isCredit && !inactive;
+  const paid = inactive ? 0 : Math.max(settledAtIssue ? total : 0, received - refunded);
+  const remaining = inactive ? 0 : Math.max(0, total - paid);
   const overpaid = Math.max(0, paid - total);
   const status: PaymentStatus =
-    invoice.status === 'voided'
+    inactive || paid <= 0
       ? 'unpaid'
-      : paid <= 0
-        ? 'unpaid'
-        : remaining > 0
-          ? 'partial'
-          : overpaid > 0
-            ? 'overpaid'
-            : 'paid';
-  return { total, paid, remaining, overpaid, status };
+      : remaining > 0
+        ? 'partial'
+        : overpaid > 0
+          ? 'overpaid'
+          : 'paid';
+  return { total, paid, remaining, overpaid, received, refunded, status };
 }
 
 /** برچسب فارسی وضعیت پرداخت */
@@ -75,7 +80,7 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   overpaid: 'اضافه‌پرداخت',
 };
 
-export type InvoiceLifecycle = 'voided' | 'paid' | 'partial' | 'unpaid' | 'overdue';
+export type InvoiceLifecycle = 'draft' | 'voided' | 'paid' | 'partial' | 'unpaid' | 'overdue';
 
 /** وضعیت چرخه‌ی عمر فاکتور برای فهرست‌ها و گزارش‌ها */
 export function invoiceLifecycle(
@@ -83,6 +88,7 @@ export function invoiceLifecycle(
   payments: CustomerPayment[] = [],
   now: Date = new Date(),
 ): InvoiceLifecycle {
+  if (invoice.status === 'draft') return 'draft';
   if (invoice.status === 'voided') return 'voided';
   const { status } = invoicePaymentState(invoice, payments);
   if (status === 'paid' || status === 'overpaid') return 'paid';
@@ -91,6 +97,7 @@ export function invoiceLifecycle(
 }
 
 export const LIFECYCLE_LABELS: Record<InvoiceLifecycle, string> = {
+  draft: 'پیش‌نویس',
   voided: 'باطل‌شده',
   paid: 'تسویه‌شده',
   partial: 'پرداخت جزئی',
@@ -130,6 +137,8 @@ export function validateInvoicePayment(
   amount: number,
   payments: CustomerPayment[] = [],
 ): { ok: true; amount: number } | { ok: false; message: string } {
+  if (invoice.status === 'draft')
+    return { ok: false, message: 'پیش‌نویس قابل پرداخت نیست؛ ابتدا آن را صادر کنید.' };
   if (invoice.status === 'voided')
     return { ok: false, message: 'فاکتور باطل‌شده قابل پرداخت نیست.' };
   if (invoice.id == null) return { ok: false, message: 'فاکتور ذخیره‌نشده قابل پرداخت نیست.' };
@@ -148,6 +157,7 @@ export interface InvoiceStats {
   /** تعداد فاکتورهای معتبر (غیر باطل) */
   count: number;
   voidedCount: number;
+  draftCount: number;
   /** جمع مبلغ فاکتورهای معتبر */
   total: number;
   /** مبلغ وصول‌شده */
@@ -170,6 +180,7 @@ export function invoiceStats(
 ): InvoiceStats {
   let count = 0;
   let voidedCount = 0;
+  let draftCount = 0;
   let total = 0;
   let collected = 0;
   let outstanding = 0;
@@ -178,6 +189,10 @@ export function invoiceStats(
   let partialCount = 0;
   let unpaidCount = 0;
   for (const invoice of invoices) {
+    if (invoice.status === 'draft') {
+      draftCount += 1;
+      continue;
+    }
     if (invoice.status === 'voided') {
       voidedCount += 1;
       continue;
@@ -197,6 +212,7 @@ export function invoiceStats(
   return {
     count,
     voidedCount,
+    draftCount,
     total,
     collected,
     outstanding,
@@ -227,7 +243,7 @@ export function receivablesAging(
 ): AgingBuckets {
   const result: AgingBuckets = { current: 0, d30: 0, d60: 0, d90: 0 };
   for (const invoice of invoices) {
-    if (invoice.status === 'voided' || !invoice.isCredit) continue;
+    if (invoice.status === 'voided' || invoice.status === 'draft' || !invoice.isCredit) continue;
     const { remaining } = invoicePaymentState(invoice, payments);
     if (remaining <= 0) continue;
     const lateBy = -daysUntilDue(invoice, now);
@@ -247,7 +263,7 @@ export function invoicesNeedingFollowUp(
 ): Invoice[] {
   return invoices
     .filter((invoice) => {
-      if (invoice.status === 'voided') return false;
+      if (invoice.status === 'voided' || invoice.status === 'draft') return false;
       const state = invoicePaymentState(invoice, payments);
       return state.remaining > 0;
     })

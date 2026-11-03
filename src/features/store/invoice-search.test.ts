@@ -286,3 +286,10 @@ describe('فیلتر وضعیت پرداخت و صفحه‌بندی', () => {
     expect(first).toContain(750_000);
   });
 });
+
+it('پیش‌نویس در فیلتر معتبر یا بدهی فعال نمی‌آید', () => {
+  const draft = invoice({ id: 9, number: 1009, status: 'draft', isCredit: true });
+  expect(queryInvoices([draft], [], { status: 'draft' })).toHaveLength(1);
+  expect(queryInvoices([draft], [], { status: 'completed' })).toHaveLength(0);
+  expect(queryInvoices([draft], [], { status: 'unpaid' })).toHaveLength(0);
+});

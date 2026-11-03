@@ -286,7 +286,7 @@ it('تخفیف صددرصدی، سرریز مبلغ اقلام را پنهان �
       discountValue: 100,
       taxPercent: 0,
     }),
-  ).rejects.toThrow('بیش از حد');
+  ).rejects.toThrow('ایمن');
   expect(await db.invoices.count()).toBe(0);
   expect(await db.transactions.count()).toBe(0);
 });

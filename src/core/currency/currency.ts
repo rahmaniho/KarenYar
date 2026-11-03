@@ -41,6 +41,18 @@ export function fromDisplayAmount(displayValue: number, unit: CurrencyUnit): num
   return unit === 'rial' ? roundMoney(displayValue / 10) : roundMoney(displayValue);
 }
 
+/** تبدیل دقیق در مرز ثبت؛ کسر تومان یا مقدار ناایمن هرگز بی‌صدا گرد نمی‌شود. */
+export function fromDisplayAmountExact(displayValue: number, unit: CurrencyUnit): number {
+  if (!Number.isSafeInteger(displayValue) || displayValue < 0)
+    throw new Error('مبلغ واردشده باید عدد صحیح و غیرمنفی در واحد نمایش باشد.');
+  if (unit === 'rial') {
+    if (displayValue % 10 !== 0)
+      throw new Error('مبلغ ریال باید مضرب ۱۰ باشد؛ کوچک‌ترین مبلغ داخلی یک تومان است.');
+    return displayValue / 10;
+  }
+  return displayValue;
+}
+
 const faNumberFormat = new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 0 });
 const faDecimalFormat = new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 });
 

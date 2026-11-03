@@ -36,6 +36,7 @@ import { useSettingsStore, type ThemeMode } from '@/store/settings-store';
 import { useInstallPrompt } from '@/hooks/use-install-prompt';
 import { hashPin, isValidPinFormat, verifyPin } from '@/core/utils/pin';
 import { seedDemoData } from '@/core/db/seed';
+import { assetUrl } from '@/lib/utils';
 import { PageHeader } from '@/components/PageHeader';
 import { FeatureGate } from '@/components/FeatureGate';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -810,27 +811,35 @@ export function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <SectionTitle icon={Sparkles}>داده‌های نمایشی (دمو)</SectionTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm leading-6 text-muted-foreground">
-              برای آشنایی سریع با امکانات یا نمایش برنامه به مشتری، چند کالا، مشتری، فاکتور فروش
-              (نقدی و نسیه)، تراکنش، بودجه و کارمندِ نمونه با برچسب «نمایشی» اضافه می‌شود.
-            </p>
-            <Button variant="outline" onClick={() => setSeedOpen(true)} disabled={seeding}>
-              <Sparkles aria-hidden />
-              {seeding ? 'در حال افزودن…' : 'افزودن داده‌های نمایشی'}
-            </Button>
-          </CardContent>
-        </Card>
-
+        {import.meta.env.DEV && (
+          <Card>
+            <CardHeader>
+              <SectionTitle icon={Sparkles}>داده‌های نمایشی (دمو)</SectionTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm leading-6 text-muted-foreground">
+                برای آشنایی سریع با امکانات یا نمایش برنامه به مشتری، چند کالا، مشتری، فاکتور فروش
+                (نقدی و نسیه)، تراکنش، بودجه و کارمندِ نمونه با برچسب «نمایشی» اضافه می‌شود.
+              </p>
+              <Button variant="outline" onClick={() => setSeedOpen(true)} disabled={seeding}>
+                <Sparkles aria-hidden />
+                {seeding ? 'در حال افزودن…' : 'افزودن داده‌های نمایشی'}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
         <Card>
           <CardHeader>
             <SectionTitle icon={Info}>درباره‌ی حساب‌یار کارن سافت</SectionTitle>
           </CardHeader>
           <CardContent className="text-sm leading-8 text-muted-foreground">
+            <img
+              src={assetUrl('images/hesabyar/logo.png')}
+              alt="لوگوی حساب‌یار"
+              width={951}
+              height={462}
+              className="mb-4 h-16 w-auto rounded-xl"
+            />
             <p>
               کارن سافت، طراح و توسعه‌دهنده‌ی نرم‌افزارهای مالی فارسی برای کسب‌وکارها و کاربران
               فارسی‌زبان است. حساب‌یار، محصول این مجموعه، فروش و انبار، درآمد و هزینه‌ها، حقوق و
@@ -841,14 +850,16 @@ export function SettingsPage() {
         </Card>
       </div>
 
-      <ConfirmDialog
-        open={seedOpen}
-        onOpenChange={setSeedOpen}
-        title="افزودن داده‌های نمایشی"
-        description="چند رکورد نمونه با برچسب «نمایشی» به داده‌های فعلی اضافه می‌شود. هر وقت خواستید می‌توانید از بخش «پشتیبان و داده» همه‌ی داده‌ها را پاک کنید. ادامه می‌دهید؟"
-        confirmLabel="بله، اضافه کن"
-        onConfirm={runSeed}
-      />
+      {import.meta.env.DEV && (
+        <ConfirmDialog
+          open={seedOpen}
+          onOpenChange={setSeedOpen}
+          title="افزودن داده‌های نمایشی"
+          description="چند رکورد نمونه با برچسب «نمایشی» به داده‌های فعلی اضافه می‌شود. هر وقت خواستید می‌توانید از بخش «پشتیبان و داده» همه‌ی داده‌ها را پاک کنید. ادامه می‌دهید؟"
+          confirmLabel="بله، اضافه کن"
+          onConfirm={runSeed}
+        />
+      )}
       <ConfirmDialog
         open={deactivateOpen}
         onOpenChange={setDeactivateOpen}

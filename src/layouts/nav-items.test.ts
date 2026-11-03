@@ -8,7 +8,6 @@ const ROUTER_PATHS = [
   '/store/inventory',
   '/store/finance',
   '/store/products',
-  '/store/invoices',
   '/store/invoices/dashboard',
   '/store/invoices/issued',
   '/store/reports',
@@ -67,9 +66,9 @@ describe('جستجوی منو', () => {
   });
 
   it('با نام صفحه، واژهی هممعنا، گروه و مسیر نتیجه میدهد', () => {
-    expect(searchNavItems('فاکتور')[0]?.to).toBe('/store/invoices');
-    expect(searchNavItems('فاكتور')[0]?.to).toBe('/store/invoices');
-    expect(searchNavItems('صورتحساب').map((r) => r.to)).toContain('/store/invoices');
+    expect(searchNavItems('فاکتور')[0]?.to).toBe('/store/invoices/issued');
+    expect(searchNavItems('فاكتور')[0]?.to).toBe('/store/invoices/issued');
+    expect(searchNavItems('صورتحساب').map((r) => r.to)).toContain('/store/invoices/issued');
     expect(searchNavItems('دستمزد').length).toBeGreaterThan(0);
     expect(searchNavItems('payroll/calculate').some((r) => r.to === '/payroll/calculate')).toBe(
       true,

@@ -5,12 +5,12 @@
 import type { CustomerPayment, Invoice } from '@/core/db/db';
 import {
   addJalaliMonths,
-  currentJalaliMonthKey,
   jalaliMonthKey,
   jalaliMonthLabel,
   jalaliMonthRange,
+  startOfDay,
 } from '@/core/jalali/jalali';
-import { invoiceDueDate, invoicePaymentState, invoiceStats } from './invoice-domain';
+import { invoicePaymentState, invoiceStats, isOverdue } from './invoice-domain';
 
 export type DashboardRange = '7d' | '30d' | '90d' | 'month' | 'prev-month' | 'all';
 
@@ -32,20 +32,21 @@ export interface DateRange {
 
 /** بازه‌ی میلادی معادل انتخاب کاربر */
 export function dashboardRange(range: DashboardRange, now: Date = new Date()): DateRange | null {
-  const end = new Date(now.getTime() + 1);
+  const today = startOfDay(now);
+  const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
   switch (range) {
     case '7d':
-      return { start: new Date(now.getTime() - 7 * 86_400_000), end };
+      return { start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6), end };
     case '30d':
-      return { start: new Date(now.getTime() - 30 * 86_400_000), end };
+      return { start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29), end };
     case '90d':
-      return { start: new Date(now.getTime() - 90 * 86_400_000), end };
+      return { start: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 89), end };
     case 'month': {
-      const { start, end: monthEnd } = jalaliMonthRange(currentJalaliMonthKey());
+      const { start, end: monthEnd } = jalaliMonthRange(jalaliMonthKey(now));
       return { start, end: monthEnd };
     }
     case 'prev-month': {
-      const prev = addJalaliMonths(currentJalaliMonthKey(), -1);
+      const prev = addJalaliMonths(jalaliMonthKey(now), -1);
       const { start, end: monthEnd } = jalaliMonthRange(prev);
       return { start, end: monthEnd };
     }
@@ -87,9 +88,15 @@ export interface MonthlyPoint {
 }
 
 /** سری ماهانه‌ی فروش (n ماه اخیر شمسی، بدون فاکتور باطل) */
-export function monthlyRevenueSeries(invoices: Invoice[], months = 6): MonthlyPoint[] {
-  const current = currentJalaliMonthKey();
-  const active = invoices.filter((invoice) => invoice.status !== 'voided');
+export function monthlyRevenueSeries(
+  invoices: Invoice[],
+  months = 6,
+  now = new Date(),
+): MonthlyPoint[] {
+  const current = jalaliMonthKey(now);
+  const active = invoices.filter(
+    (invoice) => invoice.status !== 'voided' && invoice.status !== 'draft',
+  );
   const points: MonthlyPoint[] = [];
   for (let offset = months - 1; offset >= 0; offset -= 1) {
     const key = addJalaliMonths(current, -offset);
@@ -105,7 +112,7 @@ export function monthlyRevenueSeries(invoices: Invoice[], months = 6): MonthlyPo
 }
 
 export interface StatusSlice {
-  key: 'paid' | 'partial' | 'unpaid' | 'overdue' | 'voided';
+  key: 'draft' | 'paid' | 'partial' | 'unpaid' | 'overdue' | 'voided';
   label: string;
   count: number;
   amount: number;
@@ -118,6 +125,7 @@ export function statusBreakdown(
   now: Date = new Date(),
 ): StatusSlice[] {
   const slices: StatusSlice[] = [
+    { key: 'draft', label: 'پیش‌نویس', count: 0, amount: 0 },
     { key: 'paid', label: 'تسویه‌شده', count: 0, amount: 0 },
     { key: 'partial', label: 'پرداخت جزئی', count: 0, amount: 0 },
     { key: 'unpaid', label: 'پرداخت‌نشده', count: 0, amount: 0 },
@@ -126,6 +134,12 @@ export function statusBreakdown(
   ];
   const byKey = new Map(slices.map((slice) => [slice.key, slice]));
   for (const invoice of invoices) {
+    if (invoice.status === 'draft') {
+      const slice = byKey.get('draft')!;
+      slice.count += 1;
+      slice.amount += invoice.total;
+      continue;
+    }
     if (invoice.status === 'voided') {
       const slice = byKey.get('voided')!;
       slice.count += 1;
@@ -133,7 +147,7 @@ export function statusBreakdown(
       continue;
     }
     const state = invoicePaymentState(invoice, payments);
-    const overdue = state.remaining > 0 && invoiceDueDate(invoice).getTime() < now.getTime();
+    const overdue = state.remaining > 0 && isOverdue(invoice, now);
     const key = overdue
       ? 'overdue'
       : state.remaining === 0
@@ -150,6 +164,7 @@ export function statusBreakdown(
 
 export interface DashboardSnapshot {
   range: DashboardRange;
+  comparisonAvailable: boolean;
   stats: ReturnType<typeof invoiceStats>;
   previousStats: ReturnType<typeof invoiceStats>;
   invoiceCount: DashboardMetric;
@@ -177,7 +192,10 @@ export function dashboardSnapshot(
   const currentInvoices = invoicesInRange(invoices, currentRange);
 
   let previousRange: DateRange | null = null;
-  if (currentRange) {
+  if (range === 'month' || range === 'prev-month') {
+    const previousMonth = addJalaliMonths(jalaliMonthKey(currentRange!.start), -1);
+    previousRange = jalaliMonthRange(previousMonth);
+  } else if (currentRange) {
     const span = currentRange.end.getTime() - currentRange.start.getTime();
     previousRange = {
       start: new Date(currentRange.start.getTime() - span),
@@ -187,10 +205,14 @@ export function dashboardSnapshot(
   const previousInvoices = invoicesInRange(invoices, previousRange);
 
   const stats = invoiceStats(currentInvoices, payments, now);
-  const previousStats = invoiceStats(previousInvoices, payments, now);
+  const previousStats =
+    range === 'all'
+      ? invoiceStats([], payments, now)
+      : invoiceStats(previousInvoices, payments, now);
 
   return {
     range,
+    comparisonAvailable: range !== 'all',
     stats,
     previousStats,
     invoiceCount: metric(stats.count, previousStats.count),
@@ -200,7 +222,7 @@ export function dashboardSnapshot(
     overdue: stats.overdue,
     overdueCount: stats.overdueCount,
     draftLike: stats.partialCount + stats.unpaidCount,
-    monthly: monthlyRevenueSeries(invoices, 6),
+    monthly: monthlyRevenueSeries(invoices, 6, now),
     status: statusBreakdown(currentInvoices, payments, now),
   };
 }

@@ -1,0 +1,102 @@
+
+> karenyar-hesabyar@1.3.0 test
+> vitest run --reporter=dot
+
+
+ RUN  v2.1.9 /home/user/KarenYar
+
+ ✓ src/features/store/invoice.service.test.ts (26 tests) 161ms
+ ✓ src/features/store/invoice-search.test.ts (27 tests) 14ms
+ ✓ src/store/license-store.server.test.ts (9 tests) 133ms
+ ✓ src/features/store/invoice-domain.test.ts (21 tests) 7ms
+ ✓ src/features/store/product-categories.test.ts (12 tests) 57ms
+ ✓ src/features/store/invoice-payment.service.test.ts (7 tests) 112ms
+ ✓ src/core/db/backup.test.ts (6 tests) 87ms
+ ✓ src/features/store/store-calc.test.ts (9 tests) 7ms
+ ✓ src/core/calc/finance.test.ts (15 tests) 7ms
+ ✓ src/core/license/server/token.test.ts (6 tests) 13ms
+ ✓ src/features/store/inventory.service.test.ts (8 tests) 75ms
+ ✓ src/features/alerts/alerts.test.ts (4 tests) 5ms
+ ✓ src/features/store/invoice-draft.service.test.ts (5 tests) 83ms
+ ✓ src/core/jalali/jalali.test.ts (15 tests) 10ms
+ ✓ src/core/calc/payroll.test.ts (13 tests) 4ms
+ ✓ src/features/personal/personal-calc.test.ts (8 tests) 6ms
+ ✓ src/core/license/license-core.test.ts (8 tests) 8ms
+ ✓ src/features/store/invoice-dashboard.test.ts (6 tests) 5ms
+ ✓ src/core/calc/calculator-engine.test.ts (14 tests) 7ms
+ ❯ src/layouts/nav-items.test.ts (6 tests | 2 failed) 13ms
+   × مدل ناوبری > همهی مسیرهای روتر دقیقاً یکبار در منو وجود دارند 7ms
+     → expected [ { to: '/', …(6) }, …(16) ] to have a length of 18 but got 17
+   × جستجوی منو > با نام صفحه، واژهی هممعنا، گروه و مسیر نتیجه میدهد 1ms
+     → expected '/store/invoices/issued' to be '/store/invoices' // Object.is equality
+stderr | src/layouts/sidebar/SidebarSearch.test.tsx > جستجوی عملیاتی منو > نتایج زنده از صفحات واقعی نشان میدهد
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/layouts/sidebar/SidebarSearch.test.tsx (5 tests) 136ms
+ ✓ src/features/store/payment.test.ts (5 tests) 5ms
+ ✓ src/core/currency/currency.test.ts (11 tests) 4ms
+ ✓ src/features/personal/transaction.service.test.ts (4 tests) 39ms
+ ✓ src/features/store/ProductCategoryField.test.tsx (4 tests) 102ms
+ ✓ src/core/calc/units.test.ts (8 tests) 4ms
+ ✓ src/features/store/customers-calc.test.ts (3 tests) 5ms
+ ✓ src/features/store/invoice-calc.test.ts (5 tests) 6ms
+ ✓ src/core/db/migration.test.ts (1 test) 25ms
+ ✓ src/layouts/sidebar/useSidebarUi.test.ts (3 tests) 28ms
+ ✓ src/components/AmountInput.test.tsx (2 tests) 79ms
+ ✓ src/components/ui/dialog.test.tsx (1 test) 84ms
+ ✓ src/core/currency/money.test.ts (10 tests) 5ms
+ ✓ src/components/DecimalInput.test.tsx (2 tests) 85ms
+ ✓ src/core/db/seed.test.ts (1 test) 35ms
+stderr | src/app/App.test.tsx > اپلیکیشن حساب‌یار > بدون خطا رندر می‌شود و برند و ناوبری فارسی نمایش داده می‌شود
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+
+ ✓ src/app/App.test.tsx (2 tests) 563ms
+   ✓ اپلیکیشن حساب‌یار > بدون خطا رندر می‌شود و برند و ناوبری فارسی نمایش داده می‌شود 493ms
+ ✓ src/core/utils/pin.test.ts (3 tests) 5ms
+ ✓ src/layouts/sidebar/nav-badges.test.ts (2 tests) 3ms
+ ✓ src/core/utils/file-save.test.ts (1 test) 5ms
+ ✓ src/features/store/invoice-pdf.test.ts (3 tests) 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/layouts/nav-items.test.ts > مدل ناوبری > همهی مسیرهای روتر دقیقاً یکبار در منو وجود دارند
+AssertionError: expected [ { to: '/', …(6) }, …(16) ] to have a length of 18 but got 17
+
+- Expected
++ Received
+
+- 18
++ 17
+
+ ❯ src/layouts/nav-items.test.ts:28:23
+     26| describe('مدل ناوبری', () => {
+     27|   it('همهی مسیرهای روتر دقیقاً یکبار در منو وجود دارند', () => {
+     28|     expect(NAV_INDEX).toHaveLength(ROUTER_PATHS.length);
+       |                       ^
+     29|     expect([...NAV_INDEX.map((i) => i.to)].sort()).toEqual([...ROUTER_…
+     30|     expect(new Set(NAV_INDEX.map((i) => i.to)).size).toBe(ROUTER_PATHS…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/layouts/nav-items.test.ts > جستجوی منو > با نام صفحه، واژهی هممعنا، گروه و مسیر نتیجه میدهد
+AssertionError: expected '/store/invoices/issued' to be '/store/invoices' // Object.is equality
+
+Expected: "/store/invoices"
+Received: "/store/invoices/issued"
+
+ ❯ src/layouts/nav-items.test.ts:70:45
+     68| 
+     69|   it('با نام صفحه، واژهی هممعنا، گروه و مسیر نتیجه میدهد', () => {
+     70|     expect(searchNavItems('فاکتور')[0]?.to).toBe('/store/invoices');
+       |                                             ^
+     71|     expect(searchNavItems('فاكتور')[0]?.to).toBe('/store/invoices');
+     72|     expect(searchNavItems('صورتحساب').map((r) => r.to)).toContain('/st…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed | 39 passed (40)
+      Tests  2 failed | 299 passed (301)
+   Start at  00:20:14
+   Duration  26.02s (transform 1.03s, setup 1.74s, collect 3.74s, tests 2.04s, environment 11.93s, prepare 1.96s)
+
