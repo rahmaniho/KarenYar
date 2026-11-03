@@ -81,6 +81,21 @@ test('automatic publication requires both the allowed branch and an explicit tes
   );
 });
 
+test('the current Arena branch builds a private testing artifact, not a public prerelease', () => {
+  const automatic = {
+    ...env,
+    GITHUB_EVENT_NAME: 'push',
+    GITHUB_REF: 'refs/heads/arena/bec0e04f-karenyar',
+    ANDROID_TEST_PUSH: 'true',
+  };
+  assert.equal(resolveBuildTarget(automatic), 'test-apk');
+  assert.throws(() => resolveBuildTarget({ ...automatic, ANDROID_TEST_PUSH: 'false' }), /Select/);
+  assert.throws(
+    () => resolveBuildTarget({ ...automatic, GITHUB_REF: 'refs/heads/main' }),
+    /Select/,
+  );
+});
+
 test('legacy UI and API inputs remain safe and compatible', () => {
   assert.equal(resolveBuildTarget({ ...env, ANDROID_LEGACY_RELEASE: 'true' }), 'signed-release');
   assert.equal(
