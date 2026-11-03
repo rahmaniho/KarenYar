@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bidiReorder, faNumber, shapePersian, toVisualText } from '@/core/pdf/persian';
-import { amountInWords, numberToPersianWords } from '@/features/store/amount-words';
+import { amountInWords, numberToPersianWords } from '@/core/text/amount-words';
 import { invoiceFileName } from '@/features/store/invoice-pdf';
 import {
   invoiceCsvRows,

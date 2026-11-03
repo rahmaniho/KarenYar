@@ -8,9 +8,9 @@ import { db, nowISO, type Employee, type PayrollRecord } from '@/core/db/db';
 import { calculatePayroll, type PayrollInput } from '@/core/calc/payroll';
 import { formatMoney, formatNumber, fromDisplayAmount, toFaDigits } from '@/core/currency/currency';
 import { addJalaliMonths, currentJalaliMonthKey, jalaliMonthLabel } from '@/core/jalali/jalali';
-import { exportElementToPdf } from '@/core/utils/pdf';
 import { useLicenseStore } from '@/store/license-store';
 import { useSettingsStore } from '@/store/settings-store';
+import { Ltr } from '@/components/Ltr';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { FeatureGate } from '@/components/FeatureGate';
@@ -113,16 +113,35 @@ export function PayrollCalculatePage() {
   };
 
   const downloadPdf = async () => {
-    if (!payslipRef.current || !employee) return;
+    if (!employee || !input || !result) return;
     setPdfLoading(true);
     try {
-      await exportElementToPdf(payslipRef.current, `payslip-${employee.name}-${month}.pdf`);
-      toast.success('فایل PDF فیش حقوقی ساخته شد.');
+      // موتور برداری: PDF متنی با فونت وزیرمتن — قابل انتخاب و جست‌وجو
+      const { downloadPayslipPdf } = await import('./payroll-pdf');
+      const fileName = await downloadPayslipPdf({
+        employee,
+        month,
+        input,
+        result,
+        rates,
+        workedDays,
+        overtimeHours,
+        nightHours,
+        unit,
+        shopName,
+      });
+      toast.success(`فایل PDF فیش حقوقی ساخته شد: ${fileName}`);
     } catch {
       toast.error('ساخت PDF با خطا مواجه شد؛ از چاپ استفاده کنید.');
     } finally {
       setPdfLoading(false);
     }
+  };
+
+  /** چاپ بعد از بارگذاری کامل فونت‌های وب، تا متن با فونت جایگزین چاپ نشود */
+  const printPayslip = async () => {
+    await document.fonts.ready;
+    window.print();
   };
 
   if (employees.length === 0) {
@@ -294,7 +313,7 @@ export function PayrollCalculatePage() {
                 <Save aria-hidden />
                 {savedRecord ? 'به‌روزرسانی فیش' : 'ذخیره‌ی فیش'}
               </Button>
-              <Button variant="outline" onClick={() => window.print()} disabled={!result}>
+              <Button variant="outline" onClick={() => void printPayslip()} disabled={!result}>
                 <Printer aria-hidden />
                 چاپ فیش
               </Button>
@@ -328,7 +347,9 @@ export function PayrollCalculatePage() {
                 </p>
                 {employee.position && <p className="text-navy-600">سمت: {employee.position}</p>}
                 {employee.nationalId && (
-                  <p className="text-navy-600">کد ملی: {employee.nationalId}</p>
+                  <p className="text-navy-600">
+                    کد ملی: <Ltr>{employee.nationalId}</Ltr>
+                  </p>
                 )}
               </div>
             </div>
