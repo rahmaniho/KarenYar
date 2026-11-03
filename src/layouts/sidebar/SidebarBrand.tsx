@@ -39,7 +39,7 @@ export function SidebarBrand({
         }}
       >
         <img
-          src={assetUrl('images/karensoft/KarenYar.png')}
+          src={assetUrl('images/hesabyar/mark.png')}
           alt=""
           width={512}
           height={512}

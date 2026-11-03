@@ -23,6 +23,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{ts,js,json,md}\"",
     "license:key": "node scripts/generate-license.mjs",
     "icons": "python3 scripts/build-brand-assets.py",
+    "icons:hesabyar": "python3 scripts/build-app-logo.py && python3 scripts/build-android-icons.py",
     "prepare": "husky",
     "android:publish-test": "node scripts/android-test-release.mjs publish"
   },

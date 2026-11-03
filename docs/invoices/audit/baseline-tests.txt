@@ -1,0 +1,57 @@
+
+> karenyar-hesabyar@1.3.0 test
+> vitest run --reporter=dot
+
+
+ RUN  v2.1.9 /home/user/KarenYar
+
+ ✓ src/features/store/invoice.service.test.ts (26 tests) 142ms
+ ✓ src/features/store/invoice-search.test.ts (27 tests) 29ms
+ ✓ src/store/license-store.server.test.ts (9 tests) 104ms
+ ✓ src/features/store/invoice-domain.test.ts (21 tests) 6ms
+ ✓ src/features/store/product-categories.test.ts (12 tests) 49ms
+ ✓ src/core/db/backup.test.ts (6 tests) 68ms
+ ✓ src/features/store/store-calc.test.ts (9 tests) 6ms
+ ✓ src/core/calc/finance.test.ts (15 tests) 6ms
+ ✓ src/core/license/server/token.test.ts (6 tests) 10ms
+ ✓ src/features/store/inventory.service.test.ts (8 tests) 52ms
+ ✓ src/features/alerts/alerts.test.ts (4 tests) 5ms
+ ✓ src/core/jalali/jalali.test.ts (15 tests) 6ms
+ ✓ src/core/calc/payroll.test.ts (13 tests) 3ms
+ ✓ src/features/personal/personal-calc.test.ts (8 tests) 7ms
+ ✓ src/core/license/license-core.test.ts (8 tests) 8ms
+ ✓ src/features/store/invoice-dashboard.test.ts (6 tests) 5ms
+ ✓ src/core/calc/calculator-engine.test.ts (14 tests) 7ms
+ ✓ src/layouts/nav-items.test.ts (6 tests) 9ms
+stderr | src/layouts/sidebar/SidebarSearch.test.tsx > جستجوی عملیاتی منو > نتایج زنده از صفحات واقعی نشان میدهد
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ✓ src/layouts/sidebar/SidebarSearch.test.tsx (5 tests) 135ms
+ ✓ src/features/store/payment.test.ts (5 tests) 4ms
+ ✓ src/core/currency/currency.test.ts (11 tests) 4ms
+ ✓ src/features/personal/transaction.service.test.ts (4 tests) 37ms
+ ✓ src/features/store/ProductCategoryField.test.tsx (4 tests) 90ms
+ ✓ src/core/calc/units.test.ts (8 tests) 3ms
+ ✓ src/features/store/customers-calc.test.ts (3 tests) 2ms
+ ✓ src/core/db/migration.test.ts (1 test) 37ms
+ ✓ src/layouts/sidebar/useSidebarUi.test.ts (3 tests) 17ms
+ ✓ src/components/AmountInput.test.tsx (2 tests) 68ms
+ ✓ src/components/ui/dialog.test.tsx (1 test) 74ms
+ ✓ src/components/DecimalInput.test.tsx (2 tests) 77ms
+ ✓ src/core/db/seed.test.ts (1 test) 35ms
+stderr | src/app/App.test.tsx > اپلیکیشن حساب‌یار > بدون خطا رندر می‌شود و برند و ناوبری فارسی نمایش داده می‌شود
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+
+ ✓ src/app/App.test.tsx (2 tests) 455ms
+   ✓ اپلیکیشن حساب‌یار > بدون خطا رندر می‌شود و برند و ناوبری فارسی نمایش داده می‌شود 398ms
+ ✓ src/core/utils/pin.test.ts (3 tests) 4ms
+ ✓ src/layouts/sidebar/nav-badges.test.ts (2 tests) 2ms
+ ✓ src/core/utils/file-save.test.ts (1 test) 6ms
+ ✓ src/features/store/invoice-pdf.test.ts (3 tests) 2ms
+
+ Test Files  36 passed (36)
+      Tests  274 passed (274)
+   Start at  23:00:34
+   Duration  20.01s (transform 860ms, setup 1.26s, collect 2.94s, tests 1.57s, environment 9.13s, prepare 1.53s)
+

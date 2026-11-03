@@ -34,7 +34,7 @@ it('ارتقای نسخه ۲، کالا و فاکتور و درآمد دستی �
   const upgraded = new HesabyarDB(name);
   try {
     await upgraded.open();
-    expect(upgraded.verno).toBe(3);
+    expect(upgraded.verno).toBe(4);
     expect((await upgraded.products.get(1))?.stock).toBe(7);
     expect(await upgraded.invoices.count()).toBe(1);
     expect(await upgraded.transactions.count()).toBe(1);
@@ -42,6 +42,59 @@ it('ارتقای نسخه ۲، کالا و فاکتور و درآمد دستی �
       expect.objectContaining({ type: 'opening', quantity: 7, stockAfter: 7 }),
     ]);
     expect(await upgraded.heldSales.count()).toBe(0);
+    expect(await upgraded.financialEvents.count()).toBe(0);
+    expect(await upgraded.customerPayments.count()).toBe(0);
+  } finally {
+    await upgraded.delete();
+  }
+});
+
+it('ارتقای نسخهٔ ۳ به ۴ پرداخت‌های بدون کلید را حفظ می‌کند و جدول رویداد می‌سازد', async () => {
+  const name = `migration-v3-${Date.now()}-${Math.random()}`;
+  const legacy = new Dexie(name);
+  legacy.version(3).stores({
+    products: '++id, name, barcode, category, stock',
+    invoices: '++id, date, number, total, customerId, status, &checkoutKey',
+    invoiceItems: '++id, invoiceId, productId',
+    transactions: '++id, date, type, category, amount, source, invoiceId, &[source+invoiceId]',
+    budgets: '++id, month, category',
+    debts: '++id, dueDate',
+    employees: '++id, name',
+    payrolls: '++id, employeeId, month',
+    settings: 'key',
+    license: 'key',
+    customers: '++id, name, phone',
+    customerPayments: '++id, customerId, invoiceId, date',
+    stockMovements: '++id, productId, invoiceId, type, createdAt',
+    heldSales: '++id, createdAt',
+  });
+  await legacy.table('customers').add({ id: 1, name: 'مشتری قدیمی', createdAt: '2026-01-01' });
+  await legacy.table('customerPayments').bulkAdd([
+    {
+      id: 1,
+      customerId: 1,
+      invoiceId: 1,
+      amount: 1000,
+      date: '2026-01-01',
+      createdAt: '2026-01-01',
+    },
+    {
+      id: 2,
+      customerId: 1,
+      invoiceId: 1,
+      amount: 2000,
+      date: '2026-01-02',
+      createdAt: '2026-01-02',
+    },
+  ]);
+  legacy.close();
+  const upgraded = new HesabyarDB(name);
+  try {
+    await upgraded.open();
+    expect(upgraded.verno).toBe(4);
+    expect(await upgraded.customerPayments.count()).toBe(2);
+    expect(await upgraded.financialEvents.count()).toBe(0);
+    expect((await upgraded.customerPayments.get(1))?.amount).toBe(1000);
   } finally {
     await upgraded.delete();
   }

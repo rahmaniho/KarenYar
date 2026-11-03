@@ -18,7 +18,12 @@ export default defineConfig({
       injectRegister: false,
       // مانیفست استاتیک در public/manifest.webmanifest قرار دارد (مطابق ساختار پروژه)
       manifest: false,
-      includeAssets: ['icons/*.png', 'fonts/*.woff2', 'images/karensoft/*.png'],
+      includeAssets: [
+        'icons/*.png',
+        'fonts/*.woff2',
+        'images/karensoft/*.png',
+        'images/hesabyar/*.png',
+      ],
       workbox: {
         // Cache-First برای همه‌ی assetهای build شده (آفلاین‌فرست)
         globPatterns: ['**/*.{js,css,html,woff2,png,svg,webmanifest,ico}'],

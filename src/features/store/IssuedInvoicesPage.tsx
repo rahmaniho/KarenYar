@@ -5,24 +5,25 @@ import { toast } from 'sonner';
 import {
   ArrowDownUp,
   CalendarDays,
+  Copy,
   Download,
   Eye,
   FileDown,
   FileText,
   Filter,
   LayoutDashboard,
+  Pencil,
   Plus,
   Printer,
   Receipt,
   Search,
-  ShoppingCart,
   Trash2,
   Undo2,
   Wallet,
   X,
 } from 'lucide-react';
 import { db, type CustomerPayment, type Invoice } from '@/core/db/db';
-import { formatMoney, formatNumber, toFaDigits } from '@/core/currency/currency';
+import { formatMoney, formatNumber, parseAmountInput, toFaDigits } from '@/core/currency/currency';
 import { currentJalaliMonthKey, formatJalaliNumeric, jalaliMonthLabel } from '@/core/jalali/jalali';
 import { downloadCsv } from '@/core/utils/csv';
 import { useSettingsStore } from '@/store/settings-store';
@@ -51,7 +52,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { downloadInvoicePdf } from './invoice-pdf';
+import { copyInvoiceToDraft } from './invoice.service';
 import { invoicePaymentMethod, PAYMENT_LABELS } from './payment';
 import { InvoicePaymentDialog } from './InvoicePaymentDialog';
 import {
@@ -78,6 +79,8 @@ const SORT_LABELS: Record<InvoiceSortKey, string> = {
 
 const STATUS_LABELS: Record<InvoiceStatusFilter, string> = {
   all: 'همهٔ وضعیت‌ها',
+  draft: 'پیش‌نویس',
+  overpaid: 'اضافه‌پرداخت',
   paid: 'تسویه‌شده',
   partial: 'پرداخت جزئی',
   unpaid: 'پرداخت‌نشده',
@@ -95,6 +98,8 @@ const FILTER_DEFAULTS = {
   status: 'all',
   method: 'all',
   month: 'all',
+  min: '',
+  max: '',
   sort: 'date-desc',
   page: '1',
   size: '25',
@@ -124,29 +129,52 @@ export function IssuedInvoicesPage() {
 
   const { values, update } = useUrlState(FILTER_DEFAULTS);
   const [showFilters, setShowFilters] = useState(
-    values.status !== 'all' || values.method !== 'all' || values.month !== 'all',
+    values.status !== 'all' ||
+      values.method !== 'all' ||
+      values.month !== 'all' ||
+      !!values.min ||
+      !!values.max,
   );
-  const [minTotal, setMinTotal] = useState('');
-  const [maxTotal, setMaxTotal] = useState('');
   const [voiding, setVoiding] = useState<Invoice | null>(null);
   const [paying, setPaying] = useState<Invoice | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [copyingId, setCopyingId] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const months = useMemo(() => invoiceMonthOptions(invoices), [invoices]);
+  const parsedMin = parseAmountInput(values.min);
+  const parsedMax = parseAmountInput(values.max);
+  const minTotal =
+    values.min && parsedMin !== null && parsedMin >= 0
+      ? parsedMin / (unit === 'rial' ? 10 : 1)
+      : undefined;
+  const maxTotal =
+    values.max && parsedMax !== null && parsedMax >= 0
+      ? parsedMax / (unit === 'rial' ? 10 : 1)
+      : undefined;
+  const statusFilter = (
+    Object.keys(STATUS_LABELS).includes(values.status) ? values.status : 'all'
+  ) as InvoiceStatusFilter;
+  const methodFilter =
+    values.method === 'all' || Object.keys(PAYMENT_LABELS).includes(values.method)
+      ? values.method
+      : 'all';
+  const sortFilter = (
+    Object.keys(SORT_LABELS).includes(values.sort) ? values.sort : 'date-desc'
+  ) as InvoiceSortKey;
   const rows = useMemo(
     () =>
       queryInvoices(invoices, items, {
         search: values.q,
-        status: values.status as InvoiceStatusFilter,
-        method: values.method,
+        status: statusFilter,
+        method: methodFilter,
         month: values.month === 'all' ? undefined : values.month,
-        minTotal: minTotal ? Number(minTotal.replace(/\D/g, '')) : undefined,
-        maxTotal: maxTotal ? Number(maxTotal.replace(/\D/g, '')) : undefined,
-        sort: values.sort as InvoiceSortKey,
+        minTotal,
+        maxTotal,
+        sort: sortFilter,
         payments,
       }),
-    [invoices, items, values, minTotal, maxTotal, payments],
+    [invoices, items, values, payments, minTotal, maxTotal, statusFilter, methodFilter, sortFilter],
   );
   const summary = useMemo(() => summarizeInvoices(rows), [rows]);
   const page = useMemo(
@@ -159,6 +187,24 @@ export function IssuedInvoicesPage() {
     if (page.page !== Number(values.page)) update({ page: String(page.page) });
   }, [page.page, values.page, update]);
 
+  useEffect(() => {
+    setSelected(new Set());
+  }, [values.q, values.status, values.method, values.month, values.min, values.max]);
+
+  const copy = async (invoice: Invoice) => {
+    if (copyingId != null) return;
+    setCopyingId(invoice.id ?? null);
+    try {
+      const id = await copyInvoiceToDraft(invoice.id!);
+      toast.success('کپی به پیش‌نویس تبدیل شد؛ پیش از صدور بررسی کنید.');
+      navigate(`/store/invoices/${id}/edit`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'کپی فاکتور ناموفق بود.');
+    } finally {
+      setCopyingId(null);
+    }
+  };
+
   const customerById = useMemo(() => {
     const map = new Map<number, (typeof customers)[number]>();
     for (const customer of customers) if (customer.id != null) map.set(customer.id, customer);
@@ -170,13 +216,21 @@ export function IssuedInvoicesPage() {
     values.status !== 'all' && 'وضعیت',
     values.method !== 'all' && 'روش پرداخت',
     values.month !== 'all' && 'ماه',
-    (minTotal || maxTotal) && 'بازه مبلغ',
+    (values.min || values.max) && 'بازه مبلغ',
   ].filter(Boolean).length;
 
   const resetFilters = () => {
-    update({ q: '', status: 'all', method: 'all', month: 'all', sort: 'date-desc', page: '1' });
-    setMinTotal('');
-    setMaxTotal('');
+    update({
+      q: '',
+      status: 'all',
+      method: 'all',
+      month: 'all',
+      min: '',
+      max: '',
+      sort: 'date-desc',
+      page: '1',
+    });
+    setSelected(new Set());
   };
 
   const buildPdf = async (
@@ -189,6 +243,7 @@ export function IssuedInvoicesPage() {
     }
     setBusyId(invoice.id ?? null);
     try {
+      const { downloadInvoicePdf } = await import('./invoice-pdf');
       const fileName = await downloadInvoicePdf({
         invoice,
         items: invoiceItems,
@@ -289,7 +344,7 @@ export function IssuedInvoicesPage() {
         <StatCard
           title="فاکتورهای یافت‌شده"
           value={`${formatNumber(summary.count)} فاکتور`}
-          hint={`${formatNumber(summary.activeCount)} معتبر · ${formatNumber(summary.voidedCount)} باطل`}
+          hint={`${formatNumber(summary.activeCount)} معتبر · ${formatNumber(summary.draftCount)} پیش‌نویس · ${formatNumber(summary.voidedCount)} باطل`}
           icon={Receipt}
           tone="navy"
         />
@@ -338,7 +393,7 @@ export function IssuedInvoicesPage() {
               </button>
             )}
           </div>
-          <Select value={values.sort} onValueChange={(value) => update({ sort: value, page: '1' })}>
+          <Select value={sortFilter} onValueChange={(value) => update({ sort: value, page: '1' })}>
             <SelectTrigger className="w-44" aria-label="ترتیب نمایش">
               <ArrowDownUp className="h-4 w-4" aria-hidden />
               <SelectValue />
@@ -352,7 +407,7 @@ export function IssuedInvoicesPage() {
             </SelectContent>
           </Select>
           <Select
-            value={values.status}
+            value={statusFilter}
             onValueChange={(value) => update({ status: value, page: '1' })}
           >
             <SelectTrigger className="w-40" aria-label="وضعیت فاکتور">
@@ -392,7 +447,7 @@ export function IssuedInvoicesPage() {
             <div className="space-y-1.5">
               <Label>روش پرداخت</Label>
               <Select
-                value={values.method}
+                value={methodFilter}
                 onValueChange={(value) => update({ method: value, page: '1' })}
               >
                 <SelectTrigger aria-label="روش پرداخت">
@@ -434,34 +489,36 @@ export function IssuedInvoicesPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>بازه مبلغ (تومان)</Label>
+              <Label>بازه مبلغ ({unit === 'toman' ? 'تومان' : 'ریال'})</Label>
               <div className="flex items-center gap-2">
                 <Input
                   inputMode="numeric"
                   dir="ltr"
                   className="text-left"
-                  value={minTotal}
-                  onChange={(event) => {
-                    setMinTotal(event.target.value);
-                    update({ page: '1' });
-                  }}
+                  value={values.min}
+                  onChange={(event) => update({ min: event.target.value, page: '1' })}
                   placeholder="از"
                   aria-label="حداقل مبلغ"
+                  aria-invalid={!!values.min && (parsedMin === null || parsedMin < 0)}
                 />
                 <span className="text-muted-foreground">—</span>
                 <Input
                   inputMode="numeric"
                   dir="ltr"
                   className="text-left"
-                  value={maxTotal}
-                  onChange={(event) => {
-                    setMaxTotal(event.target.value);
-                    update({ page: '1' });
-                  }}
+                  value={values.max}
+                  onChange={(event) => update({ max: event.target.value, page: '1' })}
                   placeholder="تا"
                   aria-label="حداکثر مبلغ"
+                  aria-invalid={!!values.max && (parsedMax === null || parsedMax < 0)}
                 />
               </div>
+              {((values.min && (parsedMin === null || parsedMin < 0)) ||
+                (values.max && (parsedMax === null || parsedMax < 0))) && (
+                <p role="alert" className="text-xs text-destructive">
+                  بازه مبلغ باید عدد غیرمنفی معتبر باشد.
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>تعداد در صفحه</Label>
@@ -494,9 +551,9 @@ export function IssuedInvoicesPage() {
           description="اولین فروش را از صندوق ثبت کنید تا فاکتور با شماره‌ی خودکار صادر و اینجا فهرست شود."
           action={
             <Button asChild variant="neon">
-              <Link to="/store/pos">
-                <ShoppingCart aria-hidden />
-                شروع فروش
+              <Link to="/store/invoices/new">
+                <Plus aria-hidden />
+                صدور فاکتور
               </Link>
             </Button>
           }
@@ -516,7 +573,7 @@ export function IssuedInvoicesPage() {
       ) : (
         <>
           <Card className="overflow-hidden">
-            <Table>
+            <Table className="min-w-[720px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10">
@@ -541,7 +598,9 @@ export function IssuedInvoicesPage() {
                   <TableHead>شماره / تاریخ</TableHead>
                   <TableHead className="hidden lg:table-cell">مشتری</TableHead>
                   <TableHead className="hidden sm:table-cell">مبلغ کل</TableHead>
+                  <TableHead className="hidden md:table-cell">پرداخت‌شده</TableHead>
                   <TableHead>مانده</TableHead>
+                  <TableHead className="hidden lg:table-cell">سررسید</TableHead>
                   <TableHead>وضعیت</TableHead>
                   <TableHead className="text-end">عملیات</TableHead>
                 </TableRow>
@@ -553,13 +612,15 @@ export function IssuedInvoicesPage() {
                   const tone =
                     lifecycle === 'voided'
                       ? 'destructive'
-                      : lifecycle === 'paid'
-                        ? 'success'
-                        : lifecycle === 'overdue'
-                          ? 'destructive'
-                          : lifecycle === 'partial'
-                            ? 'warning'
-                            : 'secondary';
+                      : lifecycle === 'draft'
+                        ? 'warning'
+                        : lifecycle === 'paid'
+                          ? 'success'
+                          : lifecycle === 'overdue'
+                            ? 'destructive'
+                            : lifecycle === 'partial'
+                              ? 'warning'
+                              : 'secondary';
                   return (
                     <TableRow
                       key={id}
@@ -591,8 +652,11 @@ export function IssuedInvoicesPage() {
                       >
                         {formatMoney(invoice.total, unit)}
                       </TableCell>
+                      <TableCell className="hidden whitespace-nowrap md:table-cell">
+                        {isVoided || invoice.status === 'draft' ? '—' : formatMoney(paid, unit)}
+                      </TableCell>
                       <TableCell className="whitespace-nowrap">
-                        {isVoided ? (
+                        {isVoided || invoice.status === 'draft' ? (
                           <span className="text-muted-foreground">—</span>
                         ) : remaining > 0 ? (
                           <span className="font-bold text-destructive">
@@ -607,6 +671,9 @@ export function IssuedInvoicesPage() {
                           </p>
                         )}
                       </TableCell>
+                      <TableCell className="hidden whitespace-nowrap text-xs text-muted-foreground lg:table-cell">
+                        {invoice.dueDate ? formatJalaliNumeric(new Date(invoice.dueDate)) : '—'}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={tone}>{LIFECYCLE_LABELS[lifecycle]}</Badge>
                       </TableCell>
@@ -620,10 +687,30 @@ export function IssuedInvoicesPage() {
                               <Eye className="h-4 w-4" />
                             </Link>
                           </Button>
+                          {invoice.status === 'draft' && (
+                            <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+                              <Link
+                                to={`/store/invoices/${id}/edit`}
+                                aria-label={`ویرایش پیش‌نویس ${invoice.number}`}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="hidden h-8 w-8 sm:inline-flex"
+                            className="h-8 w-8"
+                            disabled={copyingId === id}
+                            aria-label={`کپی فاکتور ${invoice.number}`}
+                            onClick={() => void copy(invoice)}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
                             aria-label={`چاپ فاکتور ${invoice.number}`}
                             onClick={() => navigate(`/store/invoices/${id}?print=1`)}
                           >
@@ -650,7 +737,7 @@ export function IssuedInvoicesPage() {
                               <Wallet className="h-4 w-4" />
                             </Button>
                           )}
-                          {!isVoided && (
+                          {!isVoided && invoice.status !== 'draft' && (
                             <Button
                               variant="ghost"
                               size="icon"

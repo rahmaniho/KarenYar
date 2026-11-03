@@ -28,6 +28,7 @@ import { useUrlState } from './use-url-state';
 const RANGES: DashboardRange[] = ['7d', '30d', 'month', 'prev-month', '90d', 'all'];
 
 const STATUS_COLORS: Record<string, string> = {
+  draft: '#94A3B8',
   paid: '#12B76A',
   partial: '#F79009',
   unpaid: '#64748B',
@@ -35,7 +36,17 @@ const STATUS_COLORS: Record<string, string> = {
   voided: '#98A2B3',
 };
 
-function ChangeBadge({ percent }: { percent: number | null }) {
+function ChangeBadge({
+  percent,
+  available = true,
+}: {
+  percent: number | null;
+  available?: boolean;
+}) {
+  if (!available)
+    return (
+      <span className="text-xs text-muted-foreground">برای همهٔ دوره‌ها مقایسه تعریف نشده است</span>
+    );
   if (percent === null) return <span className="text-xs text-muted-foreground">دوره‌ی قبل: —</span>;
   const rounded = Math.round(percent);
   if (rounded === 0)
@@ -72,6 +83,7 @@ export function InvoiceDashboardPage() {
   const latest = useMemo(
     () =>
       [...invoices]
+        .filter((invoice) => invoice.status !== 'draft')
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 6),
     [invoices],
@@ -148,7 +160,10 @@ export function InvoiceDashboardPage() {
             <TrendingUp className="h-5 w-5 text-primary dark:text-neon-400" aria-hidden />
           </div>
           <div className="mt-2">
-            <ChangeBadge percent={snapshot.sales.changePercent} />
+            <ChangeBadge
+              percent={snapshot.sales.changePercent}
+              available={snapshot.comparisonAvailable}
+            />
           </div>
         </Card>
         <Card className="p-4">
@@ -162,7 +177,10 @@ export function InvoiceDashboardPage() {
             <Wallet className="h-5 w-5 text-emerald-600" aria-hidden />
           </div>
           <div className="mt-2">
-            <ChangeBadge percent={snapshot.collected.changePercent} />
+            <ChangeBadge
+              percent={snapshot.collected.changePercent}
+              available={snapshot.comparisonAvailable}
+            />
           </div>
         </Card>
         <Card className="p-4">
@@ -176,7 +194,8 @@ export function InvoiceDashboardPage() {
             <CalendarClock className="h-5 w-5 text-amber-600" aria-hidden />
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            {toFaDigits(snapshot.draftLike)} فاکتور در انتظار پرداخت
+            {toFaDigits(snapshot.draftLike)} فاکتور در انتظار پرداخت ·{' '}
+            {toFaDigits(snapshot.stats.draftCount)} پیش‌نویس
           </p>
         </Card>
         <Card className="p-4">
@@ -213,7 +232,7 @@ export function InvoiceDashboardPage() {
                   tick={{ fontSize: 10 }}
                   width={70}
                   tickFormatter={(value: number) =>
-                    formatNumber(Math.round(value / (unit === 'rial' ? 10 : 1)))
+                    formatNumber(Math.round(value * (unit === 'rial' ? 10 : 1)))
                   }
                 />
                 <Tooltip

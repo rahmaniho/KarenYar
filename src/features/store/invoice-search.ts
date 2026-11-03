@@ -8,10 +8,25 @@
 import type { CustomerPayment, Invoice, InvoiceItem } from '@/core/db/db';
 import { dateToJalali, jalaliMonthKey, type JalaliDate } from '@/core/jalali/jalali';
 import { invoicePaymentMethod } from './payment';
-import { invoiceLifecycle, invoicePaymentState, type InvoiceLifecycle } from './invoice-domain';
+import {
+  invoiceLifecycle,
+  invoicePaymentState,
+  LIFECYCLE_LABELS,
+  type InvoiceLifecycle,
+} from './invoice-domain';
 
 export type InvoiceStatusFilter =
-  'all' | 'completed' | 'voided' | 'credit' | 'cash' | 'paid' | 'partial' | 'unpaid' | 'overdue';
+  | 'all'
+  | 'draft'
+  | 'overpaid'
+  | 'completed'
+  | 'voided'
+  | 'credit'
+  | 'cash'
+  | 'paid'
+  | 'partial'
+  | 'unpaid'
+  | 'overdue';
 export type InvoiceSortKey =
   'date-desc' | 'date-asc' | 'number-desc' | 'number-asc' | 'total-desc' | 'total-asc';
 
@@ -149,14 +164,17 @@ export function queryInvoices(
   for (const invoice of invoices) {
     const ownItems = grouped.get(invoice.id ?? -1) ?? [];
     const isVoided = invoice.status === 'voided';
+    const inactive = isVoided || invoice.status === 'draft';
     const payState = invoicePaymentState(invoice, payments);
-    if (status === 'completed' && isVoided) continue;
+    if (status === 'draft' && invoice.status !== 'draft') continue;
+    if (status === 'completed' && inactive) continue;
+    if (status === 'overpaid' && (inactive || payState.overpaid <= 0)) continue;
     if (status === 'voided' && !isVoided) continue;
     if (status === 'credit' && (!invoice.isCredit || isVoided)) continue;
     if (status === 'cash' && (invoice.isCredit || isVoided)) continue;
-    if (status === 'paid' && (isVoided || payState.remaining > 0 || payState.paid <= 0)) continue;
-    if (status === 'partial' && (isVoided || payState.status !== 'partial')) continue;
-    if (status === 'unpaid' && (isVoided || payState.paid > 0)) continue;
+    if (status === 'paid' && (inactive || payState.remaining > 0 || payState.paid <= 0)) continue;
+    if (status === 'partial' && (inactive || payState.status !== 'partial')) continue;
+    if (status === 'unpaid' && (inactive || payState.paid > 0)) continue;
     if (status === 'overdue' && invoiceLifecycle(invoice, payments, now) !== 'overdue') continue;
     if (method !== 'all' && invoicePaymentMethod(invoice) !== method) continue;
     if (query.month && jalaliMonthKey(new Date(invoice.date)) !== query.month) continue;
@@ -202,6 +220,7 @@ export interface InvoiceSummary {
   count: number;
   activeCount: number;
   voidedCount: number;
+  draftCount: number;
   total: number;
   activeTotal: number;
   voidedTotal: number;
@@ -219,6 +238,7 @@ export interface InvoiceSummary {
 export function summarizeInvoices(rows: InvoiceRow[]): InvoiceSummary {
   let activeCount = 0;
   let voidedCount = 0;
+  let countDraft = 0;
   let activeTotal = 0;
   let voidedTotal = 0;
   let creditTotal = 0;
@@ -227,6 +247,10 @@ export function summarizeInvoices(rows: InvoiceRow[]): InvoiceSummary {
   let creditCount = 0;
   for (const row of rows) {
     const { invoice } = row;
+    if (invoice.status === 'draft') {
+      countDraft += 1;
+      continue;
+    }
     if (invoice.status === 'voided') {
       voidedCount += 1;
       voidedTotal += invoice.total;
@@ -245,6 +269,7 @@ export function summarizeInvoices(rows: InvoiceRow[]): InvoiceSummary {
     count: rows.length,
     activeCount,
     voidedCount,
+    draftCount: countDraft,
     total: activeTotal + voidedTotal,
     activeTotal,
     voidedTotal,
@@ -275,6 +300,7 @@ export function invoiceCsvRows(rows: InvoiceRow[]): (string | number)[][] {
   const header = [
     'شماره فاکتور',
     'تاریخ',
+    'سررسید',
     'مشتری',
     'روش پرداخت',
     'تعداد اقلام',
@@ -294,6 +320,7 @@ export function invoiceCsvRows(rows: InvoiceRow[]): (string | number)[][] {
       return [
         invoice.number,
         jalaliDateKey(new Date(invoice.date)).split(' ')[0],
+        invoice.dueDate ? jalaliDateKey(new Date(invoice.dueDate)).split(' ')[0] : '',
         invoice.customerName ?? 'مشتری گذری',
         invoicePaymentMethod(invoice),
         itemCount,
@@ -303,7 +330,7 @@ export function invoiceCsvRows(rows: InvoiceRow[]): (string | number)[][] {
         invoice.total,
         row.paid ?? 0,
         row.remaining ?? 0,
-        invoice.status === 'voided' ? 'باطل‌شده' : invoice.isCredit ? 'نسیه' : 'تسویه‌شده',
+        LIFECYCLE_LABELS[row.lifecycle],
         invoice.note ?? '',
       ];
     }),

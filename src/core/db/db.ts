@@ -47,16 +47,27 @@ export interface Invoice {
   discountAmount: number;
   taxPercent: number;
   taxAmount: number;
+  /** هزینهٔ بدون مالیاتِ جداگانه؛ برای سندهای قدیمی صفر در نظر گرفته می‌شود. */
+  shippingAmount?: number;
+  otherAmount?: number;
   total: number;
   /** سررسید پرداخت (ISO میلادی) — اگر خالی باشد، ۳۰ روز پس از صدور در نظر گرفته می‌شود */
   dueDate?: string;
   /** فاکتورهای قدیمی بدون status معتبر و فعال هستند. */
-  status?: 'completed' | 'voided';
+  status?: 'draft' | 'completed' | 'voided';
   source?: 'pos' | 'invoice';
   paymentMethod?: PaymentMethod;
   cashTendered?: number;
   changeAmount?: number;
   note?: string;
+  terms?: string;
+  /** هرگز در چاپ یا PDF مشتری نمایش داده نمی‌شود. */
+  internalNote?: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  revision?: number;
+  issuedAt?: string;
+  updatedAt?: string;
   /** شناسه‌ی ثابت هر سبد برای جلوگیری از ثبت دوباره‌ی یک فروش */
   checkoutKey?: string;
   checkoutSignature?: string;
@@ -72,6 +83,10 @@ export interface InvoiceItem {
   name: string;
   qty: number;
   unitPrice: number;
+  unit?: string;
+  discountType?: 'percent' | 'amount';
+  discountValue?: number;
+  discountAmount?: number;
   /** قیمت تمام‌شده‌ی واحد هنگام فروش (برای محاسبه‌ی سود) */
   unitCost: number;
   total: number;
@@ -114,6 +129,7 @@ export interface SaleDraftItem {
   qty: number;
   /** همیشه تومان داخلی، مستقل از واحد نمایشی */
   unitPrice: number;
+  unit?: string;
 }
 
 export interface SaleDraft {
@@ -204,6 +220,35 @@ export interface CustomerPayment {
   amount: number;
   date: string; // ISO میلادی
   note?: string;
+  /** نبود فیلد در سوابق قدیمی به معنای دریافت است، نه برگشت وجه. */
+  kind?: 'payment' | 'refund';
+  method?: Exclude<PaymentMethod, 'credit'>;
+  reference?: string;
+  paymentKey?: string;
+  requestSignature?: string;
+  reversalOf?: number;
+  reversalReason?: string;
+  createdAt: string;
+}
+
+/** رویداد افزایشیِ مالی؛ همراه همان تراکنش ثبت می‌شود، نه به‌صورت لاگ جدا. */
+export interface FinancialEvent {
+  id?: number;
+  invoiceId?: number;
+  customerId?: number;
+  paymentKey?: string;
+  paymentId?: number;
+  action:
+    | 'draft_saved'
+    | 'issued'
+    | 'voided'
+    | 'payment_recorded'
+    | 'refund_recorded'
+    | 'payment_reversed'
+    | 'draft_discarded'
+    | 'customer_payment_received';
+  amount?: number;
+  reason?: string;
   createdAt: string;
 }
 
@@ -223,6 +268,7 @@ export class HesabyarDB extends Dexie {
   payrolls!: EntityTable<PayrollRecord, 'id'>;
   customers!: EntityTable<Customer, 'id'>;
   customerPayments!: EntityTable<CustomerPayment, 'id'>;
+  financialEvents!: EntityTable<FinancialEvent, 'id'>;
   settings!: EntityTable<KeyValueRow, 'key'>;
   license!: EntityTable<KeyValueRow, 'key'>;
   stockMovements!: EntityTable<StockMovement, 'id'>;
@@ -275,6 +321,11 @@ export class HesabyarDB extends Dexie {
         if (opening.length) await tx.table('stockMovements').bulkAdd(opening);
         // درآمد فاکتورهای قدیمی را حدس نمی‌زنیم؛ ممکن است قبلاً دستی ثبت شده باشد.
       });
+    // نسخهٔ ۴ — فقط ایندکس/جدول افزایشی؛ هیچ رکورد موجود بازنویسی نمی‌شود.
+    this.version(4).stores({
+      customerPayments: '++id, customerId, invoiceId, date, kind, &paymentKey, [invoiceId+date]',
+      financialEvents: '++id, invoiceId, paymentId, action, createdAt',
+    });
   }
 }
 

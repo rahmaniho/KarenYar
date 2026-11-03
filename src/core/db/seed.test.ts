@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from './db';
 import { seedDemoData } from './seed';
 import { clearTestData } from '@/tests/store-fixtures';
@@ -23,6 +23,19 @@ describe('دادهٔ نمایشی کسب‌وکار', () => {
       expect(movements.some((row) => row.type === 'opening')).toBe(true);
       expect(movements.reduce((sum, row) => sum + row.quantity, 0)).toBe(product.stock);
       expect(product.stock).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('در build عملیاتی دادهٔ نمایشی اضافه نمی‌شود', async () => {
+    const invoicesBefore = await db.invoices.count();
+    const productsBefore = await db.products.count();
+    vi.stubEnv('DEV', false);
+    try {
+      await expect(seedDemoData()).rejects.toThrow('عملیاتی');
+      expect(await db.invoices.count()).toBe(invoicesBefore);
+      expect(await db.products.count()).toBe(productsBefore);
+    } finally {
+      vi.unstubAllEnvs();
     }
   });
 });

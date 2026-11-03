@@ -41,6 +41,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { customerBalance, customerStatement, totalReceivables } from './customers-calc';
+import { recordCustomerPayment } from './customer-payment.service';
+import { useAttemptKey } from './use-attempt-key';
 import { customerSchema, type CustomerFormValues } from './schemas';
 
 /** دفتر مشتریان — حساب مشتریان، فروش نسیه، پرداخت‌ها و صورت‌حساب */
@@ -365,6 +367,7 @@ function StatementDialog({
   const [payAmount, setPayAmount] = useState(0);
   const [payNote, setPayNote] = useState('');
   const [paying, setPaying] = useState(false);
+  const attemptKey = useAttemptKey();
 
   const statement = useMemo(
     () => customerStatement(customer.id!, invoices, payments),
@@ -381,18 +384,17 @@ function StatementDialog({
     }
     setPaying(true);
     try {
-      await db.customerPayments.add({
+      await recordCustomerPayment({
         customerId: customer.id!,
-        amount,
-        date: nowISO(),
-        note: payNote.trim() ? payNote.trim() : undefined,
-        createdAt: nowISO(),
+        amountToman: amount,
+        note: payNote.trim() || undefined,
+        paymentKey: attemptKey({ customerId: customer.id, amount, note: payNote.trim() }),
       });
       setPayAmount(0);
       setPayNote('');
       toast.success('پرداخت ثبت شد؛ مبلغ فروش قبلاً در درآمد ثبت شده و دوباره اضافه نمی‌شود.');
-    } catch {
-      toast.error('ثبت پرداخت ناموفق بود.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'ثبت پرداخت ناموفق بود.');
     } finally {
       setPaying(false);
     }
@@ -441,16 +443,19 @@ function StatementDialog({
                         {row.kind === 'invoice' ? (
                           `فاکتور نسیه شماره ${toFaDigits(String(row.number))}`
                         ) : (
-                          <>پرداخت مشتری{row.note ? ` — ${row.note}` : ''}</>
+                          <>
+                            {row.refund ? 'برگشت وجه' : 'پرداخت مشتری'}
+                            {row.note ? ` — ${row.note}` : ''}
+                          </>
                         )}
                       </TableCell>
                       <TableCell>
-                        {row.kind === 'invoice'
+                        {row.kind === 'invoice' || row.refund
                           ? formatMoney(row.amount, unit, { withUnit: false })
                           : '—'}
                       </TableCell>
                       <TableCell className="text-success">
-                        {row.kind === 'payment'
+                        {row.kind === 'payment' && !row.refund
                           ? formatMoney(row.amount, unit, { withUnit: false })
                           : '—'}
                       </TableCell>

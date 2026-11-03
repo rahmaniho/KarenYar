@@ -32,7 +32,7 @@ function CompactBrand() {
     <Link to="/" aria-label="حساب‌یار کارن سافت — داشبورد" className="shrink-0">
       <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl border border-black/10 shadow-sm">
         <img
-          src={assetUrl('images/karensoft/KarenYar.png')}
+          src={assetUrl('images/hesabyar/mark.png')}
           alt=""
           width={512}
           height={512}

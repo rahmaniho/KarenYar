@@ -31,7 +31,7 @@ describe('پشتیبان‌گیری و بازیابی', () => {
     });
     const backup = await exportBackup();
     expect(backup.format).toBe('karenyar-hesabyar-backup');
-    expect(backup.version).toBe(2);
+    expect(backup.version).toBe(3);
     expect(backup.tables.products).toHaveLength(1);
     expect(backup.tables).not.toHaveProperty('license');
     await clearTestData();
@@ -126,5 +126,56 @@ describe('پشتیبان‌گیری و بازیابی', () => {
     broken.tables.transactions.push({ ...income, id: 999_999 });
     await expect(importBackup(broken)).rejects.toThrow();
     expect((await exportBackup()).tables).toEqual(before.tables);
+  });
+});
+
+describe('یکپارچگی پشتیبان نسخهٔ ۳', () => {
+  beforeEach(clearTestData);
+  it('رویدادهای مالی و کلید پرداخت در رفت‌وبرگشت حفظ می‌شوند', async () => {
+    const productId = (await db.products.add(testProduct())) as number;
+    const customerId = (await db.customers.add({
+      name: 'خریدار',
+      createdAt: new Date().toISOString(),
+    })) as number;
+    const invoiceId = await createInvoice(
+      testSale(productId, { customerId, paymentMethod: 'credit' }),
+    );
+    const { recordInvoicePayment } = await import('@/features/store/invoice-payment.service');
+    await recordInvoicePayment({ invoiceId, amount: 1000, idempotencyKey: 'backup-payment-key' });
+    const backup = await exportBackup();
+    expect(backup.tables.financialEvents.length).toBeGreaterThan(0);
+    await clearTestData();
+    await importBackup(backup);
+    expect((await exportBackup()).tables).toEqual(backup.tables);
+    expect(
+      await recordInvoicePayment({ invoiceId, amount: 1000, idempotencyKey: 'backup-payment-key' }),
+    ).toBe(1);
+  });
+  it('کلید پرداخت تکراری و رویداد یتیم پیش از جایگزینی رد می‌شوند', async () => {
+    const productId = (await db.products.add(testProduct())) as number;
+    const customerId = (await db.customers.add({
+      name: 'خریدار',
+      createdAt: new Date().toISOString(),
+    })) as number;
+    const invoiceId = await createInvoice(
+      testSale(productId, { customerId, paymentMethod: 'credit' }),
+    );
+    const { recordInvoicePayment } = await import('@/features/store/invoice-payment.service');
+    await recordInvoicePayment({ invoiceId, amount: 1000, idempotencyKey: 'dup' });
+    const backup = await exportBackup();
+    const broken = JSON.parse(JSON.stringify(backup)) as BackupData;
+    broken.tables.customerPayments.push({
+      ...(broken.tables.customerPayments[0] as object),
+      id: 999,
+    });
+    expect(() => validateBackup(broken)).toThrow('تکراری');
+    const orphan = JSON.parse(JSON.stringify(backup)) as BackupData;
+    orphan.tables.financialEvents.push({
+      id: 999,
+      invoiceId: 999999,
+      action: 'issued',
+      createdAt: new Date().toISOString(),
+    });
+    expect(() => validateBackup(orphan)).toThrow('ناموجود');
   });
 });

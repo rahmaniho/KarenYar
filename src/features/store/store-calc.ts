@@ -11,16 +11,22 @@ import {
   jalaliMonthLabel,
 } from '@/core/jalali/jalali';
 import { toFaDigits } from '@/core/currency/currency';
+import { quantityAmount, sumMoney } from '@/core/currency/money';
+import { allocateInvoiceDiscount } from './invoice-calc';
 
-export const isActiveInvoice = (invoice: Invoice): boolean => invoice.status !== 'voided';
+export const isActiveInvoice = (invoice: Invoice): boolean =>
+  invoice.status !== 'voided' && invoice.status !== 'draft';
 
 /** سود ناخالص یک مجموعه قلم فاکتور = (قیمت فروش − تمام‌شده) × تعداد */
 export function itemsGrossProfit(items: InvoiceItem[]): number {
-  return items.reduce((sum, i) => sum + (i.unitPrice - i.unitCost) * i.qty, 0);
+  return (
+    sumMoney(items.map((i) => quantityAmount(i.qty, i.unitPrice) - (i.discountAmount ?? 0))) -
+    itemsCost(items)
+  );
 }
 
 export function itemsCost(items: InvoiceItem[]): number {
-  return items.reduce((sum, i) => sum + i.unitCost * i.qty, 0);
+  return sumMoney(items.map((i) => quantityAmount(i.qty, i.unitCost)));
 }
 
 export interface SalesTotals {
@@ -38,8 +44,8 @@ export function salesTotals(invoices: Invoice[], items: InvoiceItem[]): SalesTot
   const invoiceIds = new Set(invoices.map((i) => i.id));
   const scoped = items.filter((i) => invoiceIds.has(i.invoiceId));
   const cost = itemsCost(scoped);
-  const revenue = invoices.reduce((sum, i) => sum + i.total, 0);
-  const netRevenue = invoices.reduce((sum, i) => sum + (i.subtotal - i.discountAmount), 0);
+  const revenue = sumMoney(invoices.map((i) => i.total));
+  const netRevenue = sumMoney(invoices.map((i) => i.subtotal - i.discountAmount));
   return {
     revenue,
     netRevenue,
@@ -129,18 +135,25 @@ export function topProducts(
   for (const inv of invoices)
     if (inv.id != null && isActiveInvoice(inv)) invoiceById.set(inv.id, inv);
   const map = new Map<string, TopProduct>();
+  const grouped = new Map<number, InvoiceItem[]>();
   for (const item of items) {
     if (invoices.length && !invoiceById.has(item.invoiceId)) continue;
-    const current = map.get(item.name) ?? { name: item.name, qty: 0, revenue: 0, profit: 0 };
-    current.qty += item.qty;
-    const invoice = invoiceById.get(item.invoiceId);
-    const discountShare =
-      invoice && invoice.subtotal > 0
-        ? (item.total / invoice.subtotal) * invoice.discountAmount
-        : 0;
-    current.revenue += item.total - discountShare;
-    current.profit += (item.unitPrice - item.unitCost) * item.qty - discountShare;
-    map.set(item.name, current);
+    const bucket = grouped.get(item.invoiceId) ?? [];
+    bucket.push(item);
+    grouped.set(item.invoiceId, bucket);
+  }
+  for (const [invoiceId, scoped] of grouped) {
+    const invoice = invoiceById.get(invoiceId);
+    const netItems = scoped.map((item) => ({ total: item.total - (item.discountAmount ?? 0) }));
+    const shares = invoice ? allocateInvoiceDiscount(invoice, netItems) : netItems.map(() => 0);
+    scoped.forEach((item, index) => {
+      const current = map.get(item.name) ?? { name: item.name, qty: 0, revenue: 0, profit: 0 };
+      const net = netItems[index].total - shares[index];
+      current.qty += item.qty;
+      current.revenue += net;
+      current.profit += net - quantityAmount(item.qty, item.unitCost);
+      map.set(item.name, current);
+    });
   }
   return [...map.values()]
     .map((p) => ({ ...p, revenue: Math.round(p.revenue), profit: Math.round(p.profit) }))

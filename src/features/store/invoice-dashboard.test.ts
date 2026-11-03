@@ -114,3 +114,26 @@ describe('داشبورد فاکتور', () => {
     expect(series[5].invoiceCount).toBe(1);
   });
 });
+
+describe('بازه و پیش‌نویس', () => {
+  it('فاکتور آینده در بازهٔ اخیر نمی‌آید و پیش‌نویس فروش محسوب نمی‌شود', () => {
+    const snapshot = dashboardSnapshot(
+      [
+        invoice({ id: 1 }),
+        invoice({ id: 2, date: '2026-11-04T09:00:00.000Z' }),
+        invoice({ id: 3, status: 'draft' }),
+      ],
+      [],
+      '7d',
+      now,
+    );
+    expect(snapshot.stats.count).toBe(1);
+    expect(snapshot.stats.draftCount).toBe(1);
+    expect(snapshot.sales.value).toBe(1_000_000);
+  });
+  it('برای همهٔ دوره‌ها مقایسهٔ ساختگی با خود دوره ندارد', () => {
+    const snapshot = dashboardSnapshot([invoice()], [], 'all', now);
+    expect(snapshot.comparisonAvailable).toBe(false);
+    expect(snapshot.sales.previous).toBe(0);
+  });
+});

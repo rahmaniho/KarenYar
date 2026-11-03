@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-ساخت آیکن لانچر و اسپلش اندروید از لوگوی خود برنامه
+ساخت آیکن لانچر و اسپلش اندروید از لوگوی رسمی جدید حساب‌یار
 
 منبع: public/icons/icon-512.png (خروجی scripts/build-app-logo.py)
+اسپلش: public/images/hesabyar/logo.png (لوگوی کامل روی پس‌زمینه‌ی تیره)
 اجرا: python3 scripts/build-android-icons.py
 
 خروجی‌ها در android/app/src/main/res:
   mipmap-*/ic_launcher.png و ic_launcher_round.png و ic_launcher_foreground.png
-  drawable*/splash.png (سرمه‌ای برند + لوگوی وسط)
+  drawable*/splash.png (پس‌زمینه‌ی تیره + لوگوی کامل وسط)
 """
 from pathlib import Path
 
@@ -16,9 +17,9 @@ from PIL import Image, ImageDraw
 ROOT = Path(__file__).resolve().parent.parent
 RES = ROOT / 'android' / 'app' / 'src' / 'main' / 'res'
 SOURCE = ROOT / 'public' / 'icons' / 'icon-512.png'
-NAVY = (11, 27, 58)  # #0B1B3A
+LOGO = ROOT / 'public' / 'images' / 'hesabyar' / 'logo.png'
+DARK = (0, 0, 0)
 
-# چگالی‌ها: (پوشه، اندازه‌ی آیکن معمولی، اندازه‌ی بوم پیش‌زمینه‌ی تطبیقی ۱۰۸dp)
 DENSITIES = [
     ('mdpi', 48, 108),
     ('hdpi', 72, 162),
@@ -29,7 +30,6 @@ DENSITIES = [
 
 
 def edge_color(im: Image.Image) -> tuple[int, int, int]:
-    """رنگ لبه‌ی بالایی آیکن برای پس‌زمینه‌ی آیکن تطبیقی"""
     px = im.load()
     w, _ = im.size
     strip = [px[x, 4][:3] for x in range(0, w, 8)]
@@ -44,14 +44,12 @@ def main() -> None:
         folder = RES / f'mipmap-{name}'
         folder.mkdir(parents=True, exist_ok=True)
         icon.resize((size, size), Image.LANCZOS).save(folder / 'ic_launcher.png', optimize=True)
-        # آیکن گرد: ماسک دایره روی همان کاشی
         round_im = Image.new('RGBA', (size, size), (0, 0, 0, 0))
         mask = Image.new('L', (size, size), 0)
         ImageDraw.Draw(mask).ellipse([0, 0, size, size], fill=255)
         round_im.paste(icon.resize((size, size), Image.LANCZOS), (0, 0))
         round_im.putalpha(mask)
         round_im.save(folder / 'ic_launcher_round.png', optimize=True)
-        # پیش‌زمینه‌ی تطبیقی: آیکن با حاشیه‌ی امن داخل بوم بزرگ‌تر (برش سیستم، لوگو را نمی‌خورد)
         canvas = Image.new('RGB', (adaptive, adaptive), bg)
         inner = icon.resize((round(adaptive * 0.72),) * 2, Image.LANCZOS)
         off = (adaptive - inner.width) // 2
@@ -59,7 +57,6 @@ def main() -> None:
         canvas.save(folder / 'ic_launcher_foreground.png', optimize=True)
         print(name, size, adaptive)
 
-    # رنگ پس‌زمینه‌ی آیکن تطبیقی هم‌رنگ لبه‌ی لوگو
     colors = RES / 'values' / 'ic_launcher_background.xml'
     if colors.exists():
         colors.write_text(
@@ -69,13 +66,16 @@ def main() -> None:
         )
         print('launcher background', bg)
 
-    # اسپلش‌ها: پس‌زمینه‌ی سرمه‌ای برند + لوگو در مرکز (با همان ابعاد فایل‌های قالب)
+    logo = Image.open(LOGO).convert('RGB')
     for splash in sorted(RES.glob('drawable*/splash.png')):
         w, h = Image.open(splash).size
-        im = Image.new('RGB', (w, h), NAVY)
-        logo_size = round(min(w, h) * 0.38)
-        logo = icon.resize((logo_size, logo_size), Image.LANCZOS)
-        im.paste(logo, ((w - logo_size) // 2, (h - logo_size) // 2))
+        im = Image.new('RGB', (w, h), DARK)
+        max_w = round(w * 0.72)
+        max_h = round(h * 0.42)
+        ratio = min(max_w / logo.width, max_h / logo.height)
+        lw, lh = round(logo.width * ratio), round(logo.height * ratio)
+        resized = logo.resize((lw, lh), Image.LANCZOS)
+        im.paste(resized, ((w - lw) // 2, (h - lh) // 2))
         im.save(splash, optimize=True)
         print('splash', splash.parent.name, (w, h))
 

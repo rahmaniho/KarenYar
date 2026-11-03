@@ -14,6 +14,8 @@ interface JalaliDateInputProps {
   disabled?: boolean;
   className?: string;
   'aria-label'?: string;
+  allowEmpty?: boolean;
+  onValidityChange?: (valid: boolean) => void;
 }
 
 /** ورودی تاریخ شمسی با قالب ۱۴۰۴-۰۷-۱۴ + پیش‌نمایش خوانا و اعتبارسنجی */
@@ -23,6 +25,8 @@ export function JalaliDateInput({
   id,
   disabled,
   className,
+  allowEmpty,
+  onValidityChange,
   ...rest
 }: JalaliDateInputProps) {
   const [text, setText] = useState(() => (value ? toJalaliInputString(new Date(value)) : ''));
@@ -37,15 +41,20 @@ export function JalaliDateInput({
     const normalized = toEnDigits(raw).replace(/\//g, '-').trim();
     setText(normalized);
     if (!normalized) {
-      setError('تاریخ را وارد کنید.');
+      const valid = !!allowEmpty;
+      setError(valid ? null : 'تاریخ را وارد کنید.');
+      onValidityChange?.(valid);
+      if (valid) onChange('');
       return;
     }
     const parsed = parseJalaliDateString(normalized);
     if (!parsed) {
       setError('تاریخ شمسی معتبر نیست. مثال: 1404-07-14');
+      onValidityChange?.(false);
       return;
     }
     setError(null);
+    onValidityChange?.(true);
     onChange(parsed.toISOString());
   };
 

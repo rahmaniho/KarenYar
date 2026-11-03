@@ -6,7 +6,7 @@ const config: CapacitorConfig = {
   appId: 'ir.karensoft.hesabyar',
   appName: 'حساب‌یار کارن سافت',
   webDir: 'dist',
-  backgroundColor: '#0B1B3A',
+  backgroundColor: '#000000',
   server: {
     // سرویس‌دهی داخلی روی https://localhost تا IndexedDB و دوربین مثل وب امن در دسترس باشند
     androidScheme: 'https',

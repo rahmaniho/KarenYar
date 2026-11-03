@@ -10,6 +10,7 @@ import { formatJalaliFull, formatJalaliNumeric } from '@/core/jalali/jalali';
 import { CURRENCY_LABELS, formatDecimal, formatMoney, toFaDigits } from '@/core/currency/currency';
 import { assetUrl, cn } from '@/lib/utils';
 import { amountInWords } from './amount-words';
+import { allocateInvoiceDiscount } from './invoice-calc';
 import { invoicePaymentMethod, PAYMENT_LABELS } from './payment';
 import {
   invoiceDueDate,
@@ -52,23 +53,23 @@ export function InvoicePrintDocument({
   const isVoided = invoice.status === 'voided';
   const issueDate = new Date(invoice.date);
   const buyerName = invoice.customerName?.trim() || customer?.name?.trim() || 'مشتری گذری';
-  const buyerPhone = customer?.phone?.trim() || 'ثبت نشده';
-  const buyerAddress = customer?.address?.trim() || 'ثبت نشده';
+  const buyerPhone = invoice.customerPhone?.trim() || customer?.phone?.trim() || 'ثبت نشده';
+  const buyerAddress = invoice.customerAddress?.trim() || customer?.address?.trim() || 'ثبت نشده';
   const payState = invoicePaymentState(invoice, payments);
   const lifecycle = invoiceLifecycle(invoice, payments);
-  const statusLabel = isVoided
-    ? 'باطل‌شده'
-    : invoice.isCredit
-      ? LIFECYCLE_LABELS[lifecycle]
-      : 'تسویه‌شده';
+  const statusLabel = LIFECYCLE_LABELS[lifecycle];
+  const isDraft = invoice.status === 'draft';
+  const globalDiscountShares = allocateInvoiceDiscount(
+    invoice,
+    items.map((item) => ({ total: item.total - (item.discountAmount ?? 0) })),
+  );
 
-  const statusTone = isVoided
-    ? 'bg-red-50 text-red-700 ring-red-200'
-    : invoice.isCredit
-      ? lifecycle === 'paid'
+  const statusTone =
+    isVoided || lifecycle === 'overdue'
+      ? 'bg-red-50 text-red-700 ring-red-200'
+      : lifecycle === 'paid'
         ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-        : 'bg-amber-50 text-amber-700 ring-amber-200'
-      : 'bg-emerald-50 text-emerald-700 ring-emerald-200';
+        : 'bg-amber-50 text-amber-700 ring-amber-200';
 
   const money = (value: number) => formatMoney(value, unit);
 
@@ -81,7 +82,12 @@ export function InvoicePrintDocument({
   ];
 
   const totalsRows: { label: string; value: string; danger?: boolean; success?: boolean }[] = [
-    { label: 'جمع اقلام', value: money(invoice.subtotal) },
+    {
+      label: items.some((item) => (item.discountAmount ?? 0) > 0)
+        ? 'جمع پس از تخفیف ردیف'
+        : 'جمع اقلام',
+      value: money(invoice.subtotal),
+    },
   ];
   if (invoice.discountAmount > 0) {
     totalsRows.push({
@@ -99,24 +105,29 @@ export function InvoicePrintDocument({
       value: money(invoice.taxAmount),
     });
   }
+  if ((invoice.shippingAmount ?? 0) > 0)
+    totalsRows.push({ label: 'هزینه حمل', value: money(invoice.shippingAmount!) });
+  if ((invoice.otherAmount ?? 0) > 0)
+    totalsRows.push({ label: 'سایر هزینه‌ها', value: money(invoice.otherAmount!) });
   if (invoice.paymentMethod === 'cash' && invoice.cashTendered !== undefined) {
     totalsRows.push({ label: 'وجه نقد دریافتی', value: money(invoice.cashTendered) });
     totalsRows.push({ label: 'باقی پول مشتری', value: money(invoice.changeAmount ?? 0) });
   }
-  if (!isVoided && invoice.isCredit && payState.paid > 0) {
-    totalsRows.push({ label: 'پرداخت‌شده', value: money(payState.paid), success: true });
-  }
+  if (!isVoided && !isDraft && payState.paid > 0)
+    totalsRows.push({ label: 'پرداخت خالص', value: money(payState.paid), success: true });
+  if (payState.refunded > 0)
+    totalsRows.push({ label: 'وجه برگشت‌خورده', value: money(payState.refunded), danger: true });
 
-  const finalValue = invoice.isCredit && !isVoided ? payState.remaining : invoice.total;
-  const finalLabel = isVoided
-    ? 'مبلغ سند باطل‌شده'
-    : invoice.isCredit
-      ? finalValue > 0 && payState.paid > 0
-        ? 'مانده قابل پرداخت'
-        : finalValue > 0
-          ? 'مبلغ نسیه'
+  const finalValue = invoice.isCredit && !isVoided && !isDraft ? payState.remaining : invoice.total;
+  const finalLabel = isDraft
+    ? 'مبلغ پیش‌نویس (غیرقطعی)'
+    : isVoided
+      ? 'مبلغ سند باطل‌شده'
+      : invoice.isCredit
+        ? finalValue > 0
+          ? 'مانده قابل پرداخت'
           : 'تسویه‌شده'
-      : 'مبلغ قابل پرداخت';
+        : 'مبلغ سند';
 
   const PartyCard = ({
     title,
@@ -154,10 +165,12 @@ export function InvoicePrintDocument({
       <div className="h-[14px] bg-navy-900" />
       <div className="h-[3px] bg-neon-500" />
 
-      {isVoided && (
+      {(isVoided || isDraft) && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-          <span className="-rotate-[22deg] text-[140px] font-black leading-none text-red-600/[0.08]">
-            باطل
+          <span
+            className={`-rotate-[22deg] text-[110px] font-black leading-none ${isVoided ? 'text-red-600/[0.08]' : 'text-amber-600/[0.10]'}`}
+          >
+            {isVoided ? 'باطل' : 'پیش‌نویس'}
           </span>
         </div>
       )}
@@ -168,7 +181,7 @@ export function InvoicePrintDocument({
           <div className="flex min-w-0 flex-1 flex-row-reverse items-start justify-end gap-4">
             {settings.invoiceShowLogo !== false && (
               <img
-                src={assetUrl('images/karensoft/KarenYar.png')}
+                src={assetUrl('images/hesabyar/mark.png')}
                 alt=""
                 width={512}
                 height={512}
@@ -278,10 +291,8 @@ export function InvoicePrintDocument({
               </tr>
             )}
             {items.map((item, index) => {
-              const share =
-                invoice.subtotal > 0 && invoice.discountAmount > 0
-                  ? (item.total / invoice.subtotal) * invoice.discountAmount
-                  : 0;
+              const share = (item.discountAmount ?? 0) + globalDiscountShares[index];
+              const netTotal = item.total - share;
               return (
                 <tr
                   key={item.id ?? index}
@@ -291,7 +302,7 @@ export function InvoicePrintDocument({
                     {toFaDigits(String(index + 1))}
                   </td>
                   <td className="px-3 py-3 font-semibold text-navy-800">{item.name || '—'}</td>
-                  <td className="px-2 py-3 text-center">{formatDecimal(item.qty, 3)}</td>
+                  <td className="px-2 py-3 text-center">{formatDecimal(item.qty, 6)}</td>
                   <td className="tabular-nums px-2 py-3">{formatMoney(item.unitPrice, unit)}</td>
                   <td
                     className={cn(
@@ -302,7 +313,7 @@ export function InvoicePrintDocument({
                     {share > 0 ? formatMoney(Math.round(share), unit) : '—'}
                   </td>
                   <td className="tabular-nums px-3 py-3 font-extrabold text-navy-900">
-                    {formatMoney(item.total, unit)}
+                    {formatMoney(netTotal, unit)}
                   </td>
                 </tr>
               );
@@ -311,7 +322,9 @@ export function InvoicePrintDocument({
         </table>
         <p className="mt-1.5 text-[9.5px] text-navy-400">
           مبالغ به {unitLabel} است.
-          {invoice.discountAmount > 0 ? ' ستون تخفیف، سهم هر قلم از تخفیف کل سند است.' : ''}
+          {
+            ' ستون تخفیف شامل تخفیف ردیف و سهم تخفیف کل است؛ مبلغ کل پس از تخفیف و پیش از مالیات است.'
+          }
         </p>
 
         {/* جمع‌بندی + مبلغ به حروف */}
@@ -327,11 +340,11 @@ export function InvoicePrintDocument({
                 <p className="mt-0.5 text-[11px] leading-5 text-navy-600">{invoice.note}</p>
               </Fragment>
             )}
-            {settings.invoiceFooterNote && (
+            {(invoice.terms || settings.invoiceFooterNote) && (
               <Fragment>
-                <p className="mt-3 text-[10px] text-navy-400">شرایط فروش</p>
-                <p className="mt-0.5 text-[11px] leading-5 text-navy-600">
-                  {settings.invoiceFooterNote}
+                <p className="mt-3 text-[10px] text-navy-400">شرایط پرداخت</p>
+                <p className="mt-0.5 whitespace-pre-wrap text-[11px] leading-5 text-navy-600">
+                  {invoice.terms || settings.invoiceFooterNote}
                 </p>
               </Fragment>
             )}
