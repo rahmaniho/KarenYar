@@ -230,7 +230,7 @@ export function InvoicePrintDocument({
         </div>
 
         {/* خریدار و فروشنده */}
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <div className="print-keep mt-5 grid gap-3 sm:grid-cols-2">
           <PartyCard
             title="خریدار"
             accent="bg-neon-500"
@@ -331,7 +331,7 @@ export function InvoicePrintDocument({
         </p>
 
         {/* جمع‌بندی + مبلغ به حروف */}
-        <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="print-keep mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_280px]">
           <div className="rounded-xl bg-navy-50 px-4 py-4">
             <p className="text-[10px] text-navy-400">مبلغ به حروف</p>
             <p className="mt-1 text-[12.5px] font-bold leading-6 text-navy-900">
@@ -389,7 +389,7 @@ export function InvoicePrintDocument({
         </div>
 
         {/* امضا */}
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <div className="print-keep mt-5 grid gap-3 sm:grid-cols-2">
           {[
             { title: 'مهر و امضای فروشنده', hint: settings.shopName },
             { title: 'امضای خریدار', hint: 'مهر یا امضای خریدار' },

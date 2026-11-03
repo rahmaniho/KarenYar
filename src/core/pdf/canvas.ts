@@ -10,7 +10,9 @@
  *
  * نکته‌ی فنی: روتین متن pdf-lib خودش متن را «دوباره شکل‌دهی» و معکوس می‌کند
  * (برای متن فارسی نتیجه معکوس می‌شود)، پس اینجا اپراتورهای خام PDF نوشته
- * می‌شود: گلیف‌ها به ترتیب «دیداری» چپ‌به‌راست و با موقعیت دقیق هر گلیف.
+ * می‌شود: هر گلیف با موقعیت دقیق خودش (Tm) رسم می‌شود و Tjها به ترتیب «منطقی»
+ * منتشر می‌شوند؛ ToUnicodeِ فونت هم به حروف پایه نگاشت دارد، پس متن استخراج‌شده
+ * در همه‌ی خواننده‌ها (کپی/جستجو) به ترتیب و حروف درست است.
  *
  * دستگاه مختصات: مبدأ گوشه‌ی بالا-راست، y رو به پایین (مثل CSS)، واحد pt.
  */
@@ -22,13 +24,15 @@ import {
   PDFOperator,
   PDFOperatorNames,
   PDFPage,
+  PDFRawStream,
   asPDFNumber,
   degrees,
   rgb,
 } from 'pdf-lib';
 import type { Color, PDFFont, PDFNumber } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
-import { bidiReorder, shapePersian } from './persian';
+import { bidiReorderCells, presentationToBase, shapePersian } from './persian';
+import type { TrueTypeFont } from './font';
 
 /**
  * یکسان‌سازی فاصله‌ها: فونت فقط فاصله‌ی معمولی (U+0020) و NBSP را دارد؛
@@ -36,6 +40,70 @@ import { bidiReorder, shapePersian } from './persian';
  */
 function normalizeSpaces(value: string): string {
   return value.replace(/[\u2060\u2009\u00a0\u2007\u202f]/g, ' ');
+}
+
+/** کد UTF-16BE به‌صورت hex (برای مقصد bfchar در CMap) */
+function utf16BeHex(cps: number[]): string {
+  let out = '';
+  for (const cp of cps) {
+    if (cp <= 0xffff) out += cp.toString(16).padStart(4, '0');
+    else {
+      const v = cp - 0x10000;
+      out += (0xd800 + (v >> 10)).toString(16).padStart(4, '0');
+      out += (0xdc00 + (v & 0x3ff)).toString(16).padStart(4, '0');
+    }
+  }
+  return out.toUpperCase();
+}
+
+/**
+ * CMapِ ToUnicodeِ «منطقی»: هر گلیف به نویسه‌ی پایه‌ی خودش نگاشت می‌شود؛
+ * شکل‌های نمایشی فارسی (FB50–FEFF) به حرف اصلی و legatureهای لا/لآ به دو نویسه.
+ * با این CMap متن استخراج‌شده در همه‌ی خواننده‌ها (حتی بدون ActualText) درست است.
+ */
+function buildLogicalToUnicodeCMap(layout: TrueTypeFont): string {
+  const byGid = new Map<number, number[]>();
+  for (const [cp, gid] of layout.cmapEntries()) {
+    if (gid === 0 || byGid.has(gid)) continue;
+    byGid.set(gid, presentationToBase(cp) ?? [cp]);
+  }
+  const entries = [...byGid.entries()].sort((a, b) => a[0] - b[0]);
+  const lines: string[] = [
+    '/CIDInit /ProcSet findresource begin',
+    '12 dict begin',
+    'begincmap',
+    '/CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> def',
+    '/CMapName /Adobe-Identity-UCS def',
+    '/CMapType 2 def',
+    '1 begincodespacerange',
+    '<0000> <FFFF>',
+    'endcodespacerange',
+  ];
+  const CHUNK = 100;
+  for (let i = 0; i < entries.length; i += CHUNK) {
+    const slice = entries.slice(i, i + CHUNK);
+    lines.push(`${slice.length} beginbfchar`);
+    for (const [gid, cps] of slice) {
+      lines.push(`<${gid.toString(16).padStart(4, '0').toUpperCase()}> <${utf16BeHex(cps)}>`);
+    }
+    lines.push('endbfchar');
+  }
+  lines.push('endcmap', 'CMapName currentdict /CMap defineresource pop', 'end', 'end');
+  return `${lines.join('\n')}\n`;
+}
+
+/** جایگزینی ToUnicode فونت embedشده با CMap منطقی (حروف پایه به‌جای شکل‌های نمایشی) */
+async function installLogicalToUnicode(
+  doc: PDFDocument,
+  font: PDFFont,
+  layout: TrueTypeFont,
+): Promise<void> {
+  // dict فونت تا پیش از save در context ساخته نمی‌شود؛ پس ابتدا embed() می‌کنیم
+  await font.embed();
+  const cmap = buildLogicalToUnicodeCMap(layout);
+  const stream = PDFRawStream.of(doc.context.obj({}), new TextEncoder().encode(cmap));
+  const fontDict = doc.context.lookup(font.ref, PDFDict);
+  fontDict.set(PDFName.of('ToUnicode'), doc.context.register(stream));
 }
 
 export const MM = 72 / 25.4;
@@ -136,6 +204,7 @@ export class PdfCanvas {
           bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
         );
         const pdf = await doc.embedFont(bytes, { subset: false });
+        await installLogicalToUnicode(doc, pdf, layout);
         canvas.fonts.set(weight, {
           pdf,
           unitsPerEm: layout.metrics.unitsPerEm,
@@ -247,15 +316,26 @@ export class PdfCanvas {
         : rawValue;
     const font = this.font(weight);
     const size = options.size ?? 10;
-    // اول شکل‌دهی (اتصال حروف در ترتیب منطقی)، بعد چینش دوجهته روی همان گلیف‌های شکل‌گرفته
-    const visualText = bidiReorder(shapePersian(normalizeSpaces(value)));
-    const visual: number[] = [];
-    for (const ch of visualText) visual.push(font.glyphIdOf(ch.codePointAt(0) ?? 0));
-    const glyphIds = visual;
-
+    // اول شکل‌دهی (اتصال حروف در ترتیب منطقی)، بعد bidi روی همان سلول‌ها.
+    // گلیف‌ها در استریم به ترتیب «منطقی» منتشر می‌شوند (هر کدام با Tm دقیق خودش)،
+    // پس متن استخراج‌شده (ToUnicode) در همه‌ی خواننده‌ها به ترتیب درست و با حروف پایه است.
+    const shaped = shapePersian(normalizeSpaces(value));
+    const cells = [...shaped].map((ch, i) => ({ i, ch }));
+    const visual = bidiReorderCells(
+      cells,
+      (c) => c.ch.codePointAt(0) ?? 0,
+      (c, glyph) => ({ i: c.i, ch: glyph }),
+    );
+    const glyphOf = (c: { ch: string }) => font.glyphIdOf(c.ch.codePointAt(0) ?? 0);
+    // موقعیت دیداری (x) هر سلول — برای رسم با مختصات مطلق
+    const visualX: number[] = [];
+    const visualIndexOfLogical = new Map<number, number>();
     let width = 0;
-    for (const glyphId of glyphIds) width += font.advanceWidth(glyphId);
-    width = (width * size) / font.unitsPerEm;
+    visual.forEach((c, k) => {
+      visualIndexOfLogical.set(c.i, k);
+      visualX.push(width);
+      width += (font.advanceWidth(glyphOf(c)) * size) / font.unitsPerEm;
+    });
 
     const align = options.align ?? 'right';
     const startX = align === 'left' ? x : align === 'center' ? x - width / 2 : x - width;
@@ -292,8 +372,10 @@ export class PdfCanvas {
           ] as never),
         );
       }
-      let cursor = 0;
-      for (const glyphId of visual) {
+      // انتشار به ترتیب منطقی؛ هر گلیف با Tm در جای دیداری خودش
+      for (const cell of cells) {
+        const k = visualIndexOfLogical.get(cell.i)!;
+        const glyphId = glyphOf(visual[k]);
         const hex = glyphId.toString(16).padStart(4, '0');
         page.pushOperators(
           PDFOperator.of(PDFOperatorNames.BeginText),
@@ -302,12 +384,11 @@ export class PdfCanvas {
           PDFOperator.of(PDFOperatorNames.SetFontAndSize, [this.key(weight), asPDFNumber(size)]),
           PDFOperator.of(
             PDFOperatorNames.SetTextMatrix,
-            nums([1, 0, 0, 1, point.x + cursor, point.y]),
+            nums([1, 0, 0, 1, point.x + visualX[k], point.y]),
           ),
           PDFOperator.of(PDFOperatorNames.ShowText, [PDFHexString.of(hex)]),
           PDFOperator.of(PDFOperatorNames.EndText),
         );
-        cursor += (font.advanceWidth(glyphId) * size) / font.unitsPerEm;
       }
       if (needsAlpha) page.pushOperators(PDFOperator.of(PDFOperatorNames.PopGraphicsState));
     };

@@ -107,12 +107,6 @@ export function InvoiceViewPage() {
   );
 
   const printInvoice = () => {
-    document.body.dataset.printMode = 'invoice';
-    const cleanup = () => {
-      delete document.body.dataset.printMode;
-      window.removeEventListener('afterprint', cleanup);
-    };
-    window.addEventListener('afterprint', cleanup);
     window.print();
   };
   useEffect(() => {

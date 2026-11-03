@@ -240,6 +240,85 @@ describe('invoice vector PDF — real output verification', () => {
     expect(presentation.length).toBeGreaterThan(50);
   }, 30_000);
 
+  it('extracts LOGICAL Persian text (ToUnicode + stream order) — copy/search works in every viewer', async () => {
+    stubFetch();
+    const blob = await buildInvoicePdf({
+      invoice: makeInvoice(),
+      items: makeItems(4),
+      customer,
+      settings,
+      payments: [],
+    });
+    const bytes = await blobBytes(blob);
+    const streams = decompressedStreams(bytes);
+
+    // 1) merged ToUnicode map (gid -> utf16be hex) from all embedded fonts' CMaps.
+    //    Vazirmatn weights share glyph order, so one map is enough here.
+    const toUnicode = new Map<number, string>();
+    for (const s of streams) {
+      if (!s.includes('beginbfchar')) continue;
+      const re = /<([0-9A-Fa-f]{4})>\s*<([0-9A-Fa-f]+)>/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(s))) toUnicode.set(parseInt(m[1], 16), m[2]);
+    }
+    expect(toUnicode.size).toBeGreaterThan(500);
+
+    // presentation-form glyphs must map to BASE letters, not FBxx/FExx codes
+    const font = loadTrueTypeFont(
+      (() => {
+        const b = readFileSync('public/fonts/Vazirmatn-Regular.ttf');
+        return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
+      })(),
+    );
+    // only glyphs actually DRAWN must map to base letters (the font cmap also has
+    // presentation forms for letters our shaper never emits — those are unused)
+    const drawn = new Set(drawnGlyphIds(streams));
+    let presentationChecked = 0;
+    for (const [gid, hexDst] of toUnicode) {
+      if (!drawn.has(gid)) continue;
+      const cp = font.codePointForGlyph(gid);
+      if (cp !== undefined && cp >= 0xfb50 && cp <= 0xfeff) {
+        const dstCp = parseInt(hexDst.slice(0, 4), 16);
+        expect(dstCp).toBeLessThan(0xfb50); // base letter, not presentation form
+        presentationChecked++;
+      }
+    }
+    expect(presentationChecked).toBeGreaterThan(50);
+
+    // 2) simulate a ToUnicode-based extractor: Tj glyphs in STREAM ORDER mapped via ToUnicode
+    const contentStreams = streams.filter((s) => s.includes(' Tj'));
+    const reTj = /<([0-9A-Fa-f]{4})>\s*Tj/g;
+    let extracted = '';
+    for (const s of contentStreams) {
+      let m: RegExpExecArray | null;
+      while ((m = reTj.exec(s))) {
+        const gid = parseInt(m[1], 16);
+        const hexDst = toUnicode.get(gid);
+        if (!hexDst) continue;
+        const buf = Buffer.from(hexDst, 'hex');
+        const be = Buffer.alloc(buf.length);
+        for (let i = 0; i + 1 < buf.length; i += 2) {
+          be[i] = buf[i + 1];
+          be[i + 1] = buf[i];
+        }
+        extracted += be.toString('utf16le');
+      }
+    }
+    // no presentation-form codepoints may survive extraction
+    for (const ch of extracted) {
+      const cp = ch.codePointAt(0) ?? 0;
+      expect(cp < 0xfb50 || cp > 0xfeff).toBe(true);
+    }
+    // logical order + base letters: Persian phrases appear exactly as typed
+    expect(extracted).toContain('فاکتور');
+    expect(extracted).toContain('حسابیار؛ مدیریت هوشمند امور مالی و حسابداری');
+    expect(extracted).toContain('۱۴۰۵/۰۸/۱۳');
+    expect(extracted).toContain('09152521166');
+    expect(extracted).toContain('INV-1024-AB');
+    // order sanity: the phrase must appear contiguously in LOGICAL order
+    expect(extracted).toContain('فاکتور فروش');
+  }, 30_000);
+
   it('multi-page invoice: paginates and every page has drawn text + fonts', async () => {
     stubFetch();
     const blob = await buildInvoicePdf({

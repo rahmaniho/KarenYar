@@ -5,10 +5,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   bidiReorder,
+  bidiReorderCells,
   faNumber,
   isPersianText,
   normalizeForSearch,
   normalizePersian,
+  presentationToBase,
   shapePersian,
   toVisualText,
 } from './persian';
@@ -173,5 +175,63 @@ describe('isPersianText', () => {
     expect(isPersianText('سلام')).toBe(true);
     expect(isPersianText('hello')).toBe(false);
     expect(isPersianText('سلام 123')).toBe(true);
+  });
+});
+
+describe('bidiReorderCells', () => {
+  it('matches bidiReorder on strings (permutation equivalent)', () => {
+    for (const s of [...SAMPLES, 'شماره تماس: 09152521166', 'mixed (پرانتز) و 1234 test']) {
+      const viaString = bidiReorder(s);
+      const viaCells = bidiReorderCells(
+        [...s],
+        (c) => c.codePointAt(0) ?? 0,
+        (_c, glyph) => glyph,
+      ).join('');
+      expect(viaCells).toBe(viaString);
+    }
+  });
+
+  it('keeps logical indices attached to cells through reordering', () => {
+    const cells = [...'سلام 12'].map((ch, i) => ({ i, ch }));
+    const visual = bidiReorderCells(
+      cells,
+      (c) => c.ch.codePointAt(0) ?? 0,
+      (c, glyph) => ({ i: c.i, ch: glyph }),
+    );
+    // visual order of "سلام 12" is: digits first (LTR run), then reversed Persian
+    expect(visual.map((c) => c.ch).join('')).toBe('12 ' + [...'سلام'].reverse().join(''));
+    // every logical index appears exactly once
+    expect([...visual].map((c) => c.i).sort((a, b) => a - b)).toEqual(cells.map((c) => c.i));
+  });
+
+  it('mirrors parens inside RTL runs on cells too', () => {
+    const cells = [...'(سلام)'].map((ch, i) => ({ i, ch }));
+    const visual = bidiReorderCells(
+      cells,
+      (c) => c.ch.codePointAt(0) ?? 0,
+      (c, glyph) => ({ i: c.i, ch: glyph }),
+    );
+    expect(visual.map((c) => c.ch).join('')).toBe(bidiReorder('(سلام)'));
+    expect(visual.map((c) => c.ch).join('')).toBe('(مالس)');
+  });
+});
+
+describe('presentationToBase', () => {
+  it('maps presentation forms to their base letter', () => {
+    expect(presentationToBase(0xfee4)).toEqual([0x0645]); // medial mim
+    expect(presentationToBase(0xfe8e)).toEqual([0x0627]); // final alef
+    expect(presentationToBase(0xfb92)).toEqual([0x06af]); // isolated gaf
+  });
+
+  it('maps lam-alef ligatures to two base letters', () => {
+    expect(presentationToBase(0xfefb)).toEqual([0x0644, 0x0627]); // لا isolated
+    expect(presentationToBase(0xfefc)).toEqual([0x0644, 0x0627]); // لا final
+    expect(presentationToBase(0xfef5)).toEqual([0x0644, 0x0622]); // لآ isolated
+  });
+
+  it('returns null outside the presentation-forms range', () => {
+    expect(presentationToBase(0x0645)).toBeNull();
+    expect(presentationToBase(0x0041)).toBeNull();
+    expect(presentationToBase(0x0020)).toBeNull();
   });
 });
