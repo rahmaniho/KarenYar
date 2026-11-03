@@ -46,6 +46,35 @@ test('accepts a signed, non-debuggable release and verifies the exact APK with b
   assert.equal(calls[0].options.encoding, 'utf8');
 });
 
+const expectedRelease = {
+  version: '1.4.0',
+  versionCode: 10400,
+  applicationId: 'ir.karensoft.hesabyar',
+  minSdk: 24,
+  targetSdk: 36,
+};
+const expectedManifest = [
+  "package: name='ir.karensoft.hesabyar' versionCode='10400' versionName='1.4.0'",
+  "sdkVersion:'24'",
+  "targetSdkVersion:'36'",
+].join('\n');
+
+test('checks the actual package identity, version and SDK against release metadata', () => {
+  const { run } = tools({ manifest: expectedManifest });
+  assert.doesNotThrow(() => verifyAndroidRelease('app-release.apk', buildTools, run, expectedRelease));
+  for (const manifest of [
+    expectedManifest.replace('ir.karensoft.hesabyar', 'ir.karensoft.other'),
+    expectedManifest.replace("versionName='1.4.0'", "versionName='1.3.0'"),
+    expectedManifest.replace("versionCode='10400'", "versionCode='10300'"),
+    expectedManifest.replace("sdkVersion:'24'", "sdkVersion:'23'"),
+    expectedManifest.replace("targetSdkVersion:'36'", "targetSdkVersion:'35'"),
+    '',
+  ]) {
+    const wrong = tools({ manifest });
+    assert.throws(() => verifyAndroidRelease('app-release.apk', buildTools, wrong.run, expectedRelease));
+  }
+});
+
 test('checks the certificate rather than trusting a release filename', () => {
   const { run, calls } = tools({
     certificates: 'Signer #1 certificate DN: CN=Android Debug, O=Android, C=US\n',

@@ -1,11 +1,12 @@
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { readReleaseVersion } from './release-version.mjs';
 
 const usage = 'Usage: npm run android:verify -- <release.apk> <Android SDK build-tools directory>';
 
 /** Verify the actual APK, not its filename or the Gradle variant name. */
-export function verifyAndroidRelease(apkPath, buildToolsDirectory, run = execFileSync) {
+export function verifyAndroidRelease(apkPath, buildToolsDirectory, run = execFileSync, expected) {
   if (!apkPath || !buildToolsDirectory) throw new Error(usage);
 
   const apk = resolve(apkPath);
@@ -33,15 +34,30 @@ export function verifyAndroidRelease(apkPath, buildToolsDirectory, run = execFil
   if (/^application-debuggable(?:\s|$)/m.test(manifest)) {
     throw new Error('The APK is debuggable. Build the release variant with debuggable=false.');
   }
+  if (expected) {
+    const packageLine = manifest.match(/^package: (.+)$/m)?.[1] ?? '';
+    const field = (name) => packageLine.match(new RegExp(`(?:^|\\s)${name}='([^']*)'`))?.[1];
+    if (field('name') !== expected.applicationId)
+      throw new Error('APK application ID does not match the release metadata.');
+    if (field('versionName') !== expected.version)
+      throw new Error('APK versionName does not match the release metadata.');
+    if (field('versionCode') !== String(expected.versionCode))
+      throw new Error('APK versionCode does not match the release metadata.');
+    const minSdk = Number(manifest.match(/^sdkVersion:'(\d+)'/m)?.[1]);
+    const targetSdk = Number(manifest.match(/^targetSdkVersion:'(\d+)'/m)?.[1]);
+    if (minSdk !== expected.minSdk || targetSdk !== expected.targetSdk)
+      throw new Error('APK minimum/target SDK does not match the release metadata.');
+  }
   return certificates.trim();
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    const certificates = verifyAndroidRelease(process.argv[2], process.argv[3]);
+    const expected = readReleaseVersion();
+    const certificates = verifyAndroidRelease(process.argv[2], process.argv[3], execFileSync, expected);
     console.log(certificates);
     console.log(
-      'Release APK verified: valid signature, no Android Debug certificate, not debuggable.',
+      `Release APK verified: ${expected.applicationId} ${expected.version} (${expected.versionCode}), valid signature, no Android Debug certificate, not debuggable.`,
     );
   } catch (error) {
     console.error(`Release APK verification failed: ${error.message}`);
