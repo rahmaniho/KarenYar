@@ -149,6 +149,9 @@
   body {
     background: #ffffff !important;
     color: #0b1b3a !important;
+    /* محتوای بلند در چاپ نباید بریده شود؛ اسکرول یا ارتفاع ثابت صفحه را از بین می‌برد */
+    height: auto !important;
+    overflow: visible !important;
   }
 
   /* فقط ناحیه‌ی سند چاپ شود؛ منو، دکمه‌ها و اعلان‌ها حذف می‌شوند */
@@ -222,6 +225,16 @@
     letter-spacing: 0;
     word-spacing: 0;
     text-align: start;
+    /* رشته‌های بلند (کد پیگیری، URL) اگر جا نشدند بشکنند، نه اینکه بریده شوند */
+    overflow-wrap: break-word;
+    word-break: normal;
+    orphans: 3;
+    widows: 3;
+  }
+  /* مقادیر مستقل چپ‌به‌راست (تلفن، ایمیل، کد) با ایزوله‌سازی bidi */
+  .print-area [dir='ltr'] {
+    unicode-bidi: isolate;
+    text-align: left;
   }
   .print-area .tabular-nums,
   .print-area .amount {

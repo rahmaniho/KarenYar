@@ -25,7 +25,7 @@ import {
   invoicePaymentState,
   LIFECYCLE_LABELS,
 } from './invoice-domain';
-import { amountInWords } from './amount-words';
+import { amountInWords } from '@/core/text/amount-words';
 import { allocateInvoiceDiscount } from './invoice-calc';
 
 export interface InvoiceDocumentSettings {

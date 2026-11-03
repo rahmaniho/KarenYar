@@ -237,6 +237,18 @@ export class TrueTypeFont {
     return this.cmap.get(codePoint) ?? 0;
   }
 
+  /** code point matching a glyph id (reverse cmap lookup, used to audit drawn PDF glyphs) */
+  private reverseCmap: Map<number, number> | null = null;
+
+  codePointForGlyph(glyphId: number): number | undefined {
+    if (!this.reverseCmap) {
+      this.reverseCmap = new Map();
+      for (const [cp, gid] of this.cmap)
+        if (!this.reverseCmap.has(gid)) this.reverseCmap.set(gid, cp);
+    }
+    return this.reverseCmap.get(glyphId);
+  }
+
   hasGlyph(codePoint: number): boolean {
     return this.cmap.has(codePoint);
   }

@@ -14,6 +14,7 @@ import {
 } from '@/core/currency/currency';
 import { formatJalaliNumeric } from '@/core/jalali/jalali';
 import { useSettingsStore } from '@/store/settings-store';
+import { Ltr } from '@/components/Ltr';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { StatCard } from '@/components/StatCard';
@@ -160,7 +161,7 @@ export function CustomersPage() {
                     <div className="min-w-0">
                       <p className="truncate font-bold">{customer.name}</p>
                       <p className="text-xs text-muted-foreground" dir="ltr">
-                        {customer.phone ?? '—'}
+                        {customer.phone ? <Ltr>{customer.phone}</Ltr> : '—'}
                       </p>
                     </div>
                     {balance.balance > 0 ? (

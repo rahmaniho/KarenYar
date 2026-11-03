@@ -125,18 +125,25 @@ const LETTERS: Record<number, LetterForms> = (() => {
   return map;
 })();
 
-/** حروفی که به حرف بعدی (سمت چپ) می‌چسبند */
+/**
+ * Does the letter join the NEXT letter (to its left)? True iff it has a real
+ * "initial" form distinct from "isolated" (the table fills missing forms with
+ * the isolated codepoint, so inequality means the form really exists).
+ * Exception: tatweel (U+0640) joins both sides although all four forms match.
+ */
 function joinsNext(cp: number): boolean {
+  if (cp === 0x0640) return true; // tatweel
   const forms = LETTERS[cp];
   if (!forms) return false;
-  return forms.initial !== forms.isolated || forms.medial !== forms.final;
+  return forms.initial !== forms.isolated;
 }
 
-/** حروفی که از حرف قبلی (سمت راست) می‌پذیرند */
+/** Does the letter accept a join from the PREVIOUS letter (to its right)? */
 function joinsPrevious(cp: number): boolean {
+  if (cp === 0x0640) return true; // tatweel
   const forms = LETTERS[cp];
   if (!forms) return false;
-  return forms.final !== forms.isolated || forms.medial !== forms.initial;
+  return forms.final !== forms.isolated;
 }
 
 /**
@@ -146,21 +153,25 @@ function joinsPrevious(cp: number): boolean {
 export function shapePersian(text: string): string {
   const cps = [...normalizePersian(text)].map((ch) => ch.codePointAt(0) ?? 0);
   const out: number[] = [];
+  // بعد از ligature لا/لآ، حرف قبلیِ واقعی «لام» است که به حرف بعدی می‌چسبد
+  let prevJoinsOverride = false;
   for (let i = 0; i < cps.length; i++) {
     const cp = cps[i];
     if (cp === 0x200c) {
       out.push(cp);
+      prevJoinsOverride = false; // نیم‌فاصله اتصال را می‌شکند
       continue;
     }
     const forms = LETTERS[cp];
     if (!forms) {
       out.push(cp);
+      prevJoinsOverride = false;
       continue;
     }
     // لا: لام + الف → گلیف لا
     if (cp === 0x0644 && i + 1 < cps.length && (cps[i + 1] === 0x0627 || cps[i + 1] === 0x0622)) {
       const alef = cps[i + 1];
-      const prevJoins = i > 0 && joinsNext(cps[i - 1]);
+      const prevJoins = prevJoinsOverride || (i > 0 && joinsNext(cps[i - 1]));
       const ligatures: Record<number, [number, number]> = {
         0x0627: [0xfefb, 0xfefc],
         0x0622: [0xfef5, 0xfef6],
@@ -168,11 +179,13 @@ export function shapePersian(text: string): string {
       const pair = ligatures[alef];
       out.push(prevJoins ? pair[1] : pair[0]);
       i++;
+      prevJoinsOverride = true; // حرف بعدی به «لام» می‌چسبد
       continue;
     }
     const prev = i > 0 ? cps[i - 1] : 0;
     const next = i + 1 < cps.length ? cps[i + 1] : 0;
-    const prevJoins = prev !== 0 && joinsNext(prev);
+    const prevJoins = prevJoinsOverride || (prev !== 0 && joinsNext(prev));
+    prevJoinsOverride = false;
     const nextJoins = next !== 0 && joinsPrevious(next);
     const form: JoinForm = prevJoins
       ? nextJoins
@@ -207,7 +220,20 @@ function isNeutral(cp: number): boolean {
   return (
     cp === 0x20 ||
     (cp >= 0x09 && cp <= 0x0d) ||
-    '.,:;!?()[]{}-+/\\|\'"،؛؟٬٫'.includes(String.fromCodePoint(cp))
+    // zero-width format chars (ZWNJ/ZWJ/word-joiner/BOM) behave as neutral (UAX#9 BN)
+    cp === 0x200c ||
+    cp === 0x200d ||
+    cp === 0x2060 ||
+    cp === 0xfeff ||
+    // math signs: minus, plus-minus, multiply, divide, less/greater-or-equal
+    cp === 0x2212 ||
+    cp === 0x00b1 ||
+    cp === 0x00d7 ||
+    cp === 0x00f7 ||
+    cp === 0x2264 ||
+    cp === 0x2265 ||
+    // punctuation
+    '.,:;!?()[]{}-+/\\|\'"<>~^&*،؛؟٬٫…–—«»‹›٪'.includes(String.fromCodePoint(cp))
   );
 }
 

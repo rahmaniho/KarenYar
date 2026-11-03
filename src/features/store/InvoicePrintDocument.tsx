@@ -9,7 +9,8 @@ import type { Customer, CustomerPayment, Invoice, InvoiceItem } from '@/core/db/
 import { formatJalaliFull, formatJalaliNumeric } from '@/core/jalali/jalali';
 import { CURRENCY_LABELS, formatDecimal, formatMoney, toFaDigits } from '@/core/currency/currency';
 import { assetUrl, cn } from '@/lib/utils';
-import { amountInWords } from './amount-words';
+import { Ltr } from '@/components/Ltr';
+import { amountInWords } from '@/core/text/amount-words';
 import { allocateInvoiceDiscount } from './invoice-calc';
 import { invoicePaymentMethod, PAYMENT_LABELS } from './payment';
 import {
@@ -136,7 +137,7 @@ export function InvoicePrintDocument({
   }: {
     title: string;
     accent: string;
-    rows: { label: string; value: string }[];
+    rows: { label: string; value: string; ltr?: boolean }[];
   }) => (
     <div className="rounded-xl border border-navy-100 bg-white p-4">
       <div className="mb-2 flex items-center gap-2">
@@ -147,7 +148,9 @@ export function InvoicePrintDocument({
         {rows.map((row) => (
           <div key={row.label} className="flex items-baseline gap-1.5">
             <dt className="shrink-0 text-navy-400">{row.label}</dt>
-            <dd className="min-w-0 flex-1 truncate font-semibold text-navy-800">{row.value}</dd>
+            <dd className="min-w-0 flex-1 truncate font-semibold text-navy-800">
+              {row.ltr && /[0-9A-Za-z@]/.test(row.value) ? <Ltr>{row.value}</Ltr> : row.value}
+            </dd>
           </div>
         ))}
       </dl>
@@ -233,7 +236,7 @@ export function InvoicePrintDocument({
             accent="bg-neon-500"
             rows={[
               { label: 'نام:', value: buyerName },
-              { label: 'تلفن:', value: buyerPhone },
+              { label: 'تلفن:', value: buyerPhone, ltr: true },
               { label: 'نشانی:', value: buyerAddress },
             ]}
           />
@@ -403,7 +406,9 @@ export function InvoicePrintDocument({
 
         <div className="mt-5 flex items-center justify-between gap-3 border-t border-navy-100 pt-3 text-[10px] text-navy-400">
           <span className="truncate">{settings.shopName} · صادرشده با حساب‌یار کارن سافت</span>
-          <span>کد پیگیری: {invoice.checkoutKey?.slice(-10) ?? `INV-${invoice.number}`}</span>
+          <span>
+            کد پیگیری: <Ltr>{invoice.checkoutKey?.slice(-10) ?? `INV-${invoice.number}`}</Ltr>
+          </span>
         </div>
       </div>
     </div>
