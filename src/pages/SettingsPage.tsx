@@ -836,9 +836,9 @@ export function SettingsPage() {
             <img
               src={assetUrl('images/hesabyar/logo.png')}
               alt="لوگوی حساب‌یار"
-              width={951}
-              height={462}
-              className="mb-4 h-16 w-auto rounded-xl"
+              width={771}
+              height={283}
+              className="mb-4 h-16 w-auto max-w-full rounded-xl bg-white p-1.5"
             />
             <p>
               کارن سافت، طراح و توسعه‌دهنده‌ی نرم‌افزارهای مالی فارسی برای کسب‌وکارها و کاربران
