@@ -59,8 +59,16 @@ describe('shapePersian — letter joining forms', () => {
   it('دارو: waw after dal must be isolated (dal does not join forward)', () => {
     expect(hex(shapePersian('دارو'))).toBe('FEA9 FE8D FEAD FEED');
   });
-  it('حساب‌ها: ba after alef is isolated, ha after ZWNJ is initial', () => {
-    expect(hex(shapePersian('حساب‌ها'))).toBe('FEA3 FEB4 FE8D FE8F 200C FEEB FE8E');
+  it('حساب‌ها: alef after sin takes FINAL (joined), ba after alef is isolated, ha after ZWNJ is initial', () => {
+    expect(hex(shapePersian('حساب‌ها'))).toBe('FEA3 FEB4 FE8E FE8F 200C FEEB FE8E');
+  });
+  it('REGRESSION — right-joining-only letters (ر د ا و ذ) between joiners take FINAL, not isolated', () => {
+    // user report: words like these rendered with disconnected letters in the downloaded PDF
+    expect(hex(shapePersian('فروشگاه'))).toBe('FED3 FEAE FEED FEB7 FB95 FE8E FEE9');
+    expect(hex(shapePersian('خریدار'))).toBe('FEA7 FEAE FBFE FEAA FE8D FEAD');
+    expect(hex(shapePersian('فروش'))).toBe('FED3 FEAE FEED FEB5');
+    expect(hex(shapePersian('خدمات'))).toBe('FEA7 FEAA FEE3 FE8E FE95');
+    expect(hex(shapePersian('مالیات'))).toBe('FEE3 FE8E FEDF FBFF FE8E FE95');
   });
   it('می‌روم: ZWNJ breaks the join (ye final, dal isolated)', () => {
     expect(hex(shapePersian('می‌روم'))).toBe('FEE3 FBFD 200C FEAD FEED FEE1');

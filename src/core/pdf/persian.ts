@@ -187,11 +187,18 @@ export function shapePersian(text: string): string {
     const prevJoins = prevJoinsOverride || (prev !== 0 && joinsNext(prev));
     prevJoinsOverride = false;
     const nextJoins = next !== 0 && joinsPrevious(next);
-    const form: JoinForm = prevJoins
-      ? nextJoins
+    // اتصال واقعی فقط وقتی ممکن است که خود حرف شکل لازم را داشته باشد؛ مثلاً
+    // ر/د/ا/و شکل initial ندارند، پس در میانه‌ی کلمه باید شکل final بگیرند
+    // (متصل به حرف قبلی)، نه isolated.
+    const canJoinPrev = forms.final !== forms.isolated;
+    const canJoinNext = forms.initial !== forms.isolated;
+    const joinPrev = prevJoins && canJoinPrev;
+    const joinNext = nextJoins && canJoinNext;
+    const form: JoinForm = joinPrev
+      ? joinNext
         ? 'medial'
         : 'final'
-      : nextJoins
+      : joinNext
         ? 'initial'
         : 'isolated';
     out.push(forms[form]);
