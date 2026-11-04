@@ -8,6 +8,8 @@ on:
     # انتشار آزمایشی این جلسه فقط با کامیت صریح [android-test] فعال می‌شود.
     branches:
       - 'arena/da58321a-karenyar'
+      # Public testing publication requested for the current session.
+      - 'arena/74812266-karenyar'
       # This branch's marked push creates an Actions artifact only, never a public release.
       - 'arena/bec0e04f-karenyar'
     tags:

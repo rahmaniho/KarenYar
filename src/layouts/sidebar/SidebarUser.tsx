@@ -9,6 +9,8 @@ import { useSettingsStore } from '@/store/settings-store';
 import { useOnlineStatus } from '@/hooks/use-online-status';
 import { KarenSoftCredit } from '@/components/KarenSoftCredit';
 import { SidebarTooltip } from './SidebarTooltip';
+import { toFaDigits } from '@/core/currency/currency';
+import { version as appVersion } from '../../../package.json';
 
 interface SidebarUserProps {
   collapsed: boolean;
@@ -228,7 +230,9 @@ export function SidebarUser({ collapsed, onExpand, onNavigate }: SidebarUserProp
             <span className="text-[10px] text-[var(--glass-muted)]">· ارتقا</span>
           )}
         </Link>
-        <span className="text-[9.5px] text-[var(--glass-dim)]">نسخه ۱٫۳٫۰ — آفلاین</span>
+        <span className="text-[9.5px] text-[var(--glass-dim)]">
+          نسخه {toFaDigits(appVersion).replace(/\./g, '٫')} — آفلاین
+        </span>
       </div>
     </div>
   );
