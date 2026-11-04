@@ -31,6 +31,7 @@ import {
 } from 'pdf-lib';
 import type { Color, PDFFont, PDFNumber } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
+import { bundledFontUrl, type PdfFontFileName } from './font-bundle';
 import { bidiReorderCells, presentationToBase, shapePersian } from './persian';
 import type { TrueTypeFont } from './font';
 
@@ -196,9 +197,10 @@ export class PdfCanvas {
     ];
     await Promise.all(
       variants.map(async ([weight, fileName]) => {
-        const bytes = new Uint8Array(
-          await fetchFontBinary(`${base}fonts/Vazirmatn-${fileName}.ttf`),
-        );
+        // فونت ابتدا از assetِ باندل (?url) خوانده می‌شود؛ فقط در صورت نبود به مسیر قدیمی /fonts/ می‌رویم
+        const fontUrl =
+          bundledFontUrl(fileName as PdfFontFileName) ?? `${base}fonts/Vazirmatn-${fileName}.ttf`;
+        const bytes = new Uint8Array(await fetchFontBinary(fontUrl));
         const { TrueTypeFont } = await import('./font');
         const layout = new TrueTypeFont(
           bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,

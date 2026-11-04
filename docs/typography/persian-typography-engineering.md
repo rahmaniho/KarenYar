@@ -49,8 +49,9 @@
 
 ## ۴. فایل‌های تغییر‌داده‌شده
 
-- public/fonts/vazirmatn-{arabic,latin}-wght-normal.woff2 + LICENSE-vazirmatn.txt (از مخزن Qazvintasvir)،
-  public/fonts/Vazirmatn-{Regular,Medium,Bold,ExtraBold}.ttf (instanced+merged)
+- public/fonts/vazirmatn-{arabic,latin}-wght-normal.woff2 + LICENSE-vazirmatn.txt (از مخزن Qazvintasvir)
+  برای فونت وب؛ src/assets/fonts/Vazirmatn-{Regular,Medium,Bold,ExtraBold}.ttf (instanced+merged)
+  با ایمپورت ?url در src/core/pdf/font-bundle.ts داخل باندل JS (بدون fetch شبکه‌ای برای فونت چاپ)
 - scripts/build-fonts-from-repo.py و scripts/render-typography-sample.mts
 - src/core/pdf/persian.ts (اصلاح شکل‌دهی و bidi)، src/core/pdf/font.ts (codePointForGlyph)
 - src/core/pdf/persian.test.ts و font-coverage.test.ts (جدید)

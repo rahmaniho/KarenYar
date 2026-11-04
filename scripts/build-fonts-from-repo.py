@@ -16,8 +16,9 @@ What this script produces in public/fonts/:
   - Vazirmatn-{Regular,Medium,Bold,ExtraBold}.ttf — static instances (wght
     400/500/700/800) of the variable font with the Latin subset merged in, so a
     single TTF per weight covers Arabic presentation forms AND Latin/digits/
-    punctuation. These TTFs are what the vector PDF engine embeds
-    (src/core/pdf/canvas.ts fetches /fonts/Vazirmatn-<Weight>.ttf).
+    punctuation. They are written to src/assets/fonts/ and inlined into the JS
+    bundle via ?inline (src/core/pdf/font-bundle.ts), so the vector PDF engine
+    embeds them without any network fetch (works offline / in the APK / staging).
 
 Requires: pip install fonttools brotli
 """
@@ -30,9 +31,10 @@ from fontTools.merge import Merger
 from fontTools.ttLib import TTFont
 from fontTools.varLib.instancer import instantiateVariableFont
 
-FONT_DIR = Path(__file__).resolve().parent.parent / "public" / "fonts"
-ARABIC_WOFF2 = FONT_DIR / "vazirmatn-arabic-wght-normal.woff2"
-LATIN_WOFF2 = FONT_DIR / "vazirmatn-latin-wght-normal.woff2"
+PUBLIC_FONT_DIR = Path(__file__).resolve().parent.parent / "public" / "fonts"
+TTF_DIR = Path(__file__).resolve().parent.parent / "src" / "assets" / "fonts"
+ARABIC_WOFF2 = PUBLIC_FONT_DIR / "vazirmatn-arabic-wght-normal.woff2"
+LATIN_WOFF2 = PUBLIC_FONT_DIR / "vazirmatn-latin-wght-normal.woff2"
 
 # app weight -> variable-font wght axis value
 WEIGHTS = {
@@ -75,10 +77,11 @@ def main() -> None:
                 "https://github.com/rahmaniho/Qazvintasvir/tree/main/public/assets/fonts "
                 "(GitHub Contents API) into public/fonts/ first"
             )
-    tmp_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else FONT_DIR / ".fontbuild-tmp"
+    tmp_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else TTF_DIR / ".fontbuild-tmp"
     tmp_dir.mkdir(parents=True, exist_ok=True)
     for name, wght in WEIGHTS.items():
-        build_weight(wght, FONT_DIR / f"Vazirmatn-{name}.ttf", tmp_dir)
+        TTF_DIR.mkdir(parents=True, exist_ok=True)
+        build_weight(wght, TTF_DIR / f"Vazirmatn-{name}.ttf", tmp_dir)
     print("done.")
 
 

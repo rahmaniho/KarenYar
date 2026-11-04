@@ -1,6 +1,6 @@
 /**
  * Real-output PDF tests: build an actual invoice PDF with the vector engine
- * (fonts served from public/fonts, exactly like the browser does) and verify
+ * (fonts bundled via ?url from src/assets/fonts, exactly like the browser bundle) and verify
  * the produced bytes:
  *  - fonts are really EMBEDDED (FontFile2 present per weight)
  *  - page geometry is A4 portrait
@@ -27,13 +27,13 @@ function blobBytes(blob: Blob): Promise<Uint8Array> {
   });
 }
 
-/** serve TTF fonts from public/fonts, everything else 404 (logo is optional) */
+/** serve TTF fonts from src/assets/fonts (fallback path), everything else 404 (logo is optional) */
 function stubFetch() {
   vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
     const url = String(input);
-    const match = url.match(/fonts\/(Vazirmatn-\w+)\.ttf$/);
+    const match = url.match(/(Vazirmatn-\w+)\.ttf(\?.*)?$/);
     if (match) {
-      const buf = readFileSync(`public/fonts/${match[1]}.ttf`);
+      const buf = readFileSync(`src/assets/fonts/${match[1]}.ttf`);
       return new Response(new Uint8Array(buf), { status: 200 });
     }
     return new Response(null, { status: 404 });
@@ -229,7 +229,7 @@ describe('invoice vector PDF — real output verification', () => {
     expect(glyphIds).not.toContain(0);
     const font = loadTrueTypeFont(
       (() => {
-        const b = readFileSync('public/fonts/Vazirmatn-Regular.ttf');
+        const b = readFileSync('src/assets/fonts/Vazirmatn-Regular.ttf');
         return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
       })(),
     );
@@ -266,7 +266,7 @@ describe('invoice vector PDF — real output verification', () => {
     // presentation-form glyphs must map to BASE letters, not FBxx/FExx codes
     const font = loadTrueTypeFont(
       (() => {
-        const b = readFileSync('public/fonts/Vazirmatn-Regular.ttf');
+        const b = readFileSync('src/assets/fonts/Vazirmatn-Regular.ttf');
         return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
       })(),
     );
