@@ -17,7 +17,7 @@ import type { Customer, CustomerPayment, Invoice, InvoiceItem } from '@/core/db/
 import { formatJalaliFull, formatJalaliNumeric } from '@/core/jalali/jalali';
 import { CURRENCY_LABELS, type CurrencyUnit } from '@/core/currency/currency';
 import { PdfCanvas, MM } from '@/core/pdf/canvas';
-import { faNumber, WORD_JOINER } from '@/core/pdf/persian';
+import { faNumber, normalizePersian, WORD_JOINER } from '@/core/pdf/persian';
 import { invoicePaymentMethod, PAYMENT_LABELS } from './payment';
 import {
   invoiceDueDate,
@@ -103,17 +103,14 @@ export async function buildInvoicePdf(input: InvoiceDocumentInput): Promise<Blob
   /** فقط عدد — برای ستون‌های جدول که واحدشان در سرستون آمده */
   const amountOnly = (amount: number) => faNumber(unit === 'rial' ? amount * 10 : amount);
 
+  // متادیتای سند با نویسه‌های دقیق فارسی (ی/ک) — ورود کاربر ممکن است با کیبورد عربی باشد
+  const shopNameFa = normalizePersian(settings.shopName);
+  const customerNameFa = normalizePersian(invoice.customerName ?? 'مشتری گذری');
   const canvas = await PdfCanvas.create({
-    title: `فاکتور فروش شماره ${invoice.number} — ${settings.shopName}`,
-    subject: `صورتحساب فروش${invoice.customerName ? ` — ${invoice.customerName}` : ''}`,
-    author: settings.shopName,
-    keywords: [
-      'فاکتور',
-      'فاکتور فروش',
-      `شماره ${invoice.number}`,
-      invoice.customerName ?? 'مشتری گذری',
-      settings.shopName,
-    ],
+    title: `فاکتور فروش شماره ${invoice.number} — ${shopNameFa}`,
+    subject: `صورتحساب فروش${invoice.customerName ? ` — ${customerNameFa}` : ''}`,
+    author: shopNameFa,
+    keywords: ['فاکتور', 'فاکتور فروش', `شماره ${invoice.number}`, customerNameFa, shopNameFa],
     baseUrl: import.meta.env.BASE_URL,
   });
 
