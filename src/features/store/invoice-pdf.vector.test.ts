@@ -319,6 +319,88 @@ describe('invoice vector PDF — real output verification', () => {
     expect(extracted).toContain('فاکتور فروش');
   }, 30_000);
 
+  it('REPEATED generation (5 rounds, varied invoices): extraction stays logical every time', async () => {
+    stubFetch();
+    // extractor: Tj glyphs in stream order mapped through the embedded ToUnicode CMap
+    const extractViaToUnicode = (bytes: Uint8Array): string => {
+      const streams = decompressedStreams(bytes);
+      const toUnicode = new Map<number, string>();
+      for (const s of streams) {
+        if (!s.includes('beginbfchar')) continue;
+        for (const m of s.matchAll(/<([0-9A-Fa-f]{4})>\s*<([0-9A-Fa-f]{4,})>/g)) {
+          toUnicode.set(parseInt(m[1], 16), m[2]);
+        }
+      }
+      let out = '';
+      for (const s of streams.filter((x) => x.includes(' Tj'))) {
+        for (const m of s.matchAll(/<([0-9A-Fa-f]{4})>\s*Tj/g)) {
+          const dst = toUnicode.get(parseInt(m[1], 16));
+          if (!dst) continue;
+          const buf = Buffer.from(dst, 'hex');
+          const be = Buffer.alloc(buf.length);
+          for (let i = 0; i + 1 < buf.length; i += 2) {
+            be[i] = buf[i + 1];
+            be[i + 1] = buf[i];
+          }
+          out += be.toString('utf16le');
+        }
+      }
+      return out;
+    };
+
+    const names = [
+      'روغن',
+      'مداد رنگی',
+      'دفتر آشپزی',
+      'سیگار',
+      'بستنی قیفی',
+      'شیرینی',
+      'حبه انگوری',
+      'کتاب فارسی',
+    ];
+    const prices = [615181818, 120000, 280000, 150000, 200000, 12000, 120000, 150000];
+    for (let round = 1; round <= 5; round++) {
+      const count = 3 + round; // 4..8 items
+      const items = names.slice(0, count).map((name, i) => ({
+        id: i + 1,
+        invoiceId: 1,
+        productId: null,
+        name,
+        qty: 1,
+        unitPrice: prices[i],
+        unit: 'عدد',
+        discountAmount: 0,
+        unitCost: 0,
+        total: prices[i],
+      }));
+      const blob = await buildInvoicePdf({
+        invoice: makeInvoice({
+          customerName: 'مشتری گذری',
+          checkoutKey: 'ebffa35573',
+          paymentMethod: 'card',
+          status: 'completed',
+        }),
+        items,
+        customer,
+        settings: { ...settings, shopName: 'فروشگاه من' },
+        payments: [],
+      });
+      const bytes = await blobBytes(blob);
+      const extracted = extractViaToUnicode(bytes);
+      // no presentation-form codepoints may survive extraction
+      for (const ch of extracted) {
+        const cp = ch.codePointAt(0) ?? 0;
+        expect(cp < 0xfb50 || cp > 0xfeff).toBe(true);
+      }
+      expect(extracted).toContain('فروشگاه من');
+      expect(extracted).toContain('مشتری گذری');
+      expect(extracted).toContain('شماره فاکتور');
+      expect(extracted).toContain('۱۴۰۵/۰۸/۱۳');
+      expect(extracted).toContain('ebffa35573');
+      expect(extracted).toContain('۶۱۵٬۱۸۱٬۸۱۸');
+    }
+  }, 60_000);
+
   it('multi-page invoice: paginates and every page has drawn text + fonts', async () => {
     stubFetch();
     const blob = await buildInvoicePdf({
