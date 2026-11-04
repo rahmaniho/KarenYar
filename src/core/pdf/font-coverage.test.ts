@@ -11,9 +11,10 @@ import { shapePersian } from './persian';
 
 const WEIGHTS = ['Regular', 'Medium', 'Bold'] as const;
 const FONT_DIR = 'public/fonts';
+const TTF_DIR = 'src/assets/fonts';
 
 function loadFont(weight: string): TrueTypeFont {
-  const buf = readFileSync(`${FONT_DIR}/Vazirmatn-${weight}.ttf`);
+  const buf = readFileSync(`${TTF_DIR}/Vazirmatn-${weight}.ttf`);
   return loadTrueTypeFont(
     buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer,
   );
@@ -92,7 +93,7 @@ const MUST_HAVE = [
   0x7c, // punctuation/symbols
 ];
 
-describe('font coverage (public/fonts TTF, embedded in PDF)', () => {
+describe('font coverage (src/assets/fonts TTF, bundled into the app)', () => {
   const shaped = shapedOutputCodePoints();
 
   it('shaper output is non-trivial (sanity)', () => {

@@ -14,9 +14,9 @@ import { buildPayslipPdf, payslipFileName } from './payroll-pdf';
 function stubFetch() {
   vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
     const url = String(input);
-    const match = url.match(/fonts\/(Vazirmatn-\w+)\.ttf$/);
+    const match = url.match(/(Vazirmatn-\w+)\.ttf(\?.*)?$/);
     if (match) {
-      const buf = readFileSync(`public/fonts/${match[1]}.ttf`);
+      const buf = readFileSync(`src/assets/fonts/${match[1]}.ttf`);
       return new Response(new Uint8Array(buf), { status: 200 });
     }
     return new Response(null, { status: 404 });
@@ -162,7 +162,7 @@ describe('payslip vector PDF', () => {
     }
     expect(glyphIds.length).toBeGreaterThan(50);
     expect(glyphIds).not.toContain(0);
-    const b = readFileSync('public/fonts/Vazirmatn-Regular.ttf');
+    const b = readFileSync('src/assets/fonts/Vazirmatn-Regular.ttf');
     const font = loadTrueTypeFont(
       b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer,
     );

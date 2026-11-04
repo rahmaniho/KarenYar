@@ -26,7 +26,7 @@ export default defineConfig({
       ],
       workbox: {
         // Cache-First برای همه‌ی assetهای build شده (آفلاین‌فرست)
-        globPatterns: ['**/*.{js,css,html,woff2,png,svg,webmanifest,ico}'],
+        globPatterns: ['**/*.{js,css,html,woff2,ttf,png,svg,webmanifest,ico}'],
         navigateFallback: `${base}index.html`,
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
