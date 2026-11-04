@@ -180,7 +180,7 @@ export function AppLayout() {
 
       <div className="app-content relative z-10">
         {/* هدر — تمام کنترلهای قبلی بدون تغییر عملکرد */}
-        <header className="sticky top-0 z-30 px-3 pt-3">
+        <header className="safe-area-top sticky top-0 z-30 px-3">
           <div className="glass-topbar mx-auto flex h-16 max-w-6xl items-center gap-2 rounded-2xl px-3">
             <Button
               ref={menuButtonRef}
