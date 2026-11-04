@@ -11,7 +11,11 @@ const commandOptions = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] };
 export function resolveBuildTarget(env) {
   if (env.GITHUB_REF?.startsWith('refs/tags/v')) return 'signed-release';
   if (env.GITHUB_EVENT_NAME === 'push' && env.ANDROID_TEST_PUSH === 'true') {
-    if (env.GITHUB_REF === 'refs/heads/arena/da58321a-karenyar') return 'github-test';
+    if (
+      env.GITHUB_REF === 'refs/heads/arena/da58321a-karenyar' ||
+      env.GITHUB_REF === 'refs/heads/arena/74812266-karenyar'
+    )
+      return 'github-test';
     if (env.GITHUB_REF === 'refs/heads/arena/bec0e04f-karenyar') return 'test-apk';
   }
   if (env.GITHUB_EVENT_NAME === 'workflow_dispatch') {

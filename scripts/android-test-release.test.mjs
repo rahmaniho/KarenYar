@@ -81,6 +81,33 @@ test('automatic publication requires both the allowed branch and an explicit tes
   );
 });
 
+test('the new publication branch only publishes an explicitly marked testing push', () => {
+  const automatic = {
+    ...env,
+    GITHUB_EVENT_NAME: 'push',
+    GITHUB_REF: 'refs/heads/arena/74812266-karenyar',
+    ANDROID_TEST_PUSH: 'true',
+  };
+  assert.equal(resolveBuildTarget(automatic), 'github-test');
+  assert.equal(
+    testReleasePlan(automatic, packageVersion).fileName,
+    `hesabyar-${packageVersion}-test.apk`,
+  );
+  assert.throws(() => resolveBuildTarget({ ...automatic, ANDROID_TEST_PUSH: 'false' }), /Select/);
+  assert.throws(
+    () => resolveBuildTarget({ ...automatic, GITHUB_REF: 'refs/heads/main' }),
+    /Select/,
+  );
+  assert.throws(
+    () => resolveBuildTarget({ ...automatic, GITHUB_REF: 'refs/heads/arena/other-karenyar' }),
+    /Select/,
+  );
+  assert.equal(
+    resolveBuildTarget({ ...automatic, GITHUB_REF: 'refs/tags/v1.4.2' }),
+    'signed-release',
+  );
+});
+
 test('the current Arena branch builds a private testing artifact, not a public prerelease', () => {
   const automatic = {
     ...env,
