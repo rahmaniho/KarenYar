@@ -15,6 +15,7 @@ import { PDFArray, PDFDict, PDFDocument, PDFName } from 'pdf-lib';
 import type { Customer, Invoice, InvoiceItem } from '@/core/db/db';
 import { formatJalaliNumeric } from '@/core/jalali/jalali';
 import { loadTrueTypeFont } from '@/core/pdf/font';
+import { shapePersian } from '@/core/pdf/persian';
 import { buildInvoicePdf, type InvoiceDocumentSettings } from './invoice-pdf';
 
 /** jsdom Blob has no .arrayBuffer(); read it via FileReader */
@@ -422,4 +423,84 @@ describe('invoice vector PDF — real output verification', () => {
     const pageMentions = (actualText.match(/صفحه/g) ?? []).length;
     expect(pageMentions).toBeGreaterThanOrEqual(doc.getPageCount());
   }, 60_000);
+
+  it('REGRESSION: right-joining-only letters (ا د و ر ذ) draw as correct forms, not wrongly joined', async () => {
+    stubFetch();
+    // user report: in the downloaded PDF, words around these letters looked jumbled
+    const nasty = 'دارو adar water';
+    const blob = await buildInvoicePdf({
+      invoice: makeInvoice({ customerName: 'مشتری گذری' }),
+      items: [
+        {
+          id: 1,
+          invoiceId: 1,
+          productId: null,
+          name: nasty,
+          qty: 1,
+          unitPrice: 1000,
+          unit: 'عدد',
+          discountAmount: 0,
+          unitCost: 0,
+          total: 1000,
+        },
+      ],
+      customer,
+      settings,
+      payments: [],
+    });
+    const bytes = await blobBytes(blob);
+    const streams = decompressedStreams(bytes);
+    const content = streams.filter((s) => s.includes(' Tj')).join('\n');
+
+    // expected drawn glyph ids = font gids of the shaper output, in logical order
+    const font = loadTrueTypeFont(
+      (() => {
+        const b = readFileSync('src/assets/fonts/Vazirmatn-Regular.ttf');
+        return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
+      })(),
+    );
+    const shapedCps = [...shapePersian(nasty)].map((c) => c.codePointAt(0) ?? 0);
+    const expectedGids = shapedCps.map((cp) => font.glyphId(cp));
+    expect(expectedGids).not.toContain(0); // every shaped form exists in the font
+
+    // the item-name cell is one text() call -> one ActualText span wrapping its Tj glyphs
+    const atHex =
+      'FEFF' +
+      [...nasty]
+        .map((c) => (c.codePointAt(0) ?? 0).toString(16).padStart(4, '0').toUpperCase())
+        .join('');
+    const atIdx = content.indexOf(`/ActualText <${atHex}>`);
+    expect(atIdx).toBeGreaterThan(-1); // span exists with the logical text
+    const emcIdx = content.indexOf('EMC', atIdx);
+    const span = content.slice(atIdx, emcIdx);
+    const drawnGids: number[] = [];
+    for (const m of span.matchAll(/<([0-9A-Fa-f]{4})>\s*Tj/g)) drawnGids.push(parseInt(m[1], 16));
+
+    // the drawn glyphs must be EXACTLY the shaped presentation forms (joined correctly),
+    // in logical order — no .notdef, no wrongly-joined forms after ا/د/و/ر/ذ
+    expect(drawnGids).not.toContain(0);
+    expect(drawnGids).toEqual(expectedGids);
+
+    // and extraction of that span yields the logical Persian+Latin string
+    const toUnicode = new Map<number, string>();
+    for (const s of streams) {
+      if (!s.includes('beginbfchar')) continue;
+      for (const m of s.matchAll(/<([0-9A-Fa-f]{4})>\s*<([0-9A-Fa-f]{4,})>/g)) {
+        toUnicode.set(parseInt(m[1], 16), m[2]);
+      }
+    }
+    let extractedSpan = '';
+    for (const gid of drawnGids) {
+      const dst = toUnicode.get(gid);
+      if (!dst) continue;
+      const buf = Buffer.from(dst, 'hex');
+      const be = Buffer.alloc(buf.length);
+      for (let i = 0; i + 1 < buf.length; i += 2) {
+        be[i] = buf[i + 1];
+        be[i + 1] = buf[i];
+      }
+      extractedSpan += be.toString('utf16le');
+    }
+    expect(extractedSpan).toBe(nasty);
+  }, 30_000);
 });
