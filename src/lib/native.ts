@@ -23,6 +23,23 @@ export async function initNativeShell(): Promise<void> {
     // نوار وضعیت سرمه‌ای هم‌رنگ برند با آیکن‌های روشن
     await StatusBar.setBackgroundColor({ color: '#0B1B3A' });
     await StatusBar.setStyle({ style: Style.Dark });
+    // حالت تمام‌صفحه (edge-to-edge): WebView زیر نوار وضعیت می‌رود و
+    // فاصله‌ی بالای صفحه با متغیر CSS --status-bar-height جبران می‌شود.
+    await StatusBar.setOverlaysWebView({ overlay: true });
+    // ارتفاع واقعی نوار وضعیت را به‌عنوان متغیر CSS تنظیم می‌کنیم تا هدر زیر آن بریده نشود
+    const applyStatusBarInset = async (): Promise<void> => {
+      try {
+        const info = await StatusBar.getInfo();
+        document.documentElement.style.setProperty(
+          '--status-bar-height',
+          `${Math.ceil(info.height)}px`,
+        );
+      } catch {
+        // اگر ارتفاع خوانده نشود، CSS به env(safe-area-inset-top) fallback می‌کند
+      }
+    };
+    await applyStatusBarInset();
+    window.addEventListener('resize', () => void applyStatusBarInset());
     // دکمه‌ی برگشت سخت‌افزاری: داخل برنامه عقب‌گرد، در ریشه خروج
     await App.addListener('backButton', ({ canGoBack }) => {
       if (canGoBack) window.history.back();

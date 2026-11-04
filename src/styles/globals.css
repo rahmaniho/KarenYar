@@ -426,3 +426,10 @@ a:hover .ks-mark-img {
     animation: none;
   }
 }
+
+/* فاصله‌ی امن بالای صفحه: در اپ اندروید (edge-to-edge) هدر زیر نوار وضعیت بریده می‌شود،
+   پس ارتفاع نوار وضعیت (متغیر --status-bar-height که پوسته‌ی بومی تنظیم می‌کند)
+   یا env(safe-area-inset-top) به‌عنوان پدینگ بالا اعمال می‌شود. روی وب مقدار صفر است. */
+.safe-area-top {
+  padding-top: max(0.75rem, var(--status-bar-height, env(safe-area-inset-top, 0px)));
+}
