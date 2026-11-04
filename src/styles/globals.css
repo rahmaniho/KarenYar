@@ -1,29 +1,17 @@
-/* ——— فونت وزیرمتن (Self-Hosted از پوشه‌ی public/fonts — بدون CDN خارجی) ——— */
+/* ——— فونت وزیرمتن (متغیر، Self-Hosted — منبع: github.com/rahmaniho/Qazvintasvir — بدون CDN خارجی)
+   یک فونت متغیر (wght 100-900) در دو زیرمجموعه‌ی unicode-range: عربی و لاتین ——— */
 @font-face {
   font-family: 'Vazirmatn';
-  src: url('/fonts/Vazirmatn-Regular.woff2') format('woff2');
-  font-weight: 400;
+  src: url('/fonts/vazirmatn-arabic-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF, U+200C-200F;
 }
 @font-face {
   font-family: 'Vazirmatn';
-  src: url('/fonts/Vazirmatn-Medium.woff2') format('woff2');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Vazirmatn';
-  src: url('/fonts/Vazirmatn-Bold.woff2') format('woff2');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Vazirmatn';
-  src: url('/fonts/Vazirmatn-ExtraBold.woff2') format('woff2');
-  font-weight: 800;
+  src: url('/fonts/vazirmatn-latin-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
