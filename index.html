@@ -5,31 +5,17 @@
     <link rel="icon" type="image/png" href="/icons/icon-192.png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <!-- پیش‌بارگذاری فونت وزیرمتن تا نمایش/چاپ قبل از کامل‌شدن فونت با فونت جایگزین انجام نشود -->
+    <!-- پیش‌بارگذاری فونت متغیر وزیرمتن (زیرمجموعه‌ی عربی و لاتین) تا نمایش/چاپ با فونت جایگزین انجام نشود -->
     <link
       rel="preload"
-      href="/fonts/Vazirmatn-Regular.woff2"
+      href="/fonts/vazirmatn-arabic-wght-normal.woff2"
       as="font"
       type="font/woff2"
       crossorigin
     />
     <link
       rel="preload"
-      href="/fonts/Vazirmatn-Medium.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
-    <link
-      rel="preload"
-      href="/fonts/Vazirmatn-Bold.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
-    <link
-      rel="preload"
-      href="/fonts/Vazirmatn-ExtraBold.woff2"
+      href="/fonts/vazirmatn-latin-wght-normal.woff2"
       as="font"
       type="font/woff2"
       crossorigin
@@ -48,6 +34,11 @@
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <div style="font-family: Tahoma, sans-serif; padding: 2rem; text-align: center">
+        حساب‌یار برای اجرا به JavaScript نیاز دارد؛ لطفاً آن را در مرورگر فعال کنید.
+      </div>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

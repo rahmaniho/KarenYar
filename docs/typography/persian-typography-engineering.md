@@ -34,8 +34,10 @@
 
 ## ۳. راهکارهای پیاده‌شده
 
-1. ساخت woff2 از همان TTF پروژه با scripts/build-web-fonts.py (fontTools): پوشش کامل لاتین + فارسی + علائم.
-   فایل Vazirmatn-ExtraBold.ttf از مخزن رسمی فونت (مجوز OFL) اضافه شد. پیش‌بارگذاری ۴ وزن در index.html.
+1. فونت وب و PDF هر دو از فونت متغیر وزیرمتن در مخزن
+   github.com/rahmaniho/Qazvintasvir (مجوز OFL) می‌آیند: دو woff2 متغیر (wght 100-900، زیرمجموعه‌ی عربی و لاتین)
+   در public/fonts برای @font-face با unicode-range، و TTFهای ایستا (wght 400/500/700/800 با زیرمجموعه‌ی لاتین merge‌شده)
+   با scripts/build-fonts-from-repo.py برای موتور PDF برداری. پیش‌بارگذاری ۲ فایل woff2 در index.html.
 2. اصلاح shapePersian: joinsNext یعنی initial !== isolated و joinsPrevious یعنی final !== isolated؛
    tatweel استثناست. بعد از ligature لا/لآ، حرف بعدی به لام می‌چسبد. ZWNJ و علائم ریاضی/نگارشی در فهرست neutral.
 3. فیش حقوقی برداری با همان موتور PDF (src/features/payroll/payroll-pdf.ts).
@@ -47,8 +49,9 @@
 
 ## ۴. فایل‌های تغییر‌داده‌شده
 
-- public/fonts/*.woff2 (ساخته‌شده‌ی جدید)، public/fonts/Vazirmatn-ExtraBold.ttf (جدید)
-- scripts/build-web-fonts.py و scripts/render-typography-sample.mts (جدید)
+- public/fonts/vazirmatn-{arabic,latin}-wght-normal.woff2 + LICENSE-vazirmatn.txt (از مخزن Qazvintasvir)،
+  public/fonts/Vazirmatn-{Regular,Medium,Bold,ExtraBold}.ttf (instanced+merged)
+- scripts/build-fonts-from-repo.py و scripts/render-typography-sample.mts
 - src/core/pdf/persian.ts (اصلاح شکل‌دهی و bidi)، src/core/pdf/font.ts (codePointForGlyph)
 - src/core/pdf/persian.test.ts و font-coverage.test.ts (جدید)
 - src/features/store/invoice-pdf.vector.test.ts (جدید)

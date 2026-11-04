@@ -5,6 +5,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import fontkit from '@pdf-lib/fontkit';
 import { loadTrueTypeFont, type TrueTypeFont } from './font';
 import { shapePersian } from './persian';
 
@@ -124,11 +125,24 @@ describe('font coverage (public/fonts TTF, embedded in PDF)', () => {
     });
   }
 
-  it('web woff2 files exist and are the full-coverage build (not the old 541-glyph subset)', () => {
-    for (const weight of [...WEIGHTS, 'ExtraBold']) {
-      const stat = readFileSync(`${FONT_DIR}/Vazirmatn-${weight}.woff2`);
-      // old subset was ~21-22KB / 541 glyphs; the regenerated files carry 895-1333 glyphs
-      expect(stat.byteLength).toBeGreaterThan(30_000);
-    }
+  it('web fonts are the variable woff2 pair from the Qazvintasvir repo (arabic + latin subsets)', () => {
+    // فونت وب: جفت woff2 متغیر (wght 100-900) از مخزن
+    // github.com/rahmaniho/Qazvintasvir — @font-face در globals.css به همین دو فایل اشاره می‌کند
+    const arabicBuf = readFileSync(`${FONT_DIR}/vazirmatn-arabic-wght-normal.woff2`);
+    const latinBuf = readFileSync(`${FONT_DIR}/vazirmatn-latin-wght-normal.woff2`);
+    expect(arabicBuf.byteLength).toBeGreaterThan(30_000);
+    expect(latinBuf.byteLength).toBeGreaterThan(20_000);
+    expect(readFileSync(`${FONT_DIR}/LICENSE-vazirmatn.txt`, 'utf-8')).toMatch(
+      /OPEN FONT LICENSE/i,
+    );
+    const arabic = fontkit.create(new Uint8Array(arabicBuf)) as fontkit.Font;
+    const latin = fontkit.create(new Uint8Array(latinBuf)) as fontkit.Font;
+    // زیرمجموعه‌ی عربی: حروف فارسی و شکل‌های نمایشی (FB50–FEFF) + ارقام فارسی + ٪
+    const aSet = new Set<number>(arabic.characterSet);
+    for (const cp of [0x0641, 0xfee4, 0xfefb, 0x06f0, 0x066a, 0x066c])
+      expect(aSet.has(cp)).toBe(true);
+    // زیرمجموعه‌ی لاتین: ارقام ASCII و … و −
+    const lSet = new Set<number>(latin.characterSet);
+    for (const cp of [0x0030, 0x0041, 0x2026, 0x2212]) expect(lSet.has(cp)).toBe(true);
   });
 });
