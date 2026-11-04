@@ -17,13 +17,13 @@ import { buildPayslipPdf } from '@/features/payroll/payroll-pdf';
 import { calculatePayroll, DEFAULT_PAYROLL_RATES, type PayrollInput } from '@/core/calc/payroll';
 import type { Employee } from '@/core/db/db';
 
-// serve fonts from public/fonts exactly like the dev server does
+// serve the bundled TTFs from src/assets/fonts (vite-node externalizes ?url assets)
 const realFetch = globalThis.fetch;
 globalThis.fetch = (async (input: RequestInfo | URL) => {
   const url = String(input);
-  const m = url.match(/fonts\/(Vazirmatn-\w+)\.ttf$/);
+  const m = url.match(/(Vazirmatn-\w+)\.ttf(\?.*)?$/);
   if (m) {
-    const buf = readFileSync(`public/fonts/${m[1]}.ttf`);
+    const buf = readFileSync(`src/assets/fonts/${m[1]}.ttf`);
     return new Response(new Uint8Array(buf), { status: 200 });
   }
   return new Response(null, { status: 404 });
@@ -231,6 +231,47 @@ async function main() {
   const invoiceBytes = new Uint8Array(await invoiceBlob.arrayBuffer());
   writeFileSync('docs/samples/factor-persian-verification.pdf', invoiceBytes);
   console.log('wrote docs/samples/factor-persian-verification.pdf', invoiceBytes.length, 'bytes');
+
+  // نمونه فاکتور کلاسیک (factor-1024) — با موتور فعلی: متن استخراجی حروف پایه‌ی فارسی است
+  const sampleShop: InvoiceDocumentSettings = {
+    shopName: 'فروشگاه لوازم خانگی نمونه',
+    shopPhone: '021-88990011',
+    shopAddress: 'تهران، خیابان ولیعصر، پلاک ۱۲۵',
+    currencyUnit: 'toman',
+    invoiceFooterNote: '',
+    invoiceShowLogo: false,
+  };
+  const sampleInvoice: Invoice = {
+    id: 2,
+    number: 1024,
+    date: '2026-10-02T12:00:00.000Z',
+    customerName: 'حسین رحمانی',
+    customerPhone: '09123456789',
+    customerAddress: 'تهران، خیابان ولیعصر، پلاک ۱۲۵',
+    status: 'completed',
+    paymentMethod: 'cash',
+    subtotal: 2425000000 + 48500000,
+    discountType: 'percent',
+    discountValue: 0,
+    taxPercent: 0,
+    total: 2473500000,
+    note: '',
+  };
+  const sampleItems: InvoiceItem[] = [
+    { id: 1, invoiceId: 2, productId: null, name: 'یخچال ساید‌بای‌ساید ۳۲ فوت مدل DWS-32', qty: 1, unitPrice: 2425000000, discountType: 'percent', discountValue: 0, total: 2425000000 },
+    { id: 2, invoiceId: 2, productId: null, name: 'ماشین لباسشویی ۹ کیلو', qty: 1, unitPrice: 890000000, discountType: 'percent', discountValue: 0, total: 890000000 },
+    { id: 3, invoiceId: 2, productId: null, name: 'جاروبرقی سطلی ۱۷۵۰ وات', qty: 1, unitPrice: 750000000, discountType: 'percent', discountValue: 0, total: 750000000 },
+  ];
+  const sampleBlob = await buildInvoicePdf({
+    invoice: sampleInvoice,
+    items: sampleItems,
+    customer: null,
+    settings: sampleShop,
+    payments: [],
+  });
+  const sampleBytes = new Uint8Array(await sampleBlob.arrayBuffer());
+  writeFileSync('docs/samples/factor-1024.pdf', sampleBytes);
+  console.log('wrote docs/samples/factor-1024.pdf', sampleBytes.length, 'bytes');
 
   const employee: Employee = {
     id: 3,

@@ -11,7 +11,7 @@ import type { CurrencyUnit } from '@/core/currency/currency';
 import { CURRENCY_LABELS, toFaDigits } from '@/core/currency/currency';
 import { jalaliMonthLabel } from '@/core/jalali/jalali';
 import { PdfCanvas, MM } from '@/core/pdf/canvas';
-import { faNumber, WORD_JOINER } from '@/core/pdf/persian';
+import { faNumber, normalizePersian, WORD_JOINER } from '@/core/pdf/persian';
 import { amountInWords } from '@/core/text/amount-words';
 
 export interface PayslipDocumentInput {
@@ -66,10 +66,15 @@ export async function buildPayslipPdf(input: PayslipDocumentInput): Promise<Blob
     `${faNumber(unit === 'rial' ? amount * 10 : amount)} ${WORD_JOINER}${unitLabel}`;
 
   const canvas = await PdfCanvas.create({
-    title: `فیش حقوقی ${employee.name} — ${jalaliMonthLabel(month)} — ${shopName}`,
+    title: `فیش حقوقی ${normalizePersian(employee.name)} — ${jalaliMonthLabel(month)} — ${normalizePersian(shopName)}`,
     subject: `فیش حقوقی ${jalaliMonthLabel(month)}`,
-    author: shopName,
-    keywords: ['فیش حقوقی', employee.name, jalaliMonthLabel(month), shopName],
+    author: normalizePersian(shopName),
+    keywords: [
+      'فیش حقوقی',
+      normalizePersian(employee.name),
+      jalaliMonthLabel(month),
+      normalizePersian(shopName),
+    ],
     baseUrl: import.meta.env.BASE_URL,
   });
   canvas.newPage();
