@@ -1,0 +1,75 @@
+name: Laravel backend
+
+# بررسی نسخهٔ متصل‌به‌سرور:
+# ۱) کپی فرانت‌اند لاراول باید دقیقاً برابر src/ + frontend-overlay/ باشد.
+# ۲) فرانت‌اند باید typecheck و تست‌ها را پاس کند.
+# ۳) تست‌های Pest بک‌اند (مشورتی — تا وقتی روی CI سبز نشده شکستش مانع merge نیست).
+on:
+  push:
+    branches: [main, 'arena/**']
+    paths:
+      - 'src/**'
+      - 'laravel-backend/**'
+      - 'scripts/sync-laravel-frontend.mjs'
+      - '.github/workflows/laravel.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'laravel-backend/**'
+      - 'scripts/sync-laravel-frontend.mjs'
+      - '.github/workflows/laravel.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-sync:
+    name: هم‌خوانی فرانت‌اند (src + overlay)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: بررسی هم‌خوانی کپی
+        run: node scripts/sync-laravel-frontend.mjs --check
+
+  frontend-checks:
+    name: typecheck + vitest روی کپی لاراول
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: laravel-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: laravel-backend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  backend-tests:
+    name: Pest (مشورتی)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: laravel-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_sqlite, sqlite3
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: cp .env.example .env && php artisan key:generate
+      - run: npm ci && npm run build
+      - run: php artisan test

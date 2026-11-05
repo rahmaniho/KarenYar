@@ -39,6 +39,21 @@ npm run icons:karo
 
 جزئیات در [`docs/branding/logo.md`](docs/branding/logo.md).
 
+## نسخهٔ متصل به سرور (Laravel)
+
+پوشهٔ [`laravel-backend/`](laravel-backend/README.md) یک بک‌اند Laravel است که همان رابط کاربری
+`src/` را در **حالت سروری** سرو می‌کند: ورود با نشست، نقش مدیر/فروشگاه، لایسنس فروشگاه‌محور و
+همگام‌سازی داده در دیتابیس. اپ اصلی (PWA/اندروید) همچنان آفلاین با Dexie کار می‌کند.
+
+کپی فرانت‌اند داخل لاراول **تولیدشده** است (`src/` + overlay) و دستی ویرایش نمی‌شود:
+
+```bash
+npm run sync:laravel-frontend    # بازسازی laravel-backend/resources/js
+npm run check:laravel-frontend   # بررسی هم‌خوانی (در CI)
+```
+
+جزئیات: [`docs/laravel-integration.md`](docs/laravel-integration.md)
+
 ## مستندات
 
 - [`docs/android-release.md`](docs/android-release.md) — ساخت و انتشار اندروید
@@ -46,4 +61,6 @@ npm run icons:karo
 - [`docs/business-guide.md`](docs/business-guide.md) — راهنمای کسب‌وکار
 - [`docs/cpanel-setup.md`](docs/cpanel-setup.md) — استقرار روی cPanel
 - [`docs/domain-setup.md`](docs/domain-setup.md) — اتصال دامنهٔ `karo.karen-soft.ir` به GitHub Pages
+- [`docs/laravel-integration.md`](docs/laravel-integration.md) — یکپارچگی با بک‌اند Laravel و قاعدهٔ همگام‌سازی فرانت‌اند
+- [`laravel-backend/README.md`](laravel-backend/README.md) — راه‌اندازی، API و استقرار بک‌اند
 - [`deploy/cpanel-app/README.md`](deploy/cpanel-app/README.md) — آپلود بستهٔ آماده روی هاست cPanel

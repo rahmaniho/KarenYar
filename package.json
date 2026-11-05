@@ -29,7 +29,9 @@
     "icons": "python3 scripts/build-brand-assets.py",
     "icons:karo": "python3 scripts/build-app-logo.py && python3 scripts/build-android-icons.py",
     "prepare": "husky",
-    "android:publish-test": "node scripts/android-test-release.mjs publish"
+    "android:publish-test": "node scripts/android-test-release.mjs publish",
+    "sync:laravel-frontend": "node scripts/sync-laravel-frontend.mjs",
+    "check:laravel-frontend": "node scripts/sync-laravel-frontend.mjs --check"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

@@ -33,3 +33,8 @@ Thumbs.db
 
 # Local release artifacts (uploaded to GitHub Releases, not committed)
 karo-staging-web.zip
+
+# Laravel backend (agent/work scratch dirs)
+/graphify-out
+/laravel-backend/graphify-out
+/laravel-backend/.claude
