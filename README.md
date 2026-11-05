@@ -60,6 +60,7 @@ npm run build:laravel-package    # بستهٔ استقرار روی cPanel
 
 ## مستندات
 
+- [`docs/onboarding.md`](docs/onboarding.md) — راهنمای ورود تازه‌وارد (از کجا شروع کنم)
 - [`docs/android-release.md`](docs/android-release.md) — ساخت و انتشار اندروید
 - [`docs/security-step-by-step.md`](docs/security-step-by-step.md) — امنیت و لایسنس
 - [`docs/business-guide.md`](docs/business-guide.md) — راهنمای کسب‌وکار
