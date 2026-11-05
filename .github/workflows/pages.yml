@@ -1,10 +1,12 @@
 name: Deploy to GitHub Pages
 
-# نمایش زنده‌ی برنامه روی زیردامنه‌ی اختصاصی: https://hesabyar.karen-soft.ir
-# (دامنه از فایل public/CNAME خوانده می‌شود؛ DNS آن در پنل ثبت‌کننده به rahmaniho.github.io اشاره می‌کند)
+# نمایش زنده‌ی برنامه روی زیردامنه‌ی اختصاصی: https://karo.karen-soft.ir
+# دامنه از فایل public/CNAME خوانده می‌شود و باید در پنل DNS به rahmaniho.github.io اشاره کند
+# (راهنمای کامل اتصال: docs/domain-setup.md)
 on:
   push:
-    branches: [main, 'arena/7c7cf0f8-karenyar']
+    # فقط main؛ محیط github-pages هم تنها همین شاخه را می‌پذیرد.
+    branches: [main]
   # روزی دو بار نرخ‌های ارز/طلا/نقره تازه می‌شوند و سایت دوباره منتشر می‌شود (۱۰:۰۰ و ۱۷:۰۰ تهران)
   schedule:
     - cron: '30 6 * * *'
@@ -67,3 +69,17 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+      # بررسی اتصال دامنه پس از انتشار: اگر DNS هنوز به GitHub Pages اشاره نکند،
+      # فقط یک هشدار ثبت می‌شود و انتشار شکست نمی‌خورد.
+      - name: Connection check — https://karo.karen-soft.ir
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          status=$(curl -sS -L --max-time 30 -o /tmp/karo-index.html -w '%{http_code}' https://karo.karen-soft.ir/ || echo '000')
+          echo "GET https://karo.karen-soft.ir/ -> ${status}"
+          if [ "${status}" = "200" ] && grep -q '<div id="root">' /tmp/karo-index.html; then
+            echo "OK — دامنه، اپ کارو را سرو می‌کند."
+          else
+            echo "::warning::دامنهٔ karo.karen-soft.ir هنوز اپ کارو را سرو نمی‌کند (کد ${status}). رکورد CNAME در پنل DNS باید به rahmaniho.github.io اشاره کند — docs/domain-setup.md"
+          fi

@@ -6,6 +6,7 @@
 فاکتور، درآمد و هزینه، حقوق و دستمزد، و ابزارهای محاسباتی — همه در یک محیط ساده و یکپارچه.
 
 - برند پیشین این محصول «حساب‌یار» بود؛ از این نسخه با نام **کارو — نرم‌افزار حسابداری** منتشر می‌شود.
+- نسخهٔ آنلاین: **https://karo.karen-soft.ir** (راهنمای اتصال دامنه: [`docs/domain-setup.md`](docs/domain-setup.md))
 - طراحی و توسعه: **کارن سافت** — [karen-soft.ir](https://www.karen-soft.ir)
 
 ## اجرا
@@ -44,3 +45,4 @@ npm run icons:karo
 - [`docs/security-step-by-step.md`](docs/security-step-by-step.md) — امنیت و لایسنس
 - [`docs/business-guide.md`](docs/business-guide.md) — راهنمای کسب‌وکار
 - [`docs/cpanel-setup.md`](docs/cpanel-setup.md) — استقرار روی cPanel
+- [`docs/domain-setup.md`](docs/domain-setup.md) — اتصال دامنهٔ `karo.karen-soft.ir` به GitHub Pages
