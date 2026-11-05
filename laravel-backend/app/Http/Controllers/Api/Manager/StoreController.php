@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\StoreResource;
 use App\Models\Store;
 use App\Models\User;
+use App\Support\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -68,6 +69,13 @@ class StoreController extends Controller
 
         $store->load('license')->loadCount('users');
 
+        AuditLogger::record('store_created', [
+            'store_id' => $store->id,
+            'subject_type' => 'store',
+            'subject_key' => $store->id,
+            'meta' => ['name' => $store->name, 'email' => $data['email']],
+        ]);
+
         return response()->json(['store' => new StoreResource($store)], 201);
     }
 
@@ -110,6 +118,13 @@ class StoreController extends Controller
 
         $store->refresh()->load('license')->loadCount('users');
 
+        AuditLogger::record('store_updated', [
+            'store_id' => $store->id,
+            'subject_type' => 'store',
+            'subject_key' => $store->id,
+            'meta' => ['name' => $store->name, 'is_active' => $store->is_active],
+        ]);
+
         return response()->json(['store' => new StoreResource($store)]);
     }
 
@@ -118,12 +133,21 @@ class StoreController extends Controller
      */
     public function destroy(Store $store): JsonResponse
     {
+        $snapshot = ['store_id' => $store->id, 'name' => $store->name];
+
         DB::transaction(function () use ($store) {
             // کاربران فروشگاه پیش از حذف فروشگاه پاک می‌شوند؛ دادهٔ فروشگاه با
             // کلیدهای خارجی cascade حذف می‌شود.
             User::where('store_id', $store->id)->delete();
             $store->delete();
         });
+
+        AuditLogger::record('store_deleted', [
+            'store_id' => null,
+            'subject_type' => 'store',
+            'subject_key' => $snapshot['store_id'],
+            'meta' => $snapshot,
+        ]);
 
         return response()->json(['ok' => true]);
     }
@@ -142,6 +166,19 @@ class StoreController extends Controller
         });
 
         $store->refresh()->load('license')->loadCount('users');
+
+        AuditLogger::record('license_updated', [
+            'store_id' => $store->id,
+            'subject_type' => 'license',
+            'subject_key' => $store->license?->id,
+            'meta' => [
+                'store' => $store->name,
+                'tier' => $store->license?->tier,
+                'is_lifetime' => (bool) $store->license?->is_lifetime,
+                'is_active' => (bool) $store->license?->is_active,
+                'expires_at' => $store->license?->expires_at?->toIso8601String(),
+            ],
+        ]);
 
         return response()->json(['store' => new StoreResource($store)]);
     }

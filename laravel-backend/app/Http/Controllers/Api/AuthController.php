@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Support\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -25,12 +26,24 @@ class AuthController extends Controller
         $user = User::where('email', $credentials['email'])->first();
 
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+            AuditLogger::record('login_failed', [
+                'user_id' => null,
+                'store_id' => null,
+                'meta' => ['email' => $credentials['email']],
+            ]);
+
             throw ValidationException::withMessages([
                 'email' => ['ایمیل یا رمز عبور نادرست است.'],
             ]);
         }
 
         if (! $user->is_active) {
+            AuditLogger::record('login_blocked', [
+                'user_id' => $user->getKey(),
+                'store_id' => $user->store_id,
+                'meta' => ['email' => $user->email],
+            ]);
+
             throw ValidationException::withMessages([
                 'email' => ['این حساب غیرفعال شده است. با پشتیبانی تماس بگیرید.'],
             ]);
@@ -41,6 +54,10 @@ class AuthController extends Controller
 
         $user->forceFill(['last_login_at' => now()])->save();
         $user->load('store.license');
+
+        AuditLogger::record('login', [
+            'meta' => ['role' => $user->role],
+        ]);
 
         return response()->json(['user' => new UserResource($user)]);
     }
@@ -55,6 +72,8 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
+        AuditLogger::record('logout');
+
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();

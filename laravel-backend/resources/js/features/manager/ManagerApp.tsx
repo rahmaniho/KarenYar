@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { ApiError, apiFetch } from '@/core/api/client';
+import { AuditPanel } from './AuditPanel';
 import { toFaDigits } from '@/core/currency/currency';
 import { formatJalaliLong } from '@/core/jalali/jalali';
 import { assetUrl } from '@/lib/utils';
@@ -403,6 +404,7 @@ export function ManagerApp() {
             );
           })}
         </div>
+        <AuditPanel />
       </main>
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AuditController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\LicenseController;
 use App\Http\Controllers\Api\Manager\StoreController;
@@ -26,6 +27,7 @@ Route::prefix('api')->group(function () {
         Route::post('logout', [AuthController::class, 'logout'])->name('api.logout');
         Route::get('me', [AuthController::class, 'me'])->name('api.me');
         Route::get('license', [LicenseController::class, 'show'])->name('api.license');
+        Route::get('audit', [AuditController::class, 'mine'])->name('api.audit');
 
         // ————— مدیر کل: فروشگاه‌ها و لایسنس‌ها —————
         Route::middleware('manager')->prefix('manager')->group(function () {
@@ -35,6 +37,9 @@ Route::prefix('api')->group(function () {
             Route::put('stores/{store}', [StoreController::class, 'update']);
             Route::delete('stores/{store}', [StoreController::class, 'destroy']);
             Route::put('stores/{store}/license', [StoreController::class, 'updateLicense']);
+
+            // ————— دفتر رویدادها —————
+            Route::get('audit', [AuditController::class, 'index']);
         });
 
         // ————— کاربر فروشگاه: همگام‌سازی داده —————

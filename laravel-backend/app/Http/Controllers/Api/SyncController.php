@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -327,12 +328,21 @@ class SyncController extends Controller
             }
         });
 
+        $total = array_sum($imported);
+
+        AuditLogger::record('data_imported', [
+            'store_id' => $storeId,
+            'subject_type' => 'store',
+            'subject_key' => $storeId,
+            'meta' => ['total' => $total, 'tables' => $imported],
+        ]);
+
         return response()->json([
             'ok' => true,
             'storeId' => $storeId,
             'rev' => $this->currentRev($storeId),
             'imported' => $imported,
-            'total' => array_sum($imported),
+            'total' => $total,
         ]);
     }
 
@@ -376,6 +386,12 @@ class SyncController extends Controller
                 }
             }
         });
+
+        AuditLogger::record('data_wiped', [
+            'store_id' => $storeId,
+            'subject_type' => 'store',
+            'subject_key' => $storeId,
+        ]);
 
         return response()->json([
             'ok' => true,
