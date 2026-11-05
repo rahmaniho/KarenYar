@@ -107,20 +107,27 @@ curl -sI https://karo.karen-soft.ir/images/karo/logo.png # لوگوی کارو
 workflow بعد از هر انتشار یک مرحلهٔ «Connection check» دارد که همین بررسی را انجام می‌دهد و
 اگر دامنه هنوز اپ را سرو نکند، فقط **هشدار** ثبت می‌کند (بدون شکستن انتشار).
 
-## مسیر جایگزین — سرو از هاست cPanel
+## مسیر جایگزین (سریع‌ترین) — سرو از همان هاست cPanel
 
-اگر ترجیح می‌دهید دامنه روی هاست کارن‌سافت بماند و از همان‌جا سرو شود:
+رکورد DNS فعلی `karo` به هاست کارن‌سافت اشاره می‌کند و Document Root آن زیردامنه خالی است؛
+پس برای دیدن اپ روی همین آدرس، **بدون هیچ تغییر DNS** فقط کافی است بستهٔ آماده را آپلود کنید:
 
 ```bash
 npm ci
-npm run build                     # base=/ → dist
+npm run build:web-archive         # build با base=/ + ساخت ZIP
+# خروجی: deploy/cpanel-app/artifacts/karo-web.zip
 ```
 
-سپس محتویات `dist` (همراه فایل `.htaccess`) را در Document Root زیردامنهٔ
-`karo.karen-soft.ir` آپلود کنید. در این حالت:
+سپس `karo-web.zip` را در **cPanel → File Manager** داخل Document Root زیردامنهٔ
+`karo.karen-soft.ir` آپلود و Extract کنید (همراه فایل مخفی `.htaccess`). جزئیات:
+[`deploy/cpanel-app/README.md`](../deploy/cpanel-app/README.md).
+
+در این حالت:
 
 - رکوردهای DNS فعلی (اشاره به cPanel) را دست نزنید؛
-- در GitHub Pages دامنه را بردارید یا فایل `CNAME` را حذف کنید تا Pages دامنه را پس نگیرد.
+- برای اینکه دو منبع برای یک دامنه نداشته باشیم، در GitHub Pages دامنهٔ سفارشی را بردارید
+  (Settings → Pages → Custom domain → Remove) و فایل `CNAME` را هم پاک کنید تا انتشار
+  بعدی آن را برنگرداند.
 
 ## نکته‌های سازگاری
 

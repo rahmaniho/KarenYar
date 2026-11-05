@@ -46,3 +46,4 @@ npm run icons:karo
 - [`docs/business-guide.md`](docs/business-guide.md) — راهنمای کسب‌وکار
 - [`docs/cpanel-setup.md`](docs/cpanel-setup.md) — استقرار روی cPanel
 - [`docs/domain-setup.md`](docs/domain-setup.md) — اتصال دامنهٔ `karo.karen-soft.ir` به GitHub Pages
+- [`deploy/cpanel-app/README.md`](deploy/cpanel-app/README.md) — آپلود بستهٔ آماده روی هاست cPanel
