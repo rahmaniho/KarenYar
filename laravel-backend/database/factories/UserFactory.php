@@ -26,31 +26,20 @@ class UserFactory extends Factory
     {
         return [
             'name' => fake()->name(),
-            'phone' => '09'.fake()->randomNumber(9, true),
+            'email' => fake()->unique()->safeEmail(),
+            'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
-            'role' => 'user',
-            'status' => 'approved',
             'remember_token' => Str::random(10),
         ];
     }
 
     /**
-     * Indicate that the user should be pending approval.
+     * Indicate that the model's email address should be unverified.
      */
-    public function pending(): static
+    public function unverified(): static
     {
         return $this->state(fn (array $attributes) => [
-            'status' => 'pending',
-        ]);
-    }
-
-    /**
-     * Indicate that the user should be an administrator.
-     */
-    public function admin(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'role' => 'admin',
+            'email_verified_at' => null,
         ]);
     }
 }
