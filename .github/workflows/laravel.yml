@@ -3,7 +3,7 @@ name: Laravel backend
 # بررسی نسخهٔ متصل‌به‌سرور:
 # ۱) کپی فرانت‌اند لاراول باید دقیقاً برابر src/ + frontend-overlay/ باشد.
 # ۲) فرانت‌اند باید typecheck و تست‌ها را پاس کند.
-# ۳) تست‌های Pest بک‌اند (مشورتی — تا وقتی روی CI سبز نشده شکستش مانع merge نیست).
+# ۳) تست‌های Pest بک‌اند.
 on:
   push:
     branches: [main, 'arena/**']
@@ -53,9 +53,8 @@ jobs:
       - run: npm test
 
   backend-tests:
-    name: Pest (مشورتی)
+    name: Pest (بک‌اند)
     runs-on: ubuntu-latest
-    continue-on-error: true
     defaults:
       run:
         working-directory: laravel-backend
