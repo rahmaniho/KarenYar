@@ -79,11 +79,11 @@ export function testReleasePlan(env, version) {
   }
   // A fresh tag for every attempt avoids replacing an APK with a different debug signature.
   const tag = `android-test-v${version}-${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT}`;
-  const fileName = `hesabyar-${version}-test.apk`;
+  const fileName = `karo-${version}-test.apk`;
   return {
     tag,
     fileName,
-    title: `حساب‌یار اندروید ${version} — آزمایشی / NOT FOR STORES`,
+    title: `کارو اندروید ${version} — آزمایشی / NOT FOR STORES`,
     repository: env.GITHUB_REPOSITORY,
     sha: env.GITHUB_SHA,
     url: `https://github.com/${env.GITHUB_REPOSITORY}/releases/tag/${tag}`,
@@ -141,7 +141,7 @@ export function publishTestRelease(env, apkPath, buildToolsDirectory, run = exec
   writeFileSync(
     notes,
     [
-      '# حساب‌یار اندروید — نسخهٔ آزمایشی',
+      '# کارو اندروید — نسخهٔ آزمایشی',
       '',
       '**TEST / DEBUG — فقط برای نصب و تست روی گوشی؛ برای بازار و سایر فروشگاه‌ها مناسب نیست.**',
       '',

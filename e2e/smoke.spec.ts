@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test.describe('حساب‌یار کارن سافت — سناریوهای اصلی', () => {
+test.describe('کارو نرم‌افزار حسابداری — سناریوهای اصلی', () => {
   test('داشبورد فارسی و راست‌چین بارگذاری می‌شود', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');

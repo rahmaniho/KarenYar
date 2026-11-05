@@ -1,10 +1,10 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
-// پیکربندی نسخه‌ی بومی (اندروید) — همان وب‌اپ حساب‌یار داخل WebView اجرا می‌شود.
-// شناسه‌ی برنامه: ir.karensoft.hesabyar — نام نمایشی: حساب‌یار کارن سافت
+// پیکربندی نسخه‌ی بومی (اندروید) — همان وب‌اپ کارو داخل WebView اجرا می‌شود.
+// شناسه‌ی برنامه: ir.karensoft.hesabyar — نام نمایشی: کارو نرم‌افزار حسابداری
 const config: CapacitorConfig = {
   appId: 'ir.karensoft.hesabyar',
-  appName: 'حساب‌یار کارن سافت',
+  appName: 'کارو نرم‌افزار حسابداری',
   webDir: 'dist',
   backgroundColor: '#000000',
   server: {

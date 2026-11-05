@@ -38,8 +38,11 @@ function karen_deploy_e($value): string
     return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
-$releaseUrl = 'https://raw.githubusercontent.com/rahmaniho/KarenYar/arena/1bdeff0a-karenyar/deploy/cpanel-staging/artifacts/hesabyar-staging-web.zip';
-$expectedSha256 = 'd5830fc0d9d4af0e67784a34255af0944dc4cc821a975b089abe9b6778952125';
+// بستهٔ رسمی استقرار staging (ساخته‌شده با «npm run build:staging-archive»).
+// با متغیر محیطی KAREN_DEPLOY_RELEASE_URL می‌توان به شاخه/آینهٔ دیگری اشاره کرد.
+$releaseUrl = getenv('KAREN_DEPLOY_RELEASE_URL') ?: 'https://raw.githubusercontent.com/rahmaniho/KarenYar/main/deploy/cpanel-staging/artifacts/karo-staging-web.zip';
+// پس از هر بازسازی بسته، این هش را از خروجی scripts/build-web-archive.py به‌روز کنید.
+$expectedSha256 = '6386fe6c69f3ccad30ceef5f0a56fdbbefe70b3d14fb10beabb38550479de893';
 $targetDir = dirname(__DIR__) . '/app';
 $error = '';
 $success = '';
@@ -204,7 +207,7 @@ header("Content-Security-Policy: default-src 'none'; style-src 'nonce-" . $nonce
 </head>
 <body>
 <main>
-  <h1>نصب وب‌اپ آزمایشی حساب‌یار — staging</h1>
+  <h1>نصب وب‌اپ آزمایشی کارو — staging</h1>
   <p><a href="./">بازگشت به پنل ادمین</a></p>
 
   <?php if ($success !== ''): ?>
@@ -218,7 +221,7 @@ header("Content-Security-Policy: default-src 'none'; style-src 'nonce-" . $nonce
   <?php endif; ?>
 
   <div class="card">
-    <p class="warn">این صفحه فقط برای staging است. بستهٔ رسمی وب‌اپ را از GitHub دانلود می‌کند، SHA-256 آن را بررسی می‌کند و در پوشهٔ app نصب می‌کند. به نسخهٔ اصلی حساب‌یار دست نمی‌زند.</p>
+    <p class="warn">این صفحه فقط برای staging است. بستهٔ رسمی وب‌اپ را از GitHub دانلود می‌کند، SHA-256 آن را بررسی می‌کند و در پوشهٔ app نصب می‌کند. به نسخهٔ اصلی کارو دست نمی‌زند.</p>
     <p>مسیر نصب:</p>
     <code><?php echo karen_deploy_e($targetDir); ?></code>
     <p class="muted">اگر پوشه app از قبل وجود داشته باشد، فایل‌های بسته روی آن نوشته می‌شوند. پوشه‌های admin و v1 تغییر نمی‌کنند.</p>

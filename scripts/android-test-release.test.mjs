@@ -91,7 +91,7 @@ test('the new publication branch only publishes an explicitly marked testing pus
   assert.equal(resolveBuildTarget(automatic), 'github-test');
   assert.equal(
     testReleasePlan(automatic, packageVersion).fileName,
-    `hesabyar-${packageVersion}-test.apk`,
+    `karo-${packageVersion}-test.apk`,
   );
   assert.throws(() => resolveBuildTarget({ ...automatic, ANDROID_TEST_PUSH: 'false' }), /Select/);
   assert.throws(
@@ -162,7 +162,7 @@ test('testing publication cannot be used for a version tag, private artifact or 
 test('testing tags are separate from stable version tags and unique for reruns', () => {
   const plan = testReleasePlan(env, '1.3.0');
   assert.equal(plan.tag, 'android-test-v1.3.0-12345-1');
-  assert.equal(plan.fileName, 'hesabyar-1.3.0-test.apk');
+  assert.equal(plan.fileName, 'karo-1.3.0-test.apk');
   assert.match(plan.title, /NOT FOR STORES/);
   assert.equal(
     plan.downloadUrl,

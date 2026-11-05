@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = 'HesabyarAdmin'
+rootProject.name = 'KaroAdmin'
 include ':app'

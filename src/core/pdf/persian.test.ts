@@ -24,11 +24,11 @@ const hex = (s: string): string =>
 
 /** The 9 sample strings required by the typography spec */
 const SAMPLES = [
-  'حسابیار؛ مدیریت هوشمند امور مالی و حسابداری',
+  'کارو؛ مدیریت هوشمند امور مالی و حسابداری',
   'فاکتور فروش شماره ۱۲۵۴ در تاریخ ۱۴۰۵/۰۸/۱۳ صادر شده است.',
   'مبلغ قابل پرداخت: ۶۷۷٬۸۳۵٬۲۰۰ تومان',
   'مدیریت قراردادها، حساب‌های دریافتنی و پرداختنی',
-  'KarenSoft | Hesabyar | info@example.com',
+  'KarenSoft | Karo | info@example.com',
   'شماره تماس: 09152521166',
   'کالای خریداری‌شده (Product) با تخفیف ۱۰٪',
   'نشانی: تهران، خیابان ولیعصر، پلاک ۱۲۵',
@@ -118,7 +118,7 @@ describe('bidiReorder — bidirectional ordering', () => {
     expect(bidiReorder(shapePersian('۶۷۷٬۸۳۵٬۲۰۰'))).toBe('۶۷۷٬۸۳۵٬۲۰۰');
   });
   it('pure Latin text is untouched', () => {
-    const latin = 'KarenSoft | Hesabyar | info@example.com';
+    const latin = 'KarenSoft | Karo | info@example.com';
     expect(bidiReorder(latin)).toBe(latin);
   });
   it('Latin tracking code with dashes keeps its order', () => {

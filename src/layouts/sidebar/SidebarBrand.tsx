@@ -15,7 +15,7 @@ interface SidebarBrandProps {
   onNavigate: () => void;
 }
 
-/** سربرند برند: لوگوی واقعی حسابیار، نام، شعار محصول، شمارش هشدارهای واقعی و دکمهی جمع/باز کردن */
+/** سربرند برند: لوگوی واقعی کارو، نام، شعار محصول، شمارش هشدارهای واقعی و دکمهی جمع/باز کردن */
 export function SidebarBrand({
   collapsed,
   isDrawer,
@@ -32,7 +32,7 @@ export function SidebarBrand({
       className={`flex shrink-0 items-center rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#d6b46a] ${
         collapsed ? 'justify-center' : 'min-w-0 flex-1 justify-start'
       }`}
-      aria-label="حساب‌یار کارن سافت — داشبورد"
+      aria-label="کارو نرم‌افزار حسابداری — داشبورد"
     >
       {collapsed ? (
         <span
@@ -42,7 +42,7 @@ export function SidebarBrand({
           }}
         >
           <img
-            src={assetUrl('images/hesabyar/mark.png')}
+            src={assetUrl('images/karo/mark.png')}
             alt=""
             width={512}
             height={512}
@@ -51,11 +51,11 @@ export function SidebarBrand({
         </span>
       ) : (
         <img
-          src={assetUrl('images/hesabyar/logo.png')}
-          alt="لوگوی حساب‌یار"
-          width={771}
-          height={283}
-          className="h-11 w-auto max-w-full rounded-xl bg-white p-1 object-contain"
+          src={assetUrl('images/karo/logo.png')}
+          alt="لوگوی کارو"
+          width={764}
+          height={274}
+          className="h-10 w-auto max-w-full object-contain"
         />
       )}
     </Link>

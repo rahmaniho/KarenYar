@@ -456,17 +456,17 @@ export function SettingsPage() {
             {isInstalled ? (
               <p className="flex items-center gap-2 text-sm">
                 <BadgeCheck className="h-5 w-5 text-success" aria-hidden />
-                حساب‌یار روی این دستگاه نصب شده است.
+                کارو روی این دستگاه نصب شده است.
               </p>
             ) : canInstall ? (
               <>
                 <p className="text-sm leading-7 text-muted-foreground">
-                  حساب‌یار را مثل یک اپ واقعی روی گوشی یا دسکتاپ نصب کنید تا بدون مرورگر و کاملاً
-                  آفلاین در دسترس باشد.
+                  کارو را مثل یک اپ واقعی روی گوشی یا دسکتاپ نصب کنید تا بدون مرورگر و کاملاً آفلاین
+                  در دسترس باشد.
                 </p>
                 <Button variant="neon" onClick={promptInstall}>
                   <Download aria-hidden />
-                  نصب حساب‌یار
+                  نصب کارو
                 </Button>
               </>
             ) : (
@@ -830,21 +830,24 @@ export function SettingsPage() {
         )}
         <Card>
           <CardHeader>
-            <SectionTitle icon={Info}>درباره‌ی حساب‌یار کارن سافت</SectionTitle>
+            <SectionTitle icon={Info}>درباره‌ی کارو نرم‌افزار حسابداری</SectionTitle>
           </CardHeader>
           <CardContent className="text-sm leading-8 text-muted-foreground">
-            <img
-              src={assetUrl('images/hesabyar/logo.png')}
-              alt="لوگوی حساب‌یار"
-              width={771}
-              height={283}
-              className="mb-4 h-16 w-auto max-w-full rounded-xl bg-white p-1.5"
-            />
+            <div className="mb-4 flex items-center justify-center rounded-xl bg-black px-4 py-3 ring-1 ring-white/10">
+              <img
+                src={assetUrl('images/karo/logo.png')}
+                alt="لوگوی کارو"
+                width={764}
+                height={274}
+                className="h-11 w-auto max-w-full object-contain"
+              />
+            </div>
             <p>
               کارن سافت، طراح و توسعه‌دهنده‌ی نرم‌افزارهای مالی فارسی برای کسب‌وکارها و کاربران
-              فارسی‌زبان است. حساب‌یار، محصول این مجموعه، فروش و انبار، درآمد و هزینه‌ها، حقوق و
-              دستمزد و ابزارهای محاسباتی را در یک محیط ساده و یکپارچه گرد هم می‌آورد. این نرم‌افزار
-              کاملاً آفلاین کار می‌کند و تمام داده‌های مالی تنها روی همان دستگاه ذخیره می‌شود.
+              فارسی‌زبان است. «کارو — نرم‌افزار حسابداری»، محصول این مجموعه، فروش و انبار، درآمد و
+              هزینه‌ها، حقوق و دستمزد و ابزارهای محاسباتی را در یک محیط ساده و یکپارچه گرد هم
+              می‌آورد. این نرم‌افزار کاملاً آفلاین کار می‌کند و تمام داده‌های مالی تنها روی همان
+              دستگاه ذخیره می‌شود.
             </p>
           </CardContent>
         </Card>

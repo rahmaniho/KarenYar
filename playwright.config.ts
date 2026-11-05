@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * تست‌های End-to-End حساب‌یار
+ * تست‌های End-to-End کارو
  * پیش‌نیاز یک‌باره: npx playwright install chromium
  * اجرا: npm run test:e2e
  */

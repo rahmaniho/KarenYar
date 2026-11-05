@@ -215,7 +215,7 @@ export async function buildInvoicePdf(input: InvoiceDocumentInput): Promise<Blob
     }
     if (showLogo) {
       await canvas.image(
-        assetUrl('images/hesabyar/mark.png'),
+        assetUrl('images/karo/mark.png'),
         RIGHT - logoSize,
         headTop - MM * 0.5,
         logoSize,
@@ -802,7 +802,7 @@ export async function buildInvoicePdf(input: InvoiceDocumentInput): Promise<Blob
     canvas.rect(0, PAGE_H - MM * 4.2, PAGE_W, MM * 4.2, { fill: C.navy });
     canvas.line(LEFT, footerY - MM * 6, RIGHT, footerY - MM * 6, { color: C.line, width: 0.6 });
 
-    const footerBrand = `${settings.shopName} · حساب‌یار کارن سافت`;
+    const footerBrand = `${settings.shopName} · کارو نرم‌افزار حسابداری`;
     canvas.text(footerBrand, RIGHT, footerY, {
       size: canvas.fitSize(footerBrand, MM * 56, 6.6, 'regular', 5.4),
       color: C.navyMuted,

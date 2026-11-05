@@ -348,7 +348,7 @@ export async function buildPayslipPdf(input: PayslipDocumentInput): Promise<Blob
     const footerY = PAGE_H - MM * 10;
     canvas.rect(0, PAGE_H - MM * 4.2, PAGE_W, MM * 4.2, { fill: C.navy });
     canvas.line(LEFT, footerY - MM * 6, RIGHT, footerY - MM * 6, { color: C.line, width: 0.6 });
-    const brand = `صادرشده با دستمزد‌یار کارن سافت — ${shopName}`;
+    const brand = `صادرشده با کارو نرم‌افزار حسابداری — ${shopName}`;
     canvas.text(brand, RIGHT, footerY, {
       size: canvas.fitSize(brand, MM * 70, 6.6, 'regular', 5.4),
       color: C.navyMuted,

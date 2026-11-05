@@ -80,7 +80,7 @@ export function validateBackup(data: unknown): BackupData {
   }
   const candidate = data as Partial<BackupData>;
   if (candidate.format !== BACKUP_FORMAT) {
-    throw new Error('این فایل، پشتیبان حساب‌یار کارن سافت نیست.');
+    throw new Error('این فایل، پشتیبان کارو نرم‌افزار حسابداری نیست.');
   }
   if (
     typeof candidate.version !== 'number' ||

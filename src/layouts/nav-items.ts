@@ -46,7 +46,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     id: 'store',
-    title: 'حساب‌یار فروشگاهی',
+    title: 'کارو فروشگاهی',
     items: [
       {
         to: '/store/pos',
@@ -131,7 +131,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     id: 'payroll',
-    title: 'دستمزد‌یار',
+    title: 'حقوق و دستمزد',
     items: [
       { to: '/payroll/employees', label: 'کارمندان', icon: Users, keywords: ['پرسنل', 'حقوق'] },
       {

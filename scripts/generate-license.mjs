@@ -1,5 +1,5 @@
 /**
- * تولید کلید لایسنس آفلاین حساب‌یار کارن سافت (HMAC-SHA256)
+ * تولید کلید لایسنس آفلاین کارو نرم‌افزار حسابداری (HMAC-SHA256)
  *
  * اجرا:
  *   node scripts/generate-license.mjs --tier pro --name "فروشگاه نمونه"
@@ -25,7 +25,7 @@ function arg(name, fallback) {
 }
 
 const tier = arg('tier', 'pro');
-const name = arg('name', 'کاربر حساب‌یار');
+const name = arg('name', 'کاربر کارو');
 const daysRaw = arg('days', null);
 if (!['pro', 'proplus'].includes(tier)) {
   console.error('خطا: --tier باید یکی از pro یا proplus باشد.');
@@ -46,7 +46,7 @@ const payloadB64 = b64url(JSON.stringify(payload));
 const sig = createHmac('sha256', LICENSE_HMAC_SECRET).update(payloadB64).digest();
 const key = `KS1.${payloadB64}.${b64url(sig)}`;
 
-console.log('\n🔑 کلید لایسنس حساب‌یار کارن سافت');
+console.log('\n🔑 کلید لایسنس کارو نرم‌افزار حسابداری');
 console.log('سطح:', tier === 'pro' ? 'حرفه‌ای (Lifetime)' : 'Pro+ (اشتراکی)');
 console.log('نام دارنده:', name);
 console.log('تاریخ صدور:', payload.iat, '| انقضا:', payload.exp ?? 'مادام‌العمر');

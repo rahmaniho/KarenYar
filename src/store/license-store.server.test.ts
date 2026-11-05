@@ -7,7 +7,7 @@ import { bytesToBase64Url } from '@/core/license/server/token';
 import { ServerLicenseError, type LicenseSession } from '@/core/license/server/api';
 
 vi.mock('@/core/license/server/device-identity', () => ({
-  deviceLabelFromUserAgent: () => 'حساب‌یار وب — تست',
+  deviceLabelFromUserAgent: () => 'کارو وب — تست',
   loadDeviceIdentity: vi.fn(async () => ({
     deviceKeyId: DEVICE_KEY_ID,
     privateKey: {} as CryptoKey,

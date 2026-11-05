@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-ساخت assetهای برند کارن‌سافت از لوگوی اصلی + بازتولید آیکون‌های PWA حساب‌یار
+ساخت assetهای برند کارن‌سافت (اعتبار vendor) از لوگوی اصلی کارن‌سافت
+
+آیکون‌های PWA و لانچر متعلق به لوگوی کارو هستند و در scripts/build-app-logo.py ساخته می‌شوند.
 
 منبع لوگو (مخزن karen-soft):
   gh api -H "Accept: application/vnd.github.raw" \\
@@ -16,19 +18,14 @@
   public/images/karensoft/mark.png         (نشان KS — مربع ۲۵۶)
   public/images/karensoft/wordmark-fa.png  (کارن سافت + خط نقطه‌ای — ارتفاع ۹۶)
   public/images/karensoft/wordmark-en.png  (Karensoft — ارتفاع ۴۸)
-  public/icons/icon-*.png                  (آیکون‌های PWA از روی نشان اصلی)
 """
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
 BRAND_DIR = ROOT / 'public' / 'images' / 'karensoft'
-ICONS_DIR = ROOT / 'public' / 'icons'
-NAVY = (11, 27, 58, 255)  # #0B1B3A
-NEON = (57, 255, 136, 255)  # #39FF88
-WHITE = (255, 255, 255, 255)
 
 
 def trim_alpha(im: Image.Image, threshold: int = 8) -> Image.Image:
@@ -73,39 +70,7 @@ def main() -> None:
     en.save(BRAND_DIR / 'wordmark-en.png')
     print('wordmark-en.png', en.size)
 
-    # ——— آیکون‌های PWA از روی نشان: تایلد روشن با نشان آبی روی پس‌زمینه‌ی سرمه‌ای ———
-    ICONS_DIR.mkdir(parents=True, exist_ok=True)
-    build_icon(mark256, 192, 'icon-192.png', rounded=True)
-    build_icon(mark256, 512, 'icon-512.png', rounded=True)
-    build_icon(mark256, 512, 'icon-maskable-512.png', rounded=False)
-    build_icon(mark256, 180, 'apple-touch-icon.png', rounded=False)
-    print('PWA icons rebuilt from original mark')
-
-
-def build_icon(mark: Image.Image, size: int, name: str, rounded: bool) -> None:
-    """پس‌زمینه‌ی سرمه‌ای + مربع سفید با گوشه‌ی نرم + نشان KS در مرکز (در ناحیه‌ی امن)"""
-    img = Image.new('RGBA', (size, size), NAVY)
-    if rounded:
-        mask = Image.new('L', (size, size), 0)
-        ImageDraw.Draw(mask).rounded_rectangle([0, 0, size, size], radius=int(size * 0.22), fill=255)
-        bg = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        bg.paste(img, (0, 0))
-        img = bg
-        img.putalpha(mask)
-    draw = ImageDraw.Draw(img)
-    tile_ratio = 0.62 if rounded else 0.52
-    tile = int(size * tile_ratio)
-    off = (size - tile) // 2
-    draw.rounded_rectangle([off, off, off + tile, off + tile], radius=int(tile * 0.24), fill=(245, 247, 250, 255))
-    mark_size = int(tile * 0.78)
-    mark_img = mark.resize((mark_size, mark_size), Image.LANCZOS)
-    moff = (size - mark_size) // 2
-    img.paste(mark_img, (moff, moff), mark_img)
-    # نقطه‌ی نئونی ظریف در گوشه‌ی تایلد — امضای حساب‌یار
-    r = max(4, int(size * 0.035))
-    cx, cy = off + tile - int(tile * 0.16), off + int(tile * 0.16)
-    draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=NEON)
-    img.save(ICONS_DIR / name)
+    # آیکون‌های برنامه/PWA برند کارو هستند و در scripts/build-app-logo.py ساخته می‌شوند.
 
 
 if __name__ == '__main__':

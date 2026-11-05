@@ -111,7 +111,7 @@ describe('payslip vector PDF', () => {
       overtimeHours: 6,
       nightHours: 4,
       unit: 'toman',
-      shopName: 'حسابیار — KarenSoft',
+      shopName: 'کارو — KarenSoft',
     });
     const bytes = await blobBytes(blob);
     expect(bytes.length).toBeGreaterThan(50_000);
