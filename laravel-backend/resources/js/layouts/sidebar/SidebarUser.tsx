@@ -1,8 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronUp, Crown, LockKeyhole, Moon, Settings2, Sun, Wifi, WifiOff } from 'lucide-react';
+import {
+  ChevronUp,
+  Crown,
+  LockKeyhole,
+  LogOut,
+  Moon,
+  Settings2,
+  Sun,
+  Wifi,
+  WifiOff,
+} from 'lucide-react';
 import { assetUrl, cn } from '@/lib/utils';
 import { TIER_LABELS } from '@/core/license/license-core';
+import { useAuthStore } from '@/store/auth-store';
 import { useLicenseStore } from '@/store/license-store';
 import { useLockStore } from '@/store/lock-store';
 import { useSettingsStore } from '@/store/settings-store';
@@ -29,6 +40,8 @@ export function SidebarUser({ collapsed, onExpand, onNavigate }: SidebarUserProp
   const [pendingOpen, setPendingOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
+  const authUser = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
   const holderName = useLicenseStore((s) => s.info.holderName);
   const tier = useLicenseStore((s) => s.info.tier);
   const shopName = useSettingsStore((s) => s.shopName);
@@ -42,7 +55,7 @@ export function SidebarUser({ collapsed, onExpand, onNavigate }: SidebarUserProp
     typeof window !== 'undefined' &&
     (window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false);
   const isDark = theme === 'dark' || (theme === 'system' && systemDark);
-  const displayName = holderName || shopName || 'حساب‌یار';
+  const displayName = authUser?.name || holderName || shopName || 'حساب‌یار';
 
   useEffect(() => {
     if (!collapsed && pendingOpen) {
@@ -155,6 +168,19 @@ export function SidebarUser({ collapsed, onExpand, onNavigate }: SidebarUserProp
           قفل کردن برنامه
         </button>
       )}
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => {
+          setOpen(false);
+          onNavigate();
+          void logout();
+        }}
+        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-start text-[12.5px] text-[var(--glass-muted)] hover:text-white"
+      >
+        <LogOut className="h-4 w-4" aria-hidden />
+        خروج از حساب
+      </button>
       <div className="mt-1 flex items-center gap-1.5 border-t border-white/[0.08] px-3 pb-1 pt-2 text-[10px] text-[var(--glass-dim)]">
         {online ? (
           <Wifi className="h-3 w-3" aria-hidden />
