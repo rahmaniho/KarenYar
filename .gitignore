@@ -34,3 +34,4 @@ Thumbs.db
 # Local release artifacts (uploaded to GitHub Releases, not committed)
 hesabyar-staging-web.zip
 /graphify-out
+/laravel-backend/graphify-out
