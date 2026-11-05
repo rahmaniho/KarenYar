@@ -31,7 +31,8 @@
     "prepare": "husky",
     "android:publish-test": "node scripts/android-test-release.mjs publish",
     "sync:laravel-frontend": "node scripts/sync-laravel-frontend.mjs",
-    "check:laravel-frontend": "node scripts/sync-laravel-frontend.mjs --check"
+    "check:laravel-frontend": "node scripts/sync-laravel-frontend.mjs --check",
+    "build:laravel-package": "cd laravel-backend && npm run build && cd .. && python3 scripts/build-laravel-package.py"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

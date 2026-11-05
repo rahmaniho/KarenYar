@@ -214,6 +214,12 @@ class SyncController extends Controller
                     continue;
                 }
 
+                // ویرایش/حذف ردیفی که در این فروشگاه نیست (یا قبلاً حذف شده) نباید
+                // ردیف تازه بسازد؛ فقط درج جدید اجازه‌ی ساختن دارد.
+                if ($op['op'] === 'update' && $existing === null) {
+                    continue;
+                }
+
                 $row = $this->toServerRow($op['data'] ?? [], $table);
                 $newRev = $this->nextRev($storeId);
                 $row['store_id'] = $storeId;
@@ -477,6 +483,8 @@ class SyncController extends Controller
         $jsonColumns = self::JSON_COLUMNS[$table] ?? [];
         $row = [];
 
+        $dateColumns = self::DATE_COLUMNS[$table] ?? [];
+
         foreach ($data as $key => $value) {
             if (str_starts_with((string) $key, '__')) {
                 continue; // فیلدهای داخلی کلاینت
@@ -490,6 +498,8 @@ class SyncController extends Controller
 
             if (in_array($column, $jsonColumns, true)) {
                 $value = $value === null ? null : json_encode($value, JSON_UNESCAPED_UNICODE);
+            } elseif (in_array($column, $dateColumns, true)) {
+                $value = $this->toDatabaseDate($value);
             }
 
             $row[$column] = $value;
@@ -527,12 +537,30 @@ class SyncController extends Controller
             return $value;
         }
 
+        // ISO نرمالِ خروجی کلاینت همیشه با میلی‌ثانیه و Z است (قرارداد اپ).
         if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $value) === 1) {
-            return str_replace(' ', 'T', $value).'Z';
+            return str_replace(' ', 'T', $value).'.000Z';
         }
 
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) === 1) {
-            return $value.'T00:00:00Z';
+            return $value.'T00:00:00.000Z';
+        }
+
+        return $value;
+    }
+
+    /**
+     * تبدیل تاریخ ورودی کلاینت (ISO) به شکل ستون دیتابیس (UTC, بدون منطقه).
+     * برای MySQL الزامی است؛ در SQLite هم نمایش یکسان می‌سازد.
+     */
+    private function toDatabaseDate(mixed $value): mixed
+    {
+        if (! is_string($value) || $value === '') {
+            return $value;
+        }
+
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})/', $value, $matches) === 1) {
+            return $matches[1].' '.$matches[2];
         }
 
         return $value;

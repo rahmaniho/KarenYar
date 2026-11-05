@@ -45,14 +45,19 @@ return new class extends Migration
                 continue;
             }
 
-            Schema::table($table, function (Blueprint $blueprint) {
-                $name = $blueprint->getTable();
+            $hasRev = Schema::hasColumn($table, 'rev');
+            $hasDeletedAt = Schema::hasColumn($table, 'deleted_at');
 
-                if (! Schema::hasColumn($name, 'rev')) {
+            if ($hasRev && $hasDeletedAt) {
+                continue;
+            }
+
+            Schema::table($table, function (Blueprint $blueprint) use ($hasRev, $hasDeletedAt) {
+                if (! $hasRev) {
                     $blueprint->unsignedBigInteger('rev')->default(0)->index();
                 }
 
-                if (! Schema::hasColumn($name, 'deleted_at')) {
+                if (! $hasDeletedAt) {
                     $blueprint->timestamp('deleted_at')->nullable()->index();
                 }
             });
@@ -66,17 +71,16 @@ return new class extends Migration
                 continue;
             }
 
-            Schema::table($table, function (Blueprint $blueprint) {
-                $name = $blueprint->getTable();
-
-                if (Schema::hasColumn($name, 'rev')) {
-                    $blueprint->dropColumn('rev');
-                }
-
-                if (Schema::hasColumn($name, 'deleted_at')) {
-                    $blueprint->dropColumn('deleted_at');
-                }
-            });
+            $drop = [];
+            if (Schema::hasColumn($table, 'rev')) {
+                $drop[] = 'rev';
+            }
+            if (Schema::hasColumn($table, 'deleted_at')) {
+                $drop[] = 'deleted_at';
+            }
+            if ($drop !== []) {
+                Schema::table($table, fn (Blueprint $blueprint) => $blueprint->dropColumn($drop));
+            }
         }
 
         Schema::dropIfExists('sync_counters');

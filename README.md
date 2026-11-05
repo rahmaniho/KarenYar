@@ -50,7 +50,11 @@ npm run icons:karo
 ```bash
 npm run sync:laravel-frontend    # بازسازی laravel-backend/resources/js
 npm run check:laravel-frontend   # بررسی هم‌خوانی (در CI)
+npm run build:laravel-package    # بستهٔ استقرار روی cPanel
 ```
+
+همگام‌سازی افزایشی و تشخیص تعارض دارد، و کاربران نسخهٔ آفلاین می‌توانند داده‌شان را
+از همان فایل پشتیبان JSON به سرور منتقل کنند.
 
 جزئیات: [`docs/laravel-integration.md`](docs/laravel-integration.md)
 
@@ -63,4 +67,5 @@ npm run check:laravel-frontend   # بررسی هم‌خوانی (در CI)
 - [`docs/domain-setup.md`](docs/domain-setup.md) — اتصال دامنهٔ `karo.karen-soft.ir` به GitHub Pages
 - [`docs/laravel-integration.md`](docs/laravel-integration.md) — یکپارچگی با بک‌اند Laravel و قاعدهٔ همگام‌سازی فرانت‌اند
 - [`laravel-backend/README.md`](laravel-backend/README.md) — راه‌اندازی، API و استقرار بک‌اند
+- [`deploy/laravel-app/INSTALL.md`](deploy/laravel-app/INSTALL.md) — نصب گام‌به‌گام نسخهٔ Laravel روی `karo.karen-soft.ir`
 - [`deploy/cpanel-app/README.md`](deploy/cpanel-app/README.md) — آپلود بستهٔ آماده روی هاست cPanel

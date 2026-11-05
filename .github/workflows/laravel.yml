@@ -71,4 +71,18 @@ jobs:
       - run: composer install --no-interaction --prefer-dist --no-progress
       - run: cp .env.example .env && php artisan key:generate
       - run: npm ci && npm run build
-      - run: php artisan test
+      # لاگ رانر همیشه قابل دانلود نیست؛ خلاصهٔ خطاها را به شکل annotation نشان می‌دهیم.
+      - name: تست بک‌اند (Pest)
+        shell: bash
+        run: |
+          set +e
+          php artisan test > /tmp/pest.log 2>&1
+          status=$?
+          if [ $status -ne 0 ]; then
+            grep -E "FAILED|FAIL|Error|Exception|SQLSTATE|⨯|✕" /tmp/pest.log | head -10 | while IFS= read -r line; do
+              echo "::error title=Pest::${line:0:400}"
+            done
+            echo "----- tail -----"
+            tail -40 /tmp/pest.log
+          fi
+          exit $status
