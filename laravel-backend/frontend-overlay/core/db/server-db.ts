@@ -5,6 +5,11 @@
  * حافظه نگه داشته می‌شود؛ خواندن‌ها از حافظه انجام می‌شوند و نوشتن‌ها به‌صورت
  * دسته‌ای (و داخل `transaction` به‌صورت اتمیک) به سرور push می‌شوند.
  *
+ * همگام‌سازی افزایشی است: هر ردیف روی سرور یک `rev` دارد و کلاینت آخرین rev
+ * دیده‌شده را نگه می‌دارد؛ بار بعد فقط ردیف‌های تازه‌تر (و سنگ‌قبرِ حذف‌ها)
+ * خوانده می‌شوند. هر نوشتن `baseRev` ردیف را می‌فرستد تا اگر دستگاه دیگری
+ * همان ردیف را جلوتر برده باشد، به‌جای بازنویسی، تعارض گزارش شود.
+ *
  * این کلاس همان زیرمجموعه‌ی API دیتابیس قبلی (Dexie) را پیاده می‌کند تا
  * صفحات و سرویس‌های موجود بدون تغییر کار کنند.
  */
@@ -16,7 +21,62 @@ interface Op {
   table: string;
   op: 'insert' | 'update' | 'delete';
   id?: number;
+  /** برای جدول‌های کلیددار (settings) */
+  key?: string;
+  /** rev ردیفی که این تغییر بر پایه‌ی آن انجام شده */
+  baseRev?: number;
   data?: ServerRow;
+}
+
+interface PullResponse {
+  storeId?: number;
+  rev?: number;
+  full?: boolean;
+  data?: Record<string, ServerRow[]>;
+}
+
+interface PushResponse {
+  ok?: boolean;
+  storeId?: number;
+  rev?: number;
+  applied?: { table: string; key: number | string; rev: number; deleted?: boolean }[];
+  conflicts?: { table: string; key: number | string; server: ServerRow }[];
+}
+
+interface RevCache {
+  storeId: number;
+  rev: number;
+}
+
+const REV_CACHE_KEY = 'karo-sync-rev';
+
+function readRevCache(): RevCache | null {
+  try {
+    const raw = window.localStorage.getItem(REV_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<RevCache>;
+    if (typeof parsed.storeId !== 'number' || typeof parsed.rev !== 'number') return null;
+    return { storeId: parsed.storeId, rev: parsed.rev };
+  } catch {
+    return null;
+  }
+}
+
+function writeRevCache(storeId: number, rev: number): void {
+  try {
+    window.localStorage.setItem(REV_CACHE_KEY, JSON.stringify({ storeId, rev }));
+  } catch {
+    // حافظه‌ی محلی در دسترس نیست (مثلاً حالت ناشناس) — فقط pull کامل می‌شود.
+  }
+}
+
+/** فراموش‌کردن آخرین rev؛ بار بعد pull کامل انجام می‌شود. */
+export function clearRevCache(): void {
+  try {
+    window.localStorage.removeItem(REV_CACHE_KEY);
+  } catch {
+    // نادیده
+  }
 }
 
 /** جدول‌هایی که کلید اصلی‌شان به‌جای id، فیلد key است. */
@@ -245,7 +305,7 @@ export class ServerTable<T extends ServerRow = ServerRow> {
     await this.database.enqueue({
       table: this.name,
       op: 'insert',
-      id: row.id as number,
+      ...this.refOf(row as T),
       data: row,
     });
     return row.id as number;
@@ -298,9 +358,17 @@ export class ServerTable<T extends ServerRow = ServerRow> {
     await this.database.enqueue({
       table: this.name,
       op: 'update',
-      id: row.id as number,
+      ...this.refOf(row),
       data: changes,
     });
+  }
+
+  /** مرجع ردیف در op: برای جدول‌های کلیددار `key` و بقیه `id`. */
+  private refOf(row: T): { id?: number; key?: string } {
+    if (this.keyed()) {
+      return { key: String((row as ServerRow).key) };
+    }
+    return { id: row.id as number };
   }
 
   async delete(idOrKey: unknown): Promise<void> {
@@ -317,7 +385,7 @@ export class ServerTable<T extends ServerRow = ServerRow> {
     if (index >= 0) {
       rows.splice(index, 1);
     }
-    await this.database.enqueue({ table: this.name, op: 'delete', id: row.id as number });
+    await this.database.enqueue({ table: this.name, op: 'delete', ...this.refOf(row) });
   }
 
   async clear(): Promise<void> {
@@ -351,6 +419,17 @@ export class ServerDB {
   private listeners = new Set<() => void>();
 
   private loadPromise: Promise<void> | null = null;
+
+  /** آخرین rev دیده‌شده از سرور (برای pull افزایشی). */
+  private rev = 0;
+
+  private storeId: number | null = null;
+
+  /** rev هر ردیف، برای فرستادن baseRev در push. */
+  private revs: Record<string, Map<unknown, number>> = {};
+
+  /** تعداد تعارض‌هایی که از آخرین بازخوانی رخ داده (برای نمایش به کاربر). */
+  public conflictCount = 0;
 
   public readonly tables: Record<string, ServerTable>;
 
@@ -451,6 +530,10 @@ export class ServerDB {
   reset(): void {
     this.loadPromise = null;
     this.data = {};
+    this.revs = {};
+    this.rev = 0;
+    this.storeId = null;
+    clearRevCache();
     this.notify();
   }
 
@@ -467,13 +550,82 @@ export class ServerDB {
   }
 
   private async load(): Promise<void> {
-    const response = await apiFetch<{ data: Record<string, ServerRow[]> }>('/api/sync/pull');
-    const data: Record<string, ServerRow[]> = {};
-    for (const name of SYNC_TABLES) {
-      data[name] = response.data?.[name] ?? [];
+    const cached = readRevCache();
+    let response = await apiFetch<PullResponse>(
+      cached ? `/api/sync/pull?since=${cached.rev}` : '/api/sync/pull',
+    );
+
+    // اگر مرورگر عوض شده باشد (کاربر دیگری وارد شده)، rev ذخیره‌شده بی‌معناست.
+    if (cached && response.storeId !== undefined && response.storeId !== cached.storeId) {
+      response = await apiFetch<PullResponse>('/api/sync/pull');
     }
-    this.data = data;
+
+    this.applyPull(response);
+  }
+
+  /** اعمال پاسخ pull (کامل یا افزایشی) روی حافظه. */
+  private applyPull(response: PullResponse): void {
+    if (response.full !== false) {
+      this.data = {};
+      this.revs = {};
+    }
+
+    const incoming = response.data ?? {};
+
+    for (const name of SYNC_TABLES) {
+      const rows = incoming[name];
+      if (!rows) continue;
+
+      const target = this.rowsOf(name);
+      const revMap = (this.revs[name] ??= new Map());
+
+      for (const row of rows) {
+        const key = this.rowKeyOf(name, row);
+
+        if (row.__deleted === true) {
+          const index = target.findIndex((candidate) => this.rowKeyOf(name, candidate) === key);
+          if (index >= 0) target.splice(index, 1);
+          revMap.delete(key);
+          continue;
+        }
+
+        const clean = { ...row };
+        delete clean.__deleted;
+
+        if (typeof row.rev === 'number') {
+          revMap.set(key, row.rev);
+        }
+
+        const index = target.findIndex((candidate) => this.rowKeyOf(name, candidate) === key);
+        if (index >= 0) {
+          target[index] = clean;
+        } else {
+          target.push(clean);
+        }
+      }
+    }
+
+    if (typeof response.storeId === 'number') {
+      this.storeId = response.storeId;
+    }
+    if (typeof response.rev === 'number' && response.rev >= this.rev) {
+      this.rev = response.rev;
+    }
+    if (this.storeId !== null) {
+      writeRevCache(this.storeId, this.rev);
+    }
+
     this.notify();
+  }
+
+  /** کلید یکتا‌ی ردیف در حافظه (settings با key، بقیه با id). */
+  private rowKeyOf(table: string, row: ServerRow): unknown {
+    return table === 'settings' ? String(row.key) : row.id;
+  }
+
+  /** آخرین rev شناخته‌شده (برای تست/نمایش). */
+  get lastRev(): number {
+    return this.rev;
   }
 
   /** اجرای یک دسته‌ی نوشتن اتمیک (اگر از قبل داخل تراکنش باشیم، همان بافر استفاده می‌شود). */
@@ -509,15 +661,86 @@ export class ServerDB {
 
   private async flush(ops: Op[]): Promise<void> {
     try {
-      await apiFetch('/api/sync/push', {
+      const payload = ops.map((op) => ({
+        ...op,
+        baseRev: op.baseRev ?? this.baseRevFor(op),
+      }));
+
+      const response = await apiFetch<PushResponse>('/api/sync/push', {
         method: 'POST',
-        body: JSON.stringify({ ops }),
+        body: JSON.stringify({ ops: payload }),
       });
+
+      this.applyPushResult(response);
     } catch (error) {
       // حافظه ممکن است با سرور ناهمگام شده باشد؛ بار بعد از سرور خوانده می‌شود.
       this.loadPromise = null;
       this.notify();
       throw error;
+    }
+  }
+
+  /** rev ردیفی که این op بر پایه‌ی آن ساخته شده (اگر از سرور آمده باشد). */
+  private baseRevFor(op: Op): number | undefined {
+    const map = this.revs[op.table];
+    if (!map) return undefined;
+
+    const key = op.table === 'settings' ? op.key : op.id;
+    if (key === undefined) return undefined;
+
+    return map.get(op.table === 'settings' ? String(key) : key);
+  }
+
+  /**
+   * اعمال نتیجه‌ی push: به‌روزرسانی revها و جایگزینی ردیف‌های متعارض با نسخه‌ی
+   * سرور (سرور برنده است؛ هیچ نوشتنِ کهنه‌ای روی داده‌ی تازه نمی‌نشیند).
+   */
+  private applyPushResult(response: PushResponse): void {
+    if (typeof response.storeId === 'number') {
+      this.storeId = response.storeId;
+    }
+    if (typeof response.rev === 'number' && response.rev >= this.rev) {
+      this.rev = response.rev;
+    }
+
+    for (const entry of response.applied ?? []) {
+      const map = (this.revs[entry.table] ??= new Map());
+      const key = entry.table === 'settings' ? String(entry.key) : entry.key;
+
+      if (entry.deleted) {
+        map.delete(key);
+      } else {
+        map.set(key, entry.rev);
+      }
+    }
+
+    const conflicts = response.conflicts ?? [];
+    if (conflicts.length > 0) {
+      this.conflictCount += conflicts.length;
+
+      for (const conflict of conflicts) {
+        const server = { ...conflict.server };
+        delete server.__deleted;
+
+        const key = this.rowKeyOf(conflict.table, server);
+        const rows = this.rowsOf(conflict.table);
+        const index = rows.findIndex((row) => this.rowKeyOf(conflict.table, row) === key);
+
+        if (index >= 0) {
+          rows[index] = server;
+        } else {
+          rows.push(server);
+        }
+
+        const map = (this.revs[conflict.table] ??= new Map());
+        if (typeof server.rev === 'number') {
+          map.set(key, server.rev);
+        }
+      }
+    }
+
+    if (this.storeId !== null) {
+      writeRevCache(this.storeId, this.rev);
     }
   }
 
@@ -571,10 +794,17 @@ export class ServerDB {
   /** پاک‌کردن کامل داده‌ی همین فروشگاه (جایگزین db.delete() در نسخه‌ی قبلی). */
   async delete(): Promise<void> {
     await this.ensureLoaded();
-    await apiFetch('/api/sync/wipe', { method: 'POST' });
-    for (const name of SYNC_TABLES) {
-      this.data[name] = [];
-    }
+    const response = await apiFetch<{ storeId?: number; rev?: number }>('/api/sync/wipe', {
+      method: 'POST',
+    });
+
+    this.data = {};
+    this.revs = {};
+
+    if (typeof response?.storeId === 'number') this.storeId = response.storeId;
+    if (typeof response?.rev === 'number') this.rev = response.rev;
+    if (this.storeId !== null) writeRevCache(this.storeId, this.rev);
+
     this.notify();
   }
 }

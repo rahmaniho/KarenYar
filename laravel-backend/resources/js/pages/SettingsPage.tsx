@@ -36,6 +36,7 @@ import { hashPin, isValidPinFormat, verifyPin } from '@/core/utils/pin';
 import { seedDemoData } from '@/core/db/seed';
 import { assetUrl } from '@/lib/utils';
 import { PageHeader } from '@/components/PageHeader';
+import { ImportLocalBackupCard } from '@/features/migration/ImportLocalBackupCard';
 import { FeatureGate } from '@/components/FeatureGate';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/ui/button';
@@ -300,6 +301,8 @@ export function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        <ImportLocalBackupCard />
 
         {/* فروشگاه */}
         <Card>

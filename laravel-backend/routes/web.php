@@ -42,6 +42,8 @@ Route::prefix('api')->group(function () {
             Route::get('pull', [SyncController::class, 'pull']);
             Route::post('push', [SyncController::class, 'push']);
             Route::post('wipe', [SyncController::class, 'wipe']);
+            // مهاجرت داده‌ی فشرده‌شده/پشتیبان JSON از نسخهٔ آفلاین به سرور
+            Route::post('import', [SyncController::class, 'import']);
         });
     });
 });

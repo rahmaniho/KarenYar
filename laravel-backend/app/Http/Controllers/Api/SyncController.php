@@ -12,9 +12,17 @@ use Throwable;
 /**
  * همگام‌سازی داده‌ی فروشگاه بین مرورگر (لایه‌ی داده) و دیتابیس لاراول.
  *
- * کلاینت همه‌ی داده‌ی فروشگاه را با pull می‌گیرد و تغییرات را به‌صورت دسته‌ای
- * (batch) با push برمی‌گرداند. هر دسته در یک تراکنش دیتابیس اعمال می‌شود تا
- * عملیات‌های چندجدولی (مثل صدور فاکتور) اتمیک بمانند.
+ * قرارداد نسخهٔ ۲ (افزایشی):
+ * - هر ردیف ستون `rev` دارد: شمارنده‌ای یکنواخت و مشترک برای همه‌ی فروشگاه
+ *   (`sync_counters`) که با هر نوشتن یک واحد بالا می‌رود.
+ * - `GET /api/sync/pull?since=REV` فقط ردیف‌های تغییرکرده بعد از آن شمارنده را
+ *   برمی‌گرداند. ردیف‌های حذف‌شده هم با `__deleted: true` برمی‌گردند (سنگ‌قبر)
+ *   تا حذف در دستگاه‌های دیگر اعمال شود.
+ * - `POST /api/sync/push` برای هر عملیات `baseRev` می‌فرستد؛ اگر ردیف روی سرور
+ *   بعد از آن تغییر کرده باشد، عملیات اعمال نمی‌شود و در `conflicts` برمی‌گردد
+ *   (سرور برنده است و کلاینت نسخهٔ سرور را می‌گیرد).
+ * - `POST /api/sync/import` یک فایل پشتیبان JSON (خروجی اپ آفلاین) را به‌صورت
+ *   ادغامی وارد می‌کند تا کاربران فعلی بتوانند داده‌شان را به سرور منتقل کنند.
  */
 class SyncController extends Controller
 {
@@ -41,22 +49,41 @@ class SyncController extends Controller
         'calculatorHistory' => 'calculator_history',
     ];
 
+    /** جدول‌هایی که کلید اصلی‌شان به‌جای id، ستون key است. */
+    private const KEYED_TABLES = ['settings'];
+
     /**
-     * ستون‌هایی که مقدارشان به‌صورت JSON ذخیره می‌شود.
+     * ترتیب درج هنگام ورود داده‌ی پشتیبان (والد پیش از فرزند) تا کلیدهای خارجی
+     * نقض نشوند.
      *
-     * @var array<string, list<string>>
+     * @var list<string>
      */
+    private const IMPORT_ORDER = [
+        'customers',
+        'products',
+        'invoices',
+        'invoiceItems',
+        'transactions',
+        'budgets',
+        'debts',
+        'employees',
+        'payrolls',
+        'customerPayments',
+        'financialEvents',
+        'stockMovements',
+        'heldSales',
+        'settings',
+        'calculatorHistory',
+    ];
+
+    /** ستون‌هایی که مقدارشان به‌صورت JSON ذخیره می‌شود. */
     private const JSON_COLUMNS = [
         'payrolls' => ['input', 'result'],
         'held_sales' => ['items'],
         'settings' => ['value'],
     ];
 
-    /**
-     * ستون‌های تاریخ؛ هنگام خواندن به ISO و هنگام نوشتن به شکل دیتابیس تبدیل می‌شوند.
-     *
-     * @var array<string, list<string>>
-     */
+    /** ستون‌های تاریخ؛ هنگام خواندن به ISO و هنگام نوشتن به شکل دیتابیس تبدیل می‌شوند. */
     private const DATE_COLUMNS = [
         'products' => ['created_at', 'updated_at'],
         'customers' => ['created_at', 'updated_at'],
@@ -75,25 +102,49 @@ class SyncController extends Controller
         'calculator_history' => ['created_at', 'updated_at'],
     ];
 
+    /** بیشترین تعداد ردیف‌هایی که یک فایل پشتیبان می‌تواند داشته باشد. */
+    private const MAX_IMPORT_ROWS = 200000;
+
+    /**
+     * خواندن داده — کامل (بدون since) یا افزایشی (since=REV).
+     */
     public function pull(Request $request): JsonResponse
     {
         $storeId = (int) $request->user()->store_id;
+        $since = max(0, (int) $request->query('since', 0));
+        $rev = $this->currentRev($storeId);
+
         $data = [];
 
         foreach (self::TABLES as $key => $table) {
             $rows = DB::table($table)
                 ->where('store_id', $storeId)
+                ->when($since > 0, fn ($query) => $query->where('rev', '>', $since))
+                ->orderBy('rev')
                 ->get()
                 ->map(fn (object $row) => $this->toClientRow($row, $table))
                 ->all();
 
+            // در حالت افزایشی، جدول‌های بدون تغییر را با آرایه‌ی خالی برنمی‌گردانیم
+            // تا پاسخ سبک بماند؛ کلاینت فقط کلیدهای موجود را اعمال می‌کند.
+            if ($since > 0 && $rows === []) {
+                continue;
+            }
+
             $data[$key] = $rows;
         }
 
-        return response()->json(['data' => $data]);
+        return response()->json([
+            'storeId' => $storeId,
+            'rev' => $rev,
+            'full' => $since === 0,
+            'data' => $data,
+        ]);
     }
 
     /**
+     * نوشتن دسته‌ای تغییرات با تشخیص تعارض.
+     *
      * @throws Throwable
      */
     public function push(Request $request): JsonResponse
@@ -105,51 +156,181 @@ class SyncController extends Controller
             'ops.*.table' => ['required', 'string'],
             'ops.*.op' => ['required', 'in:insert,update,delete'],
             'ops.*.id' => ['nullable', 'integer'],
+            'ops.*.key' => ['nullable', 'string'],
+            'ops.*.baseRev' => ['nullable', 'integer', 'min:0'],
             'ops.*.data' => ['nullable', 'array'],
         ]);
 
-        DB::transaction(function () use ($validated, $storeId) {
+        $applied = [];
+        $conflicts = [];
+
+        DB::transaction(function () use ($validated, $storeId, &$applied, &$conflicts): void {
             foreach ($validated['ops'] as $op) {
-                $table = self::TABLES[$op['table']] ?? null;
+                $clientTable = (string) $op['table'];
+                $table = self::TABLES[$clientTable] ?? null;
 
                 if ($table === null) {
                     continue; // جدول ناشناس نادیده گرفته می‌شود
                 }
 
+                $keyColumn = in_array($table, self::KEYED_TABLES, true) ? 'key' : 'id';
+                $key = $this->opKey($op, $keyColumn);
+
+                if ($key === null) {
+                    continue;
+                }
+
+                $existing = DB::table($table)
+                    ->where('store_id', $storeId)
+                    ->where($keyColumn, $key)
+                    ->first();
+
+                $baseRev = isset($op['baseRev']) ? (int) $op['baseRev'] : null;
+
+                // تعارض: نسخه‌ای که کلاینت دیده بود دیگر همان نسخه‌ی سرور نیست.
+                if ($existing !== null && $baseRev !== null && (int) $existing->rev !== $baseRev) {
+                    $conflicts[] = [
+                        'table' => $clientTable,
+                        'key' => $key,
+                        'server' => $this->toClientRow($existing, $table),
+                    ];
+
+                    continue;
+                }
+
                 if ($op['op'] === 'delete') {
-                    if (isset($op['id'])) {
-                        DB::table($table)
-                            ->where('store_id', $storeId)
-                            ->where('id', $op['id'])
-                            ->delete();
+                    if ($existing === null) {
+                        continue;
                     }
+
+                    $newRev = $this->nextRev($storeId);
+                    DB::table($table)
+                        ->where('store_id', $storeId)
+                        ->where($keyColumn, $key)
+                        ->update(['deleted_at' => now(), 'rev' => $newRev]);
+
+                    $applied[] = ['table' => $clientTable, 'key' => $key, 'rev' => $newRev, 'deleted' => true];
 
                     continue;
                 }
 
                 $row = $this->toServerRow($op['data'] ?? [], $table);
+                $newRev = $this->nextRev($storeId);
                 $row['store_id'] = $storeId;
+                $row['rev'] = $newRev;
+                $row['deleted_at'] = null;
 
-                if ($op['op'] === 'insert') {
-                    $row['id'] = $row['id'] ?? ($op['id'] ?? null);
+                if ($existing === null) {
+                    $row[$keyColumn] = $key;
                     DB::table($table)->insert($row);
                 } else {
-                    if (! isset($op['id'])) {
-                        continue;
-                    }
-                    unset($row['id']);
+                    unset($row[$keyColumn]);
                     DB::table($table)
                         ->where('store_id', $storeId)
-                        ->where('id', $op['id'])
+                        ->where($keyColumn, $key)
                         ->update($row);
                 }
+
+                $applied[] = ['table' => $clientTable, 'key' => $key, 'rev' => $newRev];
             }
         });
 
-        return response()->json(['ok' => true]);
+        return response()->json([
+            'ok' => true,
+            'storeId' => $storeId,
+            'rev' => $this->currentRev($storeId),
+            'applied' => $applied,
+            'conflicts' => $conflicts,
+        ]);
     }
 
-    /** پاک‌کردن کامل داده‌ی «همین فروشگاه» (نه داده‌ی فروشگاه‌های دیگر). */
+    /**
+     * ورود ادغامی داده‌ی فایل پشتیبان (مهاجرت از نسخهٔ آفلاین به سرور).
+     *
+     * ردیف‌هایی که از قبل روی سرور هستند دست‌نخورده می‌مانند؛ فقط ردیف‌های
+     * تازه درج می‌شوند. شناسه‌ها حفظ می‌شوند تا ارجاع‌های بین جدول‌ها (مثلاً
+     * اقلام فاکتور) درست بمانند.
+     */
+    public function import(Request $request): JsonResponse
+    {
+        $storeId = (int) $request->user()->store_id;
+
+        $validated = $request->validate([
+            'tables' => ['required', 'array'],
+            'tables.*' => ['array'],
+        ]);
+
+        $tables = $validated['tables'];
+        $total = 0;
+
+        foreach ($tables as $rows) {
+            $total += is_array($rows) ? count($rows) : 0;
+        }
+
+        if ($total > self::MAX_IMPORT_ROWS) {
+            return response()->json([
+                'message' => 'فایل پشتیبان بیش از حد بزرگ است.',
+            ], 422);
+        }
+
+        $imported = [];
+
+        DB::transaction(function () use ($tables, $storeId, &$imported): void {
+            foreach (self::IMPORT_ORDER as $clientTable) {
+                $table = self::TABLES[$clientTable] ?? null;
+                $rows = $tables[$clientTable] ?? null;
+
+                if ($table === null || ! is_array($rows)) {
+                    continue;
+                }
+
+                $keyColumn = in_array($table, self::KEYED_TABLES, true) ? 'key' : 'id';
+                $count = 0;
+
+                foreach ($rows as $data) {
+                    if (! is_array($data)) {
+                        continue;
+                    }
+
+                    $key = $data[$keyColumn] ?? ($keyColumn === 'id' ? $data['id'] ?? null : null);
+
+                    if ($key === null) {
+                        continue;
+                    }
+
+                    $exists = DB::table($table)
+                        ->where('store_id', $storeId)
+                        ->where($keyColumn, $key)
+                        ->exists();
+
+                    if ($exists) {
+                        continue; // ادغام: نسخه‌ی سرور مقدم است
+                    }
+
+                    $row = $this->toServerRow($data, $table);
+                    $row[$keyColumn] = $key;
+                    $row['store_id'] = $storeId;
+                    $row['rev'] = $this->nextRev($storeId);
+                    $row['deleted_at'] = null;
+
+                    DB::table($table)->insert($row);
+                    $count++;
+                }
+
+                $imported[$clientTable] = $count;
+            }
+        });
+
+        return response()->json([
+            'ok' => true,
+            'storeId' => $storeId,
+            'rev' => $this->currentRev($storeId),
+            'imported' => $imported,
+            'total' => array_sum($imported),
+        ]);
+    }
+
+    /** پاک‌کردن کامل داده‌ی «همین فروشگاه» (سنگ‌قبر، تا دستگاه‌های دیگر هم خالی شوند). */
     public function wipe(Request $request): JsonResponse
     {
         $storeId = (int) $request->user()->store_id;
@@ -173,17 +354,86 @@ class SyncController extends Controller
             'products',
         ];
 
-        DB::transaction(function () use ($order, $storeId) {
+        DB::transaction(function () use ($order, $storeId): void {
             foreach ($order as $table) {
-                DB::table($table)->where('store_id', $storeId)->delete();
+                $keys = DB::table($table)
+                    ->where('store_id', $storeId)
+                    ->whereNull('deleted_at')
+                    ->pluck(in_array($table, self::KEYED_TABLES, true) ? 'key' : 'id')
+                    ->all();
+
+                foreach ($keys as $key) {
+                    DB::table($table)
+                        ->where('store_id', $storeId)
+                        ->where(in_array($table, self::KEYED_TABLES, true) ? 'key' : 'id', $key)
+                        ->update(['deleted_at' => now(), 'rev' => $this->nextRev($storeId)]);
+                }
             }
         });
 
-        return response()->json(['ok' => true]);
+        return response()->json([
+            'ok' => true,
+            'storeId' => $storeId,
+            'rev' => $this->currentRev($storeId),
+        ]);
+    }
+
+    /** شمارنده‌ی فعلی تغییرات فروشگاه. */
+    private function currentRev(int $storeId): int
+    {
+        $row = DB::table('sync_counters')->where('store_id', $storeId)->first();
+
+        return $row === null ? 0 : (int) $row->rev;
+    }
+
+    /** گرفتن شمارنده‌ی بعدی (باید داخل تراکنش صدا زده شود). */
+    private function nextRev(int $storeId): int
+    {
+        $row = DB::table('sync_counters')->where('store_id', $storeId)->lockForUpdate()->first();
+
+        if ($row === null) {
+            DB::table('sync_counters')->insert([
+                'store_id' => $storeId,
+                'rev' => 1,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return 1;
+        }
+
+        $next = (int) $row->rev + 1;
+
+        DB::table('sync_counters')
+            ->where('store_id', $storeId)
+            ->update(['rev' => $next, 'updated_at' => now()]);
+
+        return $next;
+    }
+
+    /**
+     * کلید عملیات: برای جدول‌های keyed از `key` و بقیه از `id`.
+     *
+     * @param  array<string, mixed>  $op
+     */
+    private function opKey(array $op, string $keyColumn): int|string|null
+    {
+        if ($keyColumn === 'key') {
+            $key = $op['key'] ?? ($op['data']['key'] ?? null);
+
+            return is_string($key) && $key !== '' ? $key : null;
+        }
+
+        $id = $op['id'] ?? ($op['data']['id'] ?? null);
+
+        return $id === null ? null : (int) $id;
     }
 
     /**
      * تبدیل ردیف دیتابیس (snake_case) به شکل کلاینت (camelCase + ISO).
+     *
+     * ستون‌های داخلی `store_id` و `deleted_at` حذف می‌شوند؛ `rev` می‌ماند و
+     * ردیف حذف‌شده با `__deleted: true` مشخص می‌شود.
      *
      * @return array<string, mixed>
      */
@@ -192,8 +442,13 @@ class SyncController extends Controller
         $result = [];
         $jsonColumns = self::JSON_COLUMNS[$table] ?? [];
         $dateColumns = self::DATE_COLUMNS[$table] ?? [];
+        $deleted = isset($row->deleted_at) && $row->deleted_at !== null;
 
         foreach ((array) $row as $column => $value) {
+            if ($column === 'store_id' || $column === 'deleted_at') {
+                continue;
+            }
+
             if (in_array($column, $jsonColumns, true)) {
                 $value = $this->decodeJson($value);
             } elseif (in_array($column, $dateColumns, true)) {
@@ -201,6 +456,10 @@ class SyncController extends Controller
             }
 
             $result[$this->snakeToCamel($column)] = $value;
+        }
+
+        if ($deleted) {
+            $result['__deleted'] = true;
         }
 
         return $result;
@@ -219,6 +478,10 @@ class SyncController extends Controller
         $row = [];
 
         foreach ($data as $key => $value) {
+            if (str_starts_with((string) $key, '__')) {
+                continue; // فیلدهای داخلی کلاینت
+            }
+
             $column = $this->camelToSnake((string) $key);
 
             if (! in_array($column, $columns, true)) {
@@ -231,6 +494,8 @@ class SyncController extends Controller
 
             $row[$column] = $value;
         }
+
+        unset($row['rev'], $row['store_id'], $row['deleted_at']);
 
         return $row;
     }
