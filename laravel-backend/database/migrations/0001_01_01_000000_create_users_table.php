@@ -15,6 +15,11 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
+            $table->string('role', 20)->default('store')->index(); // manager | store
+            // کاربر فروشگاه به یک فروشگاه وصل است؛ مدیر کل store_id ندارد.
+            $table->unsignedBigInteger('store_id')->nullable()->index();
+            $table->boolean('is_active')->default(true);
+            $table->timestamp('last_login_at')->nullable();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->rememberToken();

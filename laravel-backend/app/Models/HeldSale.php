@@ -11,6 +11,7 @@ class HeldSale extends Model
     use HasFactory;
 
     protected $fillable = [
+        'store_id',
         'label',
         'items',
         'customer_id',

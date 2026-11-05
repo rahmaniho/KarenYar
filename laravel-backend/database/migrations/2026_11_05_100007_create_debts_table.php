@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('debts', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('store_id')->constrained('stores')->cascadeOnDelete();
             $table->string('title');
             $table->string('kind', 20)->default('debt'); // debt | installment
 

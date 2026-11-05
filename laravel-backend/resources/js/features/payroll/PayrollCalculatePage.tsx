@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { assetUrl } from '@/lib/utils';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/core/db/use-live-query';
 import { Banknote, FileDown, Printer, Save, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { db, nowISO, type Employee, type PayrollRecord } from '@/core/db/db';

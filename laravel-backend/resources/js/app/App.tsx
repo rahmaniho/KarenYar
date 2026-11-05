@@ -1,23 +1,64 @@
 import { useEffect } from 'react';
-import { Toaster } from 'sonner';
+import { Toaster, type ToasterProps } from 'sonner';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { LockScreen } from '@/components/LockScreen';
+import { LoginPage } from '@/features/auth/LoginPage';
+import { ManagerApp } from '@/features/manager/ManagerApp';
+import { useLicenseSync } from '@/hooks/use-license-sync';
+import { useAuthStore } from '@/store/auth-store';
 import { useLockStore } from '@/store/lock-store';
 import { applyTheme, useSettingsStore } from '@/store/settings-store';
-import { useLicenseStore } from '@/store/license-store';
-import { useLicenseSync } from '@/hooks/use-license-sync';
 import { AppRouter } from './router';
 
-export function App() {
-  const theme = useSettingsStore((s) => s.theme);
-  const initLicense = useLicenseStore((s) => s.init);
+const toastOptions: ToasterProps['toastOptions'] = {
+  style: { fontFamily: 'inherit' },
+};
+
+/** پوسته‌ی برنامه‌ی فروشگاه — قفل دستگاه، لایسنس و مسیریابی. */
+function StoreShell() {
   const locked = useLockStore((s) => s.locked);
   useLicenseSync();
 
-  // اعمال تم + دنبال‌کردن تغییر تم سیستم‌عامل در حالت «سیستم»
+  if (locked) {
+    return (
+      <ErrorBoundary>
+        <LockScreen />
+        <Toaster position="top-center" richColors closeButton toastOptions={toastOptions} />
+      </ErrorBoundary>
+    );
+  }
+
+  return (
+    <ErrorBoundary>
+      <AppRouter />
+      <Toaster position="top-center" richColors closeButton toastOptions={toastOptions} />
+    </ErrorBoundary>
+  );
+}
+
+function Splash() {
+  return (
+    <div
+      dir="rtl"
+      className="flex min-h-dvh items-center justify-center bg-navy-900 text-sm text-white/70"
+    >
+      در حال بارگذاری…
+    </div>
+  );
+}
+
+export function App() {
+  const user = useAuthStore((s) => s.user);
+  const ready = useAuthStore((s) => s.ready);
+  const refresh = useAuthStore((s) => s.refresh);
+  const theme = useSettingsStore((s) => s.theme);
+
+  // اعمال تم در همه‌ی حالت‌ها (ورود، پنل مدیر، برنامه‌ی فروشگاه)
   useEffect(() => {
     applyTheme(theme);
-    if (theme !== 'system' || typeof window.matchMedia !== 'function') return;
+    if (theme !== 'system' || typeof window.matchMedia !== 'function') {
+      return;
+    }
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const onChange = () => applyTheme('system');
     if (typeof media.addEventListener === 'function') {
@@ -28,29 +69,31 @@ export function App() {
     return () => media.removeListener(onChange);
   }, [theme]);
 
-  // بارگذاری و راستی‌آزمایی لایسنس ذخیره‌شده
   useEffect(() => {
-    void initLicense();
-  }, [initLicense]);
+    void refresh();
+  }, [refresh]);
 
-  if (locked) {
+  if (!ready) {
+    return <Splash />;
+  }
+
+  if (!user) {
     return (
       <ErrorBoundary>
-        <LockScreen />
-        <Toaster position="top-center" richColors closeButton />
+        <LoginPage />
+        <Toaster position="top-center" richColors closeButton toastOptions={toastOptions} />
       </ErrorBoundary>
     );
   }
 
-  return (
-    <ErrorBoundary>
-      <AppRouter />
-      <Toaster
-        position="top-center"
-        richColors
-        closeButton
-        toastOptions={{ style: { fontFamily: 'inherit' } }}
-      />
-    </ErrorBoundary>
-  );
+  if (user.role === 'manager') {
+    return (
+      <ErrorBoundary>
+        <ManagerApp />
+        <Toaster position="top-center" richColors closeButton toastOptions={toastOptions} />
+      </ErrorBoundary>
+    );
+  }
+
+  return <StoreShell />;
 }

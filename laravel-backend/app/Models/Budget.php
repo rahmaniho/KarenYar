@@ -10,6 +10,7 @@ class Budget extends Model
     use HasFactory;
 
     protected $fillable = [
+        'store_id',
         'month',
         'category',
         'limit',

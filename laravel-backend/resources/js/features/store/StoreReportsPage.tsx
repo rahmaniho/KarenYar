@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/core/db/use-live-query';
 import { toast } from 'sonner';
 import { downloadCsv } from '@/core/utils/csv';
 import { Button } from '@/components/ui/button';

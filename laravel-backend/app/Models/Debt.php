@@ -10,6 +10,7 @@ class Debt extends Model
     use HasFactory;
 
     protected $fillable = [
+        'store_id',
         'title',
         'kind',
         'amount',

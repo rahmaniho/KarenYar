@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('transactions', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('store_id')->constrained('stores')->cascadeOnDelete();
             $table->dateTime('date')->index();
 
             $table->string('type', 20)->index(); // income | expense
@@ -31,7 +32,7 @@ return new class extends Migration
             $table->timestamps();
 
             // هر فروش فقط یک تراکنش خودکار داشته باشد.
-            $table->unique(['source', 'invoice_id']);
+            $table->unique(['store_id', 'source', 'invoice_id']);
         });
     }
 

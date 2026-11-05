@@ -49,7 +49,6 @@ export function LockScreen() {
   const wipeEverything = async () => {
     await db.delete();
     localStorage.removeItem('hesabyar-settings');
-    localStorage.removeItem('hesabyar-calc-history');
     window.location.reload();
   };
 

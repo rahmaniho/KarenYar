@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/core/db/use-live-query';
 import { BadgeCheck, RotateCcw, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { db, type CustomerPayment, type Invoice } from '@/core/db/db';

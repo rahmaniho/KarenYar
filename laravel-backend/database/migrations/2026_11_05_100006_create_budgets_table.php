@@ -13,13 +13,14 @@ return new class extends Migration
     {
         Schema::create('budgets', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('store_id')->constrained('stores')->cascadeOnDelete();
             // کلید ماه شمسی مثل 1404-07
             $table->string('month', 7)->index();
             $table->string('category')->index();
             $table->decimal('limit', 18, 2)->default(0);
             $table->timestamps();
 
-            $table->unique(['month', 'category']);
+            $table->unique(['store_id', 'month', 'category']);
         });
     }
 

@@ -4,6 +4,7 @@
  */
 import Dexie, { type EntityTable } from 'dexie';
 import type { PayrollInput, PayrollResult } from '../calc/payroll';
+import { ServerDB } from './server-db';
 
 export interface Product {
   id?: number;
@@ -257,6 +258,13 @@ export interface KeyValueRow {
   value: unknown;
 }
 
+export interface CalculatorHistoryRow {
+  id?: number;
+  expression: string;
+  result: string;
+  createdAt?: string;
+}
+
 export class HesabyarDB extends Dexie {
   products!: EntityTable<Product, 'id'>;
   invoices!: EntityTable<Invoice, 'id'>;
@@ -273,6 +281,7 @@ export class HesabyarDB extends Dexie {
   license!: EntityTable<KeyValueRow, 'key'>;
   stockMovements!: EntityTable<StockMovement, 'id'>;
   heldSales!: EntityTable<HeldSale, 'id'>;
+  calculatorHistory!: EntityTable<CalculatorHistoryRow, 'id'>;
 
   constructor(name = 'karenyar-hesabyar') {
     super(name);
@@ -326,9 +335,24 @@ export class HesabyarDB extends Dexie {
       customerPayments: '++id, customerId, invoiceId, date, kind, &paymentKey, [invoiceId+date]',
       financialEvents: '++id, invoiceId, paymentId, action, createdAt',
     });
+    // نسخهٔ ۵ — تاریخچه‌ی ماشین‌حساب که قبلاً در localStorage بود.
+    this.version(5).stores({
+      calculatorHistory: '++id, createdAt',
+    });
   }
 }
 
-export const db = new HesabyarDB();
+/**
+ * انتخاب لایه‌ی داده:
+ * - در تست‌ها همان Dexie (با fake-indexeddb) استفاده می‌شود تا آزمون‌ها بدون شبکه بمانند.
+ * - در اجرای واقعی، لایه‌ی سروری (دیتابیس لاراول) جایگزین IndexedDB شده است.
+ */
+const isTestMode = import.meta.env.MODE === 'test';
+
+export const dbMode: 'server' | 'dexie' = isTestMode ? 'dexie' : 'server';
+
+export const serverDb: ServerDB | null = isTestMode ? null : new ServerDB();
+
+export const db = (serverDb ?? new HesabyarDB()) as unknown as HesabyarDB;
 
 export const nowISO = () => new Date().toISOString();

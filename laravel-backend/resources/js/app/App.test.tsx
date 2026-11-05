@@ -1,9 +1,39 @@
 import 'fake-indexeddb/auto';
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { useAuthStore, type AuthUser } from '@/store/auth-store';
 import { App } from './App';
 
+const storeUser: AuthUser = {
+  id: 1,
+  name: 'مدیر فروشگاه',
+  email: 'store@test.local',
+  role: 'store',
+  store_id: 1,
+  is_active: true,
+  store: {
+    id: 1,
+    name: 'فروشگاه تست',
+    slug: 'store-test',
+    owner_name: null,
+    phone: null,
+    address: null,
+    is_active: true,
+    license: null,
+  },
+};
+
 describe('اپلیکیشن حساب‌یار', () => {
+  beforeEach(() => {
+    // در تست به شبکه وصل نمی‌شویم؛ کاربر فروشگاه را از پیش وارد می‌کنیم.
+    useAuthStore.setState({
+      user: storeUser,
+      ready: true,
+      loading: false,
+      refresh: async () => undefined,
+    });
+  });
+
   it('بدون خطا رندر می‌شود و برند و ناوبری فارسی نمایش داده می‌شود', async () => {
     render(<App />);
     // وردمارک رسمی حساب‌یار در سربرند سایت

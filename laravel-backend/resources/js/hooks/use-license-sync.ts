@@ -1,29 +1,33 @@
 /**
- * تمدید/بررسی دوره‌ای لایسنس سروری — فقط در بیلد سروری فعال است.
- * هنگام آنلاین‌شدن و بازگشت به برنامه هم بررسی می‌کند؛ خود استور فاصله‌ی
- * زمانی را رعایت می‌کند تا درخواست پشت‌سرهم به سرور نرود.
+ * تازه‌سازی دوره‌ای اطلاعات لایسنس فروشگاه.
+ *
+ * چون لایسنس از سرور می‌آید، هنگام آنلاین‌شدن و بازگشت به برنامه اطلاعات
+ * کاربر (و لایسنس همراه آن) دوباره خوانده می‌شود.
  */
 import { useEffect } from 'react';
-import { useLicenseStore } from '@/store/license-store';
+import { useAuthStore } from '@/store/auth-store';
 
-const SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 
 export function useLicenseSync(): void {
-  const sync = useLicenseStore((s) => s.sync);
+  const role = useAuthStore((s) => s.user?.role ?? null);
+  const refresh = useAuthStore((s) => s.refresh);
+
   useEffect(() => {
-    const run = () => {
-      void sync();
-    };
+    if (role !== 'store') {
+      return;
+    }
+    const run = () => void refresh();
     const onVisibility = () => {
       if (document.visibilityState === 'visible') run();
     };
     window.addEventListener('online', run);
     document.addEventListener('visibilitychange', onVisibility);
-    const timer = window.setInterval(run, SYNC_INTERVAL_MS);
+    const timer = window.setInterval(run, REFRESH_INTERVAL_MS);
     return () => {
       window.removeEventListener('online', run);
       document.removeEventListener('visibilitychange', onVisibility);
       window.clearInterval(timer);
     };
-  }, [sync]);
+  }, [role, refresh]);
 }

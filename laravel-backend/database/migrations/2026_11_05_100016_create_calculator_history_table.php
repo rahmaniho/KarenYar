@@ -15,6 +15,7 @@ return new class extends Migration
         // به‌صورت [{ expr, result }, ...] ذخیره می‌شود.
         Schema::create('calculator_history', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('store_id')->constrained('stores')->cascadeOnDelete();
             $table->text('expression');
             $table->string('result');
             $table->timestamps();

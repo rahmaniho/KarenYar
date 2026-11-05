@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/core/db/use-live-query';
 import { AlertTriangle, CheckCircle2, Pencil, PiggyBank, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { db, type Budget, type Transaction } from '@/core/db/db';

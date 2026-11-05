@@ -9,6 +9,7 @@ class CalculatorHistory extends Model
     protected $table = 'calculator_history';
 
     protected $fillable = [
+        'store_id',
         'expression',
         'result',
     ];

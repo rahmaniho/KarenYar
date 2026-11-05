@@ -11,6 +11,7 @@ class FinancialEvent extends Model
     use HasFactory;
 
     protected $fillable = [
+        'store_id',
         'invoice_id',
         'customer_id',
         'payment_key',

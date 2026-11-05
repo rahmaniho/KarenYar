@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/core/db/use-live-query';
 import { toast } from 'sonner';
 import { db, type CustomerPayment, type Invoice } from '@/core/db/db';
 import { formatMoney, toFaDigits } from '@/core/currency/currency';

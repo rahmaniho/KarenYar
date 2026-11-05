@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/core/db/use-live-query';
 import { db, type KeyValueRow, type Product } from '@/core/db/db';
 import {
   PRODUCT_CATEGORIES_KEY,

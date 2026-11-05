@@ -13,11 +13,11 @@ return new class extends Migration
     {
         Schema::create('financial_events', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('store_id')->constrained('stores')->cascadeOnDelete();
 
-            $table->foreignId('invoice_id')
-                ->nullable()
-                ->constrained('invoices')
-                ->nullOnDelete();
+            // ارجاع به فاکتور/پرداخت به‌صورت نرم نگه داشته می‌شود؛ این جدول رویدادنگار
+            // است و رویداد «حذف پیش‌نویس» به سندی اشاره می‌کند که دیگر وجود ندارد.
+            $table->unsignedBigInteger('invoice_id')->nullable()->index();
 
             $table->foreignId('customer_id')
                 ->nullable()
@@ -25,10 +25,7 @@ return new class extends Migration
                 ->nullOnDelete();
 
             $table->string('payment_key')->nullable();
-            $table->foreignId('payment_id')
-                ->nullable()
-                ->constrained('customer_payments')
-                ->nullOnDelete();
+            $table->unsignedBigInteger('payment_id')->nullable()->index();
 
             // draft_saved | issued | voided | payment_recorded | refund_recorded
             // payment_reversed | draft_discarded | customer_payment_received

@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('held_sales', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('store_id')->constrained('stores')->cascadeOnDelete();
             $table->string('label');
 
             // SaleDraftItem[] — سبد نگه‌داشته‌شده تا زمان تکمیل فروش.

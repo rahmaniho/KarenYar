@@ -11,6 +11,7 @@ class Employee extends Model
     use HasFactory;
 
     protected $fillable = [
+        'store_id',
         'name',
         'national_id',
         'position',

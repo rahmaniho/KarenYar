@@ -11,7 +11,6 @@ import {
   Moon,
   MonitorSmartphone,
   Palette,
-  RefreshCw,
   Store,
   Sun,
   Trash2,
@@ -24,7 +23,6 @@ import { downloadBackupFile, exportBackup, importBackup, validateBackup } from '
 import {
   FEATURE_LABELS,
   FREE_LIMITS,
-  LicenseError,
   TIER_LABELS,
   type Feature,
   type LicenseTier,
@@ -46,7 +44,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -68,12 +65,10 @@ const SERVER_TIER_LABELS: Record<LicenseTier, string> = {
 };
 
 const SERVER_STATUS_LABELS: Record<string, string> = {
-  inactive: 'فعال نشده',
+  none: 'بدون لایسنس',
+  inactive: 'غیرفعال',
   active: 'فعال',
-  offline: 'فعال — حالت آفلاین',
   expired: 'منقضی',
-  revoked: 'لغو شده',
-  error: 'نیاز به بررسی',
 };
 
 function SectionTitle({ icon: Icon, children }: { icon: typeof Palette; children: string }) {
@@ -92,26 +87,17 @@ export function SettingsPage() {
   const pinHash = settings.pinHash;
   const setPinHash = settings.setPinHash;
   const licenseInfo = useLicenseStore((s) => s.info);
-  const activate = useLicenseStore((s) => s.activate);
-  const deactivate = useLicenseStore((s) => s.deactivate);
   const can = useLicenseStore((s) => s.can);
-  const licenseMode = useLicenseStore((s) => s.mode);
   const licenseStatus = useLicenseStore((s) => s.status);
   const licenseStatusMessage = useLicenseStore((s) => s.statusMessage);
-  const licenseSyncing = useLicenseStore((s) => s.syncing);
-  const syncLicense = useLicenseStore((s) => s.sync);
-  const deviceKeyId = useLicenseStore((s) => s.deviceKeyId);
-  const isServerLicense = licenseMode === 'server';
+  const isLifetime = useLicenseStore((s) => s.isLifetime);
   const { canInstall, isInstalled, promptInstall } = useInstallPrompt();
 
-  const [licenseKey, setLicenseKey] = useState('');
   const [pinCurrent, setPinCurrent] = useState('');
   const [pinNew, setPinNew] = useState('');
   const [pinBusy, setPinBusy] = useState(false);
   const [seedOpen, setSeedOpen] = useState(false);
   const [seeding, setSeeding] = useState(false);
-  const [activating, setActivating] = useState(false);
-  const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [wipeOpen, setWipeOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -122,31 +108,6 @@ export function SettingsPage() {
       document.getElementById('license')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [location.hash]);
-
-  const handleActivate = async () => {
-    if (!licenseKey.trim()) {
-      toast.error(isServerLicense ? 'کد فعال‌سازی را وارد کنید.' : 'کلید لایسنس را وارد کنید.');
-      return;
-    }
-    setActivating(true);
-    try {
-      const info = await activate(licenseKey);
-      if (info.isExpired) {
-        toast.error('این لایسنس منقضی شده است. برای تمدید با فروشنده تماس بگیرید.');
-      } else {
-        toast.success(
-          `نسخه‌ی ${isServerLicense ? SERVER_TIER_LABELS[info.tier] : TIER_LABELS[info.tier]} برای «${info.holderName ?? ''}» فعال شد. خوش آمدید!`,
-        );
-      }
-      setLicenseKey('');
-    } catch (error) {
-      toast.error(
-        error instanceof LicenseError ? error.message : 'فعال‌سازی ناموفق بود. دوباره تلاش کنید.',
-      );
-    } finally {
-      setActivating(false);
-    }
-  };
 
   const handleExport = async () => {
     try {
@@ -530,114 +491,56 @@ export function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="flex flex-wrap items-center gap-3 rounded-xl bg-muted/60 p-4">
-            <Badge variant={licenseInfo.tier === 'free' ? 'secondary' : 'neon'} className="text-sm">
-              نسخه‌ی فعلی:{' '}
-              {isServerLicense
-                ? SERVER_TIER_LABELS[licenseInfo.tier]
-                : TIER_LABELS[licenseInfo.tier]}
-            </Badge>
-            {isServerLicense && (
-              <Badge variant="outline" className="text-xs">
-                {SERVER_STATUS_LABELS[licenseStatus] ?? licenseStatus}
-              </Badge>
-            )}
+            <span
+              className={cn(
+                'rounded-full border px-2.5 py-0.5 text-sm font-semibold',
+                licenseInfo.tier === 'free'
+                  ? 'border-transparent bg-secondary text-secondary-foreground'
+                  : 'border-transparent bg-accent text-accent-foreground',
+              )}
+            >
+              نسخه‌ی فعلی: {SERVER_TIER_LABELS[licenseInfo.tier]}
+            </span>
+            <span className="rounded-full border px-2.5 py-0.5 text-xs font-semibold">
+              {SERVER_STATUS_LABELS[licenseStatus] ?? licenseStatus}
+            </span>
             {licenseInfo.holderName && (
               <span className="text-sm">
                 دارنده: <b>{licenseInfo.holderName}</b>
               </span>
             )}
-            {licenseInfo.expiresAt ? (
+            {isLifetime ? (
+              <span className="text-sm text-muted-foreground">مادام‌العمر (بدون انقضا)</span>
+            ) : licenseInfo.expiresAt ? (
               <span className="text-sm text-muted-foreground">
                 اعتبار تا {formatJalaliLong(new Date(licenseInfo.expiresAt))}
               </span>
-            ) : licenseInfo.tier !== 'free' && !isServerLicense ? (
-              <span className="text-sm text-muted-foreground">مادام‌العمر (بدون انقضا)</span>
             ) : null}
-            {licenseInfo.tier === 'free' && !isServerLicense && (
+            {licenseInfo.tier === 'free' && (
               <span className="text-sm text-muted-foreground">
                 محدودیت نسخه‌ی رایگان: {toFaDigits(FREE_LIMITS.products)} کالا و{' '}
                 {toFaDigits(FREE_LIMITS.transactions)} تراکنش — بدون خروجی PDF و پشتیبان‌گیری
               </span>
             )}
-            {licenseInfo.tier !== 'free' && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="ms-auto"
-                onClick={() => setDeactivateOpen(true)}
-              >
-                غیرفعال‌کردن روی این دستگاه
-              </Button>
-            )}
           </div>
 
-          {isServerLicense && (
-            <div className="space-y-3 rounded-xl border border-dashed p-4">
-              {licenseStatusMessage && (
-                <p className="text-sm leading-7 text-muted-foreground" role="status">
-                  {licenseStatusMessage}
-                </p>
-              )}
-              <p className="text-xs leading-6 text-muted-foreground">
-                لایسنس روی این دستگاه ثبت شده است. حتی اگر لایسنس منقضی یا لغو شود، داده‌های شما پاک
-                نمی‌شود و پشتیبان‌گیری و خروجی PDF همیشه در دسترس می‌ماند.
+          <div className="space-y-2 rounded-xl border border-dashed p-4">
+            {licenseStatusMessage && (
+              <p className="text-sm leading-7 text-muted-foreground" role="status">
+                {licenseStatusMessage}
               </p>
-              {deviceKeyId && (
-                <p className="text-xs text-muted-foreground">
-                  شناسه‌ی این دستگاه: <b dir="ltr">{deviceKeyId}</b>
-                </p>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void syncLicense(true)}
-                disabled={licenseSyncing}
-              >
-                <RefreshCw aria-hidden className={licenseSyncing ? 'animate-spin' : undefined} />
-                {licenseSyncing ? 'در حال بررسی…' : 'بررسی آنلاین و تمدید'}
-              </Button>
-            </div>
-          )}
-
-          {licenseInfo.tier === 'free' && (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="license-key">
-                  {isServerLicense ? 'کد فعال‌سازی' : 'کلید لایسنس'}
-                </Label>
-                <Textarea
-                  id="license-key"
-                  dir="ltr"
-                  className="text-left font-mono text-xs"
-                  rows={3}
-                  autoComplete="off"
-                  spellCheck={false}
-                  placeholder={
-                    isServerLicense ? 'KS-STAGE-xxxxxxxxxxxxxxxx' : 'KS1.xxxxxxxx.xxxxxxxx'
-                  }
-                  value={licenseKey}
-                  onChange={(e) => setLicenseKey(e.target.value)}
-                  aria-describedby="license-help"
-                />
-                <p id="license-help" className="text-xs text-muted-foreground">
-                  {isServerLicense
-                    ? 'کد فعال‌سازی را از فروشنده بگیرید. فعال‌سازی به اینترنت نیاز دارد و این دستگاه در سرور ثبت می‌شود؛ بعد از آن، برنامه تا پایان اعتبار توکن آفلاین هم کار می‌کند.'
-                    : 'کلید را دقیقاً همان‌طور که دریافت کرده‌اید وارد کنید؛ فعال‌سازی کاملاً آفلاین انجام می‌شود.'}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="neon" onClick={() => void handleActivate()} disabled={activating}>
-                  <BadgeCheck aria-hidden />
-                  {activating ? 'در حال بررسی…' : 'فعال‌سازی'}
-                </Button>
-                {SUPPORT_PHONE && (
-                  <span className="self-center text-sm text-muted-foreground">
-                    پشتیبانی فروش: <b dir="ltr">{SUPPORT_PHONE}</b>
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
+            )}
+            <p className="text-xs leading-6 text-muted-foreground">
+              لایسنس این فروشگاه توسط مدیر سامانه تعیین می‌شود. حتی اگر لایسنس منقضی یا لغو شود،
+              داده‌های شما پاک نمی‌شود و پشتیبان‌گیری و خروجی PDF همیشه در دسترس می‌ماند. برای تغییر،
+              تمدید یا فعال‌سازی مادام‌العمر با مدیر تماس بگیرید.
+            </p>
+            {SUPPORT_PHONE && (
+              <p className="text-xs text-muted-foreground">
+                پشتیبانی فروش: <b dir="ltr">{SUPPORT_PHONE}</b>
+              </p>
+            )}
+          </div>
 
           {/* جدول مقایسه‌ی سطوح */}
           <div className="overflow-x-auto">
@@ -860,22 +763,6 @@ export function SettingsPage() {
           onConfirm={runSeed}
         />
       )}
-      <ConfirmDialog
-        open={deactivateOpen}
-        onOpenChange={setDeactivateOpen}
-        title="غیرفعال‌کردن لایسنس"
-        description={
-          isServerLicense
-            ? 'لایسنس از این دستگاه حذف و برنامه به نسخه‌ی رایگان برمی‌گردد. داده‌های شما پاک نمی‌شود و خروجی گرفتن از آن‌ها باز می‌ماند. ثبت این دستگاه در سرور باقی می‌ماند و برای آزادکردن ظرفیت، باید از پنل مدیریت لغو شود. ادامه می‌دهید؟'
-            : 'لایسنس از این دستگاه حذف و برنامه به نسخه‌ی رایگان برمی‌گردد. داده‌های شما پاک نمی‌شود. ادامه می‌دهید؟'
-        }
-        confirmLabel="غیرفعال‌کردن"
-        destructive
-        onConfirm={async () => {
-          await deactivate();
-          toast.success('لایسنس غیرفعال شد.');
-        }}
-      />
       <ConfirmDialog
         open={wipeOpen}
         onOpenChange={setWipeOpen}

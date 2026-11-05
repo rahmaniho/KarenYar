@@ -11,6 +11,7 @@ class CustomerPayment extends Model
     use HasFactory;
 
     protected $fillable = [
+        'store_id',
         'customer_id',
         'invoice_id',
         'amount',

@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('customer_payments', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('store_id')->constrained('stores')->cascadeOnDelete();
 
             $table->foreignId('customer_id')
                 ->constrained('customers')
@@ -33,8 +34,8 @@ return new class extends Migration
             $table->string('method', 20)->nullable(); // cash | card | transfer
             $table->string('reference')->nullable();
 
-            // کلید یکتای ثبت پرداخت برای جلوگیری از ثبت تکراری.
-            $table->string('payment_key')->nullable()->unique();
+            // کلید یکتای ثبت پرداخت برای جلوگیری از ثبت تکراری (در محدوده‌ی فروشگاه).
+            $table->string('payment_key')->nullable()->index();
             $table->string('request_signature')->nullable();
 
             $table->foreignId('reversal_of')
@@ -46,6 +47,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['invoice_id', 'date']);
+            $table->unique(['store_id', 'payment_key']);
         });
     }
 

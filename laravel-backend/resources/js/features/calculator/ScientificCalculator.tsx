@@ -3,6 +3,7 @@ import { Delete, History, Sigma, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CalcError, evaluate, type AngleMode } from '@/core/calc/calculator-engine';
+import { db } from '@/core/db/db';
 import { formatDecimal, parseAmountInput, toEnDigits, toFaDigits } from '@/core/currency/currency';
 import { cn } from '@/lib/utils';
 
@@ -11,14 +12,12 @@ interface HistoryEntry {
   result: string;
 }
 
-const HISTORY_KEY = 'hesabyar-calc-history';
-
-function loadHistory(): HistoryEntry[] {
-  try {
-    return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]') as HistoryEntry[];
-  } catch {
-    return [];
-  }
+/** تاریخچه‌ی ماشین‌حساب از دیتابیس فروشگاه خوانده می‌شود (قبلاً localStorage بود). */
+async function loadHistory(): Promise<HistoryEntry[]> {
+  const rows = await db.calculatorHistory.orderBy('createdAt').reverse().toArray();
+  return rows
+    .slice(0, 20)
+    .map((row) => ({ expr: String(row.expression ?? ''), result: String(row.result ?? '') }));
 }
 
 const BASIC_KEYS: { label: string; value: string; kind?: 'op' | 'action' | 'equals' }[] = [
@@ -71,12 +70,32 @@ export function ScientificCalculator() {
   const [error, setError] = useState<string | null>(null);
   const [scientific, setScientific] = useState(false);
   const [angleMode, setAngleMode] = useState<AngleMode>('deg');
-  const [history, setHistory] = useState<HistoryEntry[]>(loadHistory);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const displayRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void loadHistory().then((entries) => {
+      if (alive) setHistory(entries);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const persistHistory = (next: HistoryEntry[]) => {
     setHistory(next);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+    void db
+      .transaction('rw', db.calculatorHistory, async () => {
+        await db.calculatorHistory.clear();
+        const createdAt = new Date().toISOString();
+        await db.calculatorHistory.bulkAdd(
+          [...next]
+            .reverse()
+            .map((entry) => ({ expression: entry.expr, result: entry.result, createdAt })),
+        );
+      })
+      .catch(() => undefined);
   };
 
   const calculate = useCallback(() => {

@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('invoices', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('store_id')->constrained('stores')->cascadeOnDelete();
 
             // شماره‌ی فاکتور (ترتیبی)
             $table->unsignedBigInteger('number')->index();
@@ -61,13 +62,16 @@ return new class extends Migration
             $table->dateTime('issued_at')->nullable();
 
             // شناسه‌ی ثابت هر سبد برای جلوگیری از ثبت دوباره‌ی یک فروش.
-            $table->string('checkout_key')->nullable()->unique();
+            // یکتایی فقط در محدوده‌ی همان فروشگاه معنا دارد.
+            $table->string('checkout_key')->nullable()->index();
             $table->string('checkout_signature')->nullable();
 
             $table->dateTime('voided_at')->nullable();
             $table->text('void_reason')->nullable();
 
             $table->timestamps();
+
+            $table->unique(['store_id', 'checkout_key']);
         });
     }
 

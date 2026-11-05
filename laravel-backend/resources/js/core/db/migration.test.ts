@@ -34,7 +34,7 @@ it('ارتقای نسخه ۲، کالا و فاکتور و درآمد دستی �
   const upgraded = new HesabyarDB(name);
   try {
     await upgraded.open();
-    expect(upgraded.verno).toBe(4);
+    expect(upgraded.verno).toBe(5);
     expect((await upgraded.products.get(1))?.stock).toBe(7);
     expect(await upgraded.invoices.count()).toBe(1);
     expect(await upgraded.transactions.count()).toBe(1);
@@ -91,7 +91,7 @@ it('ارتقای نسخهٔ ۳ به ۴ پرداخت‌های بدون کلید �
   const upgraded = new HesabyarDB(name);
   try {
     await upgraded.open();
-    expect(upgraded.verno).toBe(4);
+    expect(upgraded.verno).toBe(5);
     expect(await upgraded.customerPayments.count()).toBe(2);
     expect(await upgraded.financialEvents.count()).toBe(0);
     expect((await upgraded.customerPayments.get(1))?.amount).toBe(1000);

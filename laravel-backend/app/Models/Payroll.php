@@ -11,6 +11,7 @@ class Payroll extends Model
     use HasFactory;
 
     protected $fillable = [
+        'store_id',
         'employee_id',
         'month',
         'input',

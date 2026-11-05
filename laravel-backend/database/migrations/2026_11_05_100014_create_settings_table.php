@@ -11,11 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // ذخیره‌ی کلید/مقدار تنظیمات (معادل جدول settings در Dexie)
+        // ذخیره‌ی کلید/مقدار تنظیمات هر فروشگاه (معادل جدول settings در Dexie)
         Schema::create('settings', function (Blueprint $table) {
-            $table->string('key')->primary();
+            $table->id();
+            $table->foreignId('store_id')->constrained('stores')->cascadeOnDelete();
+            $table->string('key');
             $table->json('value')->nullable();
             $table->timestamps();
+
+            $table->unique(['store_id', 'key']);
         });
     }
 

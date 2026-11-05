@@ -11,10 +11,23 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // ذخیره‌ی کلید/مقدار داده‌های لایسنس (معادل جدول license در Dexie)
+        // لایسنس فروشگاه‌محور: مدیر کل برای هر فروشگاه یک لایسنس تعریف می‌کند.
+        // is_lifetime=true یعنی مادام‌العمر و expires_at نادیده گرفته می‌شود.
         Schema::create('licenses', function (Blueprint $table) {
-            $table->string('key')->primary();
-            $table->json('value')->nullable();
+            $table->id();
+            $table->foreignId('store_id')->unique()->constrained('stores')->cascadeOnDelete();
+
+            // pro = نسخه‌ی حرفه‌ای، proplus = نسخه‌ی کامل
+            $table->string('tier', 20)->default('pro');
+            $table->boolean('is_lifetime')->default(false);
+            $table->boolean('is_active')->default(true)->index();
+
+            $table->dateTime('starts_at')->nullable();
+            $table->dateTime('expires_at')->nullable()->index();
+
+            $table->text('notes')->nullable();
+            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+
             $table->timestamps();
         });
     }

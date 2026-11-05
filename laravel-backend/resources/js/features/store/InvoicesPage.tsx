@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/core/db/use-live-query';
 import { Eye, FileText, Plus, Receipt, Search, ShoppingCart, Undo2 } from 'lucide-react';
 import { db, type Invoice } from '@/core/db/db';
 import { formatMoney, formatNumber, toFaDigits } from '@/core/currency/currency';

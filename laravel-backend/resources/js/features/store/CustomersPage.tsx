@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useLiveQuery } from '@/core/db/use-live-query';
 import { Contact, HandCoins, Pencil, Plus, ScrollText, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { db, nowISO, type Customer, type CustomerPayment, type Invoice } from '@/core/db/db';
