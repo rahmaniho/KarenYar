@@ -3,13 +3,21 @@ import laravel from 'laravel-vite-plugin';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
-// حساب‌یار کارن سافت — Vite + React داخل لاراول
+// کارو نرم افزار حسابداری — Vite + React داخل لاراول
+// افزونهٔ laravel-vite-plugin در محیط CI اجرای سرور HMR را ممنوع می‌کند و vitest با
+// آن بالا نمی‌آید؛ چون تست‌ها به manifest/HMR نیاز ندارند، در حالت تست اضافه نمی‌شود.
+const isTest = process.env.VITEST === 'true' || process.env.VITEST === '1';
+
 export default defineConfig({
   plugins: [
-    laravel({
-      input: ['resources/js/main.tsx'],
-      refresh: true,
-    }),
+    ...(isTest
+      ? []
+      : [
+          laravel({
+            input: ['resources/js/main.tsx'],
+            refresh: true,
+          }),
+        ]),
     react(),
   ],
   resolve: {
