@@ -426,9 +426,9 @@ export function PayrollCalculatePage() {
             </div>
 
             <p className="mt-6 flex items-center justify-center gap-1.5 border-t pt-3 text-center text-[11px] text-navy-400">
-              صادرشده با دستمزد‌یار کارن سافت — {shopName}
+              صادرشده با کارو نرم‌افزار حسابداری — {shopName}
               <img
-                src={assetUrl('images/hesabyar/mark.png')}
+                src={assetUrl('images/karo/mark.png')}
                 alt=""
                 width={512}
                 height={512}

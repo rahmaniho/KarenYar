@@ -29,10 +29,10 @@ import '@/styles/glass-sidebar.css';
 /** نشان کوچک برند در هدر موبایل (همان لوگوی واقعی پروژه، بدون تغییر نسبت) */
 function CompactBrand() {
   return (
-    <Link to="/" aria-label="حساب‌یار کارن سافت — داشبورد" className="shrink-0">
+    <Link to="/" aria-label="کارو نرم‌افزار حسابداری — داشبورد" className="shrink-0">
       <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl border border-black/10 shadow-sm">
         <img
-          src={assetUrl('images/hesabyar/mark.png')}
+          src={assetUrl('images/karo/mark.png')}
           alt=""
           width={512}
           height={512}
@@ -242,7 +242,7 @@ export function AppLayout() {
                   {TIER_LABELS[tier]}
                 </Link>
               </Button>
-              <span className="hidden text-sm font-bold lg:block">حساب‌یار کارن سافت</span>
+              <span className="hidden text-sm font-bold lg:block">کارو نرم‌افزار حسابداری</span>
             </div>
           </div>
         </header>

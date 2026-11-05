@@ -48,18 +48,18 @@ jobs:
           grep -q "versionName='1.0.0'" /tmp/admin-badging.txt
           grep -q "sdkVersion:'24'" /tmp/admin-badging.txt
           grep -q "targetSdkVersion:'36'" /tmp/admin-badging.txt
-          cp "$APK" hesabyar-admin-1.0.0-debug.apk
-          sha256sum hesabyar-admin-1.0.0-debug.apk > hesabyar-admin-1.0.0-debug.apk.sha256
-          echo "apk=hesabyar-admin-1.0.0-debug.apk" >> "$GITHUB_OUTPUT"
-          echo "checksum=hesabyar-admin-1.0.0-debug.apk.sha256" >> "$GITHUB_OUTPUT"
+          cp "$APK" karo-admin-1.0.0-debug.apk
+          sha256sum karo-admin-1.0.0-debug.apk > karo-admin-1.0.0-debug.apk.sha256
+          echo "apk=karo-admin-1.0.0-debug.apk" >> "$GITHUB_OUTPUT"
+          echo "checksum=karo-admin-1.0.0-debug.apk.sha256" >> "$GITHUB_OUTPUT"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: hesabyar-admin-android-debug
+          name: karo-admin-android-debug
           path: |
-            hesabyar-admin-1.0.0-debug.apk
-            hesabyar-admin-1.0.0-debug.apk.sha256
+            karo-admin-1.0.0-debug.apk
+            karo-admin-1.0.0-debug.apk.sha256
           if-no-files-found: error
           retention-days: 30
 
@@ -70,9 +70,9 @@ jobs:
           set -euo pipefail
           TAG="admin-apk-v1.0.0-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           cat > /tmp/admin-release-notes.md <<EOF
-          # ادمین حساب‌یار — APK اندروید آزمایشی
+          # ادمین کارو — APK اندروید آزمایشی
 
-          این فایل یک APK واقعی و قابل نصب برای پنل ادمین حساب‌یار است.
+          این فایل یک APK واقعی و قابل نصب برای پنل ادمین کارو است.
 
           - شناسه برنامه: \`ir.karensoft.hesabyar.admin\`
           - نسخه: \`1.0.0\`
@@ -89,11 +89,11 @@ jobs:
           Build: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
           EOF
           gh release create "$TAG" \
-            hesabyar-admin-1.0.0-debug.apk \
-            hesabyar-admin-1.0.0-debug.apk.sha256 \
+            karo-admin-1.0.0-debug.apk \
+            karo-admin-1.0.0-debug.apk.sha256 \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "ادمین حساب‌یار اندروید 1.0.0 — آزمایشی" \
+            --title "ادمین کارو اندروید 1.0.0 — آزمایشی" \
             --notes-file /tmp/admin-release-notes.md \
             --prerelease \
             --latest=false
@@ -103,4 +103,4 @@ jobs:
         run: |
           echo "## Admin Android APK" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "[Download APK](https://github.com/${GITHUB_REPOSITORY}/releases/download/admin-apk-v1.0.0-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/hesabyar-admin-1.0.0-debug.apk)" >> "$GITHUB_STEP_SUMMARY"
+          echo "[Download APK](https://github.com/${GITHUB_REPOSITORY}/releases/download/admin-apk-v1.0.0-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/karo-admin-1.0.0-debug.apk)" >> "$GITHUB_STEP_SUMMARY"

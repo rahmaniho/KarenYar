@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-/** اسکیماهای اعتبارسنجی فرم‌های حساب‌یار شخصی — پیام‌ها همه فارسی‌اند. */
+/** اسکیماهای اعتبارسنجی فرم‌های کارو شخصی — پیام‌ها همه فارسی‌اند. */
 
 export const transactionSchema = z.object({
   type: z.enum(['income', 'expense']),

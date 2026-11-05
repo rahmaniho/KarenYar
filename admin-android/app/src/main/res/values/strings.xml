@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">ادمین حساب‌یار</string>
+    <string name="app_name">ادمین کارو</string>
     <string name="auth_title">ورود به پنل ادمین</string>
     <string name="auth_message">برای ورود به %1$s، نام کاربری و رمز Directory Privacy را وارد کن.</string>
     <string name="username">نام کاربری</string>

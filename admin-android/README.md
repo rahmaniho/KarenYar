@@ -1,6 +1,6 @@
-# Hesabyar Admin Android
+# Karo Admin Android
 
-Native Android shell for the staging Hesabyar admin dashboard.
+Native Android shell for the staging Karo admin dashboard.
 
 - Application ID: `ir.karensoft.hesabyar.admin`
 - Minimum Android: 7 / API 24

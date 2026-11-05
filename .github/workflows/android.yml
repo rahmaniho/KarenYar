@@ -128,7 +128,7 @@ jobs:
         if: steps.target.outputs.build_type == 'github-test' || steps.target.outputs.build_type == 'test-apk'
         uses: actions/upload-artifact@v4
         with:
-          name: hesabyar-android-debug-NOT-FOR-STORES
+          name: karo-android-debug-NOT-FOR-STORES
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
@@ -167,7 +167,7 @@ jobs:
         if: steps.target.outputs.build_type == 'signed-release'
         uses: actions/upload-artifact@v4
         with:
-          name: hesabyar-android-release
+          name: karo-android-release
           path: |
             android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/bundle/release/app-release.aab
@@ -181,9 +181,9 @@ jobs:
           files: |
             android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/bundle/release/app-release.aab
-          name: حساب‌یار اندروید ${{ github.ref_name }}
+          name: کارو اندروید ${{ github.ref_name }}
           body: |
-            نسخه‌ی انتشار امضاشده‌ی «حساب‌یار کارن سافت» — برای بارگذاری در بازار، app-release.apk را دریافت کنید.
+            نسخه‌ی انتشار امضاشده‌ی «کارو نرم‌افزار حسابداری» — برای بارگذاری در بازار، app-release.apk را دریافت کنید.
             حداقل نسخه‌ی اندروید: ۷ (API 24) — کاملاً آفلاین.
           fail_on_unmatched_files: true
 

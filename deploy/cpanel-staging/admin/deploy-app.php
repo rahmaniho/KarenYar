@@ -204,7 +204,7 @@ header("Content-Security-Policy: default-src 'none'; style-src 'nonce-" . $nonce
 </head>
 <body>
 <main>
-  <h1>نصب وب‌اپ آزمایشی حساب‌یار — staging</h1>
+  <h1>نصب وب‌اپ آزمایشی کارو — staging</h1>
   <p><a href="./">بازگشت به پنل ادمین</a></p>
 
   <?php if ($success !== ''): ?>
@@ -218,7 +218,7 @@ header("Content-Security-Policy: default-src 'none'; style-src 'nonce-" . $nonce
   <?php endif; ?>
 
   <div class="card">
-    <p class="warn">این صفحه فقط برای staging است. بستهٔ رسمی وب‌اپ را از GitHub دانلود می‌کند، SHA-256 آن را بررسی می‌کند و در پوشهٔ app نصب می‌کند. به نسخهٔ اصلی حساب‌یار دست نمی‌زند.</p>
+    <p class="warn">این صفحه فقط برای staging است. بستهٔ رسمی وب‌اپ را از GitHub دانلود می‌کند، SHA-256 آن را بررسی می‌کند و در پوشهٔ app نصب می‌کند. به نسخهٔ اصلی کارو دست نمی‌زند.</p>
     <p>مسیر نصب:</p>
     <code><?php echo karen_deploy_e($targetDir); ?></code>
     <p class="muted">اگر پوشه app از قبل وجود داشته باشد، فایل‌های بسته روی آن نوشته می‌شوند. پوشه‌های admin و v1 تغییر نمی‌کنند.</p>

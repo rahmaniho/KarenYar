@@ -11,7 +11,7 @@ describe('پشتیبان‌گیری و بازیابی', () => {
 
   it('ساختار یا نسخهٔ نامعتبر رد می‌شود', () => {
     expect(() => validateBackup(null)).toThrow('معتبر نیست');
-    expect(() => validateBackup({ format: 'other' })).toThrow('پشتیبان حساب‌یار');
+    expect(() => validateBackup({ format: 'other' })).toThrow('پشتیبان کارو');
     expect(() =>
       validateBackup({ format: 'karenyar-hesabyar-backup', version: 1, tables: {} }),
     ).toThrow('یافت نشد');

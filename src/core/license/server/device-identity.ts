@@ -41,7 +41,7 @@ export function deviceLabelFromUserAgent(userAgent: string): string {
           : /Safari/i.test(userAgent)
             ? 'Safari'
             : 'مرورگر';
-  return `حساب‌یار وب — ${os} / ${browser}`;
+  return `کارو وب — ${os} / ${browser}`;
 }
 
 function isDeviceIdentity(value: unknown): value is DeviceIdentity {

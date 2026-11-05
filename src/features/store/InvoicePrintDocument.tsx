@@ -184,7 +184,7 @@ export function InvoicePrintDocument({
           <div className="flex min-w-0 flex-1 flex-row-reverse items-start justify-end gap-4">
             {settings.invoiceShowLogo !== false && (
               <img
-                src={assetUrl('images/hesabyar/mark.png')}
+                src={assetUrl('images/karo/mark.png')}
                 alt=""
                 width={512}
                 height={512}
@@ -405,7 +405,7 @@ export function InvoicePrintDocument({
         </div>
 
         <div className="mt-5 flex items-center justify-between gap-3 border-t border-navy-100 pt-3 text-[10px] text-navy-400">
-          <span className="truncate">{settings.shopName} · صادرشده با حساب‌یار کارن سافت</span>
+          <span className="truncate">{settings.shopName} · صادرشده با کارو نرم‌افزار حسابداری</span>
           <span>
             کد پیگیری: <Ltr>{invoice.checkoutKey?.slice(-10) ?? `INV-${invoice.number}`}</Ltr>
           </span>

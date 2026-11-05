@@ -178,11 +178,11 @@ export class PdfCanvas {
     const base = meta.baseUrl.endsWith('/') ? meta.baseUrl : `${meta.baseUrl}/`;
     const doc = await PDFDocument.create();
     doc.registerFontkit(fontkit);
-    doc.setProducer('حساب‌یار کارن سافت');
-    doc.setCreator('حساب‌یار کارن سافت');
+    doc.setProducer('کارو نرم‌افزار حسابداری');
+    doc.setCreator('کارو نرم‌افزار حسابداری');
     doc.setTitle(meta.title);
     if (meta.subject) doc.setSubject(meta.subject);
-    doc.setAuthor(meta.author ?? 'حساب‌یار کارن سافت');
+    doc.setAuthor(meta.author ?? 'کارو نرم‌افزار حسابداری');
     if (meta.keywords?.length) doc.setKeywords(meta.keywords);
 
     const canvas = new PdfCanvas(

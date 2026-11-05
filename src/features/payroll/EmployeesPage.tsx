@@ -40,7 +40,7 @@ import {
 } from '@/components/ui/table';
 import { employeeSchema, type EmployeeFormValues } from './schemas';
 
-/** مدیریت کارمندان دستمزد‌یار */
+/** مدیریت کارمندان بخش حقوق و دستمزد */
 export function EmployeesPage() {
   const unit = useSettingsStore((s) => s.currencyUnit);
   const employees = useLiveQuery(

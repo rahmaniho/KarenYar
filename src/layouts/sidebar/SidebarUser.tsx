@@ -42,7 +42,7 @@ export function SidebarUser({ collapsed, onExpand, onNavigate }: SidebarUserProp
     typeof window !== 'undefined' &&
     (window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false);
   const isDark = theme === 'dark' || (theme === 'system' && systemDark);
-  const displayName = holderName || shopName || 'حساب‌یار';
+  const displayName = holderName || shopName || 'کارو';
 
   useEffect(() => {
     if (!collapsed && pendingOpen) {
@@ -79,7 +79,7 @@ export function SidebarUser({ collapsed, onExpand, onNavigate }: SidebarUserProp
       style={{ boxShadow: 'inset 0 1px 0 rgb(255 255 255 / 0.25)' }}
     >
       <img
-        src={assetUrl('images/hesabyar/mark.png')}
+        src={assetUrl('images/karo/mark.png')}
         alt=""
         width={512}
         height={512}

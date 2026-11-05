@@ -57,7 +57,7 @@ export function FeatureGate({ feature, children, compact = false, className }: F
       <p className="font-bold">این قابلیت در نسخه‌ی حرفه‌ای است</p>
       <p className="max-w-md text-sm text-muted-foreground">
         «{FEATURE_LABELS[feature]}» برای کاربران نسخه‌ی رایگان قفل است. با یک‌بار خرید نسخه‌ی
-        حرفه‌ای، همه‌ی امکانات حساب‌یار برای همیشه فعال می‌شود.
+        حرفه‌ای، همه‌ی امکانات کارو برای همیشه فعال می‌شود.
       </p>
       <Button asChild variant="neon">
         <Link to="/settings#license">

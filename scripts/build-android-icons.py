@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-ساخت آیکن لانچر و اسپلش اندروید از لوگوی رسمی جدید حساب‌یار
+ساخت آیکن لانچر و اسپلش اندروید از لوگوی رسمی «کارو — نرم‌افزار حسابداری»
 
 منبع: public/icons/icon-512.png (خروجی scripts/build-app-logo.py)
-اسپلش: public/images/hesabyar/logo.png (لوگوی کامل روی پس‌زمینه‌ی تیره)
+اسپلش: public/images/karo/logo.png (وردمارک کامل روی پس‌زمینه‌ی تیره)
 اجرا: python3 scripts/build-android-icons.py
 
 خروجی‌ها در android/app/src/main/res:
@@ -17,7 +17,7 @@ from PIL import Image, ImageDraw
 ROOT = Path(__file__).resolve().parent.parent
 RES = ROOT / 'android' / 'app' / 'src' / 'main' / 'res'
 SOURCE = ROOT / 'public' / 'icons' / 'icon-512.png'
-LOGO = ROOT / 'public' / 'images' / 'hesabyar' / 'logo.png'
+LOGO = ROOT / 'public' / 'images' / 'karo' / 'logo.png'
 DARK = (0, 0, 0)
 
 DENSITIES = [
@@ -73,21 +73,11 @@ def main() -> None:
         im = Image.new('RGB', (w, h), DARK)
         max_w = round(w * 0.72)
         max_h = round(h * 0.42)
-        # Reserve room for a white backing so the logo's navy wordmark stays readable on dark splash.
-        ratio = min(max_w / (logo.width * 1.08), max_h / (logo.height * 1.2))
+        # وردمارک کارو روی پس‌زمینهٔ تیره شفاف است و به کاشی سفید نیاز ندارد.
+        ratio = min(max_w / logo.width, max_h / logo.height)
         lw, lh = round(logo.width * ratio), round(logo.height * ratio)
         resized = logo.resize((lw, lh), Image.Resampling.LANCZOS)
-        pad_x, pad_y = round(lw * 0.04), round(lh * 0.1)
-        backing = Image.new('RGBA', (lw + 2 * pad_x, lh + 2 * pad_y), (255, 255, 255, 255))
-        backing.alpha_composite(resized, (pad_x, pad_y))
-        mask = Image.new('L', backing.size, 0)
-        ImageDraw.Draw(mask).rounded_rectangle(
-            (0, 0, backing.width - 1, backing.height - 1),
-            radius=round(min(backing.size) * 0.08),
-            fill=255,
-        )
-        backing.putalpha(mask)
-        im.paste(backing.convert('RGB'), ((w - backing.width) // 2, (h - backing.height) // 2))
+        im.paste(resized, ((w - lw) // 2, (h - lh) // 2), resized)
         im.save(splash, optimize=True)
         print('splash', splash.parent.name, (w, h))
 

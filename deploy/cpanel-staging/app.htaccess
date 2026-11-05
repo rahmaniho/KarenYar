@@ -1,4 +1,4 @@
-# حساب‌یار — staging web app under /app/
+# کارو — staging web app under /app/
 Options -Indexes
 
 <IfModule mod_rewrite.c>

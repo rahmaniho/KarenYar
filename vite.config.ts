@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vitest/config';
 
-// حساب‌یار کارن سافت — پیکربندی Vite + PWA + Vitest
+// کارو نرم‌افزار حسابداری — پیکربندی Vite + PWA + Vitest
 // برای نمایش روی GitHub Pages (ساب‌پث /KarenYar/) ورک‌فلو VITE_BASE را تنظیم می‌کند؛
 // در حالت عادی base همان '/' است و خروجی مثل قبل روی ریشه‌ی دامنه کار می‌کند.
 const base = process.env.VITE_BASE ?? '/';
@@ -22,7 +22,7 @@ export default defineConfig({
         'icons/*.png',
         'fonts/*.woff2',
         'images/karensoft/*.png',
-        'images/hesabyar/*.png',
+        'images/karo/*.png',
       ],
       workbox: {
         // Cache-First برای همه‌ی assetهای build شده (آفلاین‌فرست)
@@ -34,7 +34,7 @@ export default defineConfig({
             urlPattern: ({ request }) => request.destination === 'image',
             handler: 'CacheFirst',
             options: {
-              cacheName: 'hesabyar-images',
+              cacheName: 'karo-images',
               expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },

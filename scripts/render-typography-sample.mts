@@ -31,11 +31,11 @@ globalThis.fetch = (async (input: RequestInfo | URL) => {
 void realFetch;
 
 const SAMPLES = [
-  'حسابیار؛ مدیریت هوشمند امور مالی و حسابداری',
+  'کارو؛ مدیریت هوشمند امور مالی و حسابداری',
   'فاکتور فروش شماره ۱۲۵۴ در تاریخ ۱۴۰۵/۰۸/۱۳ صادر شده است.',
   'مبلغ قابل پرداخت: ۶۷۷٬۸۳۵٬۲۰۰ تومان',
   'مدیریت قراردادها، حساب‌های دریافتنی و پرداختنی',
-  'KarenSoft | Hesabyar | info@example.com',
+  'KarenSoft | Karo | info@example.com',
   'شماره تماس: 09152521166',
   'کالای خریداری‌شده (Product) با تخفیف ۱۰٪',
   'نشانی: تهران، خیابان ولیعصر، پلاک ۱۲۵',
@@ -45,9 +45,9 @@ const SAMPLES = [
 
 async function typographySheet(): Promise<Uint8Array> {
   const canvas = await PdfCanvas.create({
-    title: 'تست تایپوگرافی فارسی — حساب‌یار',
+    title: 'تست تایپوگرافی فارسی — کارو',
     subject: 'نمونه‌ی خروجی موتور متن فارسی',
-    author: 'حساب‌یار کارن سافت',
+    author: 'کارو نرم‌افزار حسابداری',
     keywords: ['تست', 'فارسی', 'PDF', 'فونت', 'وزیرمتن'],
     baseUrl: '/',
   });
@@ -57,14 +57,14 @@ async function typographySheet(): Promise<Uint8Array> {
   const LEFT = MM * 15;
   let y = MM * 22;
 
-  canvas.text('ورقه‌ی تست تایپوگرافی فارسی — حساب‌یار', RIGHT, y, {
+  canvas.text('ورقه‌ی تست تایپوگرافی فارسی — کارو', RIGHT, y, {
     size: 16,
     weight: 'bold',
     color: '#0B1B3A',
   });
   y += MM * 8;
   canvas.text(
-    'این سند با موتور برداری حساب‌یار و فونت وزیرمتن به‌صورت embedded ساخته شده؛ متن قابل انتخاب و جستجو است.',
+    'این سند با موتور برداری کارو و فونت وزیرمتن به‌صورت embedded ساخته شده؛ متن قابل انتخاب و جستجو است.',
     RIGHT,
     y,
     { size: 9, color: '#5A6474', maxWidth: PAGE_W - MM * 30 },
@@ -151,7 +151,7 @@ async function typographySheet(): Promise<Uint8Array> {
 }
 
 const settings: InvoiceDocumentSettings = {
-  shopName: 'حسابیار — KarenSoft',
+  shopName: 'کارو — KarenSoft',
   shopPhone: '09152521166',
   shopAddress: 'نشانی: تهران، خیابان ولیعصر، پلاک ۱۲۵',
   shopEconomicCode: '0012345678',
@@ -166,7 +166,7 @@ function makeInvoice(): Invoice {
     id: 1,
     number: 1254,
     date: '2026-11-04T12:00:00.000Z',
-    customerName: 'حسابیار؛ مدیریت هوشمند امور مالی و حسابداری',
+    customerName: 'کارو؛ مدیریت هوشمند امور مالی و حسابداری',
     customerPhone: '09152521166',
     customerAddress: 'تهران، خیابان ولیعصر، پلاک ۱۲۵ — کد پیگیری: INV-1024-AB',
     status: 'completed',
@@ -191,7 +191,7 @@ function makeItems(count: number): InvoiceItem[] {
     'کالای خریداری‌شده (Product) با تخفیف ۱۰٪',
     'می‌روم، کتاب‌ها، حسابداری، نرم‌افزار و نیم‌فاصله',
     'مدیریت قراردادها، حساب‌های دریافتنی و پرداختنی',
-    'KarenSoft | Hesabyar | info@example.com',
+    'KarenSoft | Karo | info@example.com',
   ];
   return Array.from({ length: count }, (_, i) => ({
     id: i + 1,
@@ -209,7 +209,7 @@ function makeItems(count: number): InvoiceItem[] {
 
 const customer: Customer = {
   id: 7,
-  name: 'حسابیار؛ مدیریت هوشمند امور مالی و حسابداری',
+  name: 'کارو؛ مدیریت هوشمند امور مالی و حسابداری',
   phone: '09152521166',
   address: 'تهران، خیابان ولیعصر، پلاک ۱۲۵',
   createdAt: '2026-01-01T00:00:00.000Z',
@@ -306,7 +306,7 @@ async function main() {
     overtimeHours: 6,
     nightHours: 4,
     unit: 'toman',
-    shopName: 'حسابیار — KarenSoft',
+    shopName: 'کارو — KarenSoft',
   });
   const payslipBytes = new Uint8Array(await payslipBlob.arrayBuffer());
   writeFileSync('docs/samples/payslip-persian-verification.pdf', payslipBytes);

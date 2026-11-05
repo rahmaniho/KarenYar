@@ -63,14 +63,17 @@ export function LockScreen() {
         className="w-full max-w-sm rounded-3xl bg-card p-6 shadow-soft sm:p-8"
       >
         <div className="mb-5 flex flex-col items-center text-center">
-          <img
-            src={assetUrl('images/hesabyar/logo.png')}
-            alt="لوگوی حساب‌یار"
-            width={771}
-            height={283}
-            className="mb-4 h-20 w-auto max-w-full rounded-2xl bg-white p-2 object-contain shadow-glow ring-1 ring-black/10"
-          />
-          <h1 className="text-xl font-extrabold">حساب‌یار قفل است</h1>
+          {/* لوگوی رسمی کارو روی کاشی تیره — متن سفید لوگو در هر دو تم روشن/تاریک خوانا می‌ماند */}
+          <div className="mb-4 flex w-full items-center justify-center rounded-2xl bg-black px-4 py-3 shadow-glow ring-1 ring-white/10">
+            <img
+              src={assetUrl('images/karo/logo.png')}
+              alt="لوگوی کارو"
+              width={764}
+              height={274}
+              className="h-12 w-auto max-w-full object-contain"
+            />
+          </div>
+          <h1 className="text-xl font-extrabold">کارو قفل است</h1>
           <p className="mt-1 text-sm text-muted-foreground">برای ورود، پین خود را وارد کنید.</p>
         </div>
 

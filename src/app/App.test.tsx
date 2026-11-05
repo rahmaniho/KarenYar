@@ -3,13 +3,13 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { App } from './App';
 
-describe('اپلیکیشن حساب‌یار', () => {
+describe('اپلیکیشن کارو', () => {
   it('بدون خطا رندر می‌شود و برند و ناوبری فارسی نمایش داده می‌شود', async () => {
     render(<App />);
-    // وردمارک رسمی حساب‌یار در سربرند سایت
-    const logos = await screen.findAllByRole('img', { name: 'لوگوی حساب‌یار' });
+    // وردمارک رسمی کارو در سربرند سایت
+    const logos = await screen.findAllByRole('img', { name: 'لوگوی کارو' });
     expect(logos.length).toBeGreaterThan(0);
-    expect(logos[0]).toHaveAttribute('src', expect.stringContaining('images/hesabyar/logo.png'));
+    expect(logos[0]).toHaveAttribute('src', expect.stringContaining('images/karo/logo.png'));
     // آیتم‌های ناوبری اصلی
     expect(screen.getAllByText('داشبورد').length).toBeGreaterThan(0);
     expect(screen.getAllByText('ماشین‌حساب حرفه‌ای').length).toBeGreaterThan(0);
