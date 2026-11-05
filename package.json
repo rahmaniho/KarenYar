@@ -9,6 +9,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "build:staging-web": "node scripts/build-staging-web.mjs",
+    "build:staging-archive": "npm run build:staging-web && python3 scripts/build-staging-archive.py",
     "android:sync": "npm run build && npx cap sync android",
     "android:open": "npx cap open android",
     "android:verify": "node scripts/verify-android-release.mjs",

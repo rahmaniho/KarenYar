@@ -367,6 +367,22 @@ npm run build
 
 > تغییر آدرس برنامه می‌تواند روی داده محلی مرورگر اثر بگذارد. کاربران باید قبل از مهاجرت پشتیبان بگیرند.
 
+#### بستهٔ آمادهٔ استقرار در `/app/`
+
+برای نصب نسخهٔ staging روی `staging.karen-soft.ir/app/` نیازی به آپلود دستی فایل‌ها نیست:
+پنل `deploy/cpanel-staging/admin/deploy-app.php` بستهٔ ZIP را از مخزن می‌گیرد، `sha256` را
+بررسی و در پوشهٔ `app` باز می‌کند.
+
+```bash
+npm ci
+npm run build:staging-archive   # build با base=/app/ + ساخت ZIP + چاپ sha256
+```
+
+بعد از هر بازسازی، مقدار `$expectedSha256` در `deploy-app.php` را با هش چاپ‌شده به‌روز کنید؛
+بسته در `deploy/cpanel-staging/artifacts/karo-staging-web.zip` قرار می‌گیرد و مسیر پیش‌فرض
+دانلود آن (که با متغیر محیطی `KAREN_DEPLOY_RELEASE_URL` هم قابل تغییر است) به همین فایل
+روی شاخهٔ `main` اشاره می‌کند.
+
 ### مسیر C — سرویس لایسنس
 
 اگر هدف اصلی امنیت لایسنس است:

@@ -38,8 +38,11 @@ function karen_deploy_e($value): string
     return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
-$releaseUrl = 'https://raw.githubusercontent.com/rahmaniho/KarenYar/arena/1bdeff0a-karenyar/deploy/cpanel-staging/artifacts/hesabyar-staging-web.zip';
-$expectedSha256 = 'd5830fc0d9d4af0e67784a34255af0944dc4cc821a975b089abe9b6778952125';
+// بستهٔ رسمی استقرار staging (ساخته‌شده با «npm run build:staging-archive»).
+// با متغیر محیطی KAREN_DEPLOY_RELEASE_URL می‌توان به شاخه/آینهٔ دیگری اشاره کرد.
+$releaseUrl = getenv('KAREN_DEPLOY_RELEASE_URL') ?: 'https://raw.githubusercontent.com/rahmaniho/KarenYar/main/deploy/cpanel-staging/artifacts/karo-staging-web.zip';
+// پس از هر بازسازی بسته، این هش را از خروجی scripts/build-staging-archive.py به‌روز کنید.
+$expectedSha256 = '01dae450eca899ae86986ba12d1aa00a69883a62a5b1362b25daf2e3935cca7e';
 $targetDir = dirname(__DIR__) . '/app';
 $error = '';
 $success = '';
