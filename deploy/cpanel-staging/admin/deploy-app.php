@@ -42,7 +42,7 @@ function karen_deploy_e($value): string
 // با متغیر محیطی KAREN_DEPLOY_RELEASE_URL می‌توان به شاخه/آینهٔ دیگری اشاره کرد.
 $releaseUrl = getenv('KAREN_DEPLOY_RELEASE_URL') ?: 'https://raw.githubusercontent.com/rahmaniho/KarenYar/main/deploy/cpanel-staging/artifacts/karo-staging-web.zip';
 // پس از هر بازسازی بسته، این هش را از خروجی scripts/build-staging-archive.py به‌روز کنید.
-$expectedSha256 = '01dae450eca899ae86986ba12d1aa00a69883a62a5b1362b25daf2e3935cca7e';
+$expectedSha256 = '627daef6873e97997103073d0ca678c531ec4e48035adac25830076fe2b344bd';
 $targetDir = dirname(__DIR__) . '/app';
 $error = '';
 $success = '';

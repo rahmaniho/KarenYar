@@ -18,6 +18,10 @@ ROOT = Path(__file__).resolve().parent.parent
 RES = ROOT / 'android' / 'app' / 'src' / 'main' / 'res'
 SOURCE = ROOT / 'public' / 'icons' / 'icon-512.png'
 LOGO = ROOT / 'public' / 'images' / 'karo' / 'logo.png'
+EMBLEM = ROOT / 'public' / 'images' / 'karo' / 'emblem.png'
+# ناحیهٔ امن آیکون adaptive اندروید: لایهٔ پیش‌زمینه روی بوم ۱۰۸dp و دایرهٔ امن ۶۶dp
+# کشیده می‌شود؛ پس نشان باید حدود ۴۵٪ عرض بوم باشد تا گوشه‌هایش با ماسک لانچر بریده نشود.
+ADAPTIVE_MARK_SCALE = 0.45
 DARK = (0, 0, 0)
 
 DENSITIES = [
@@ -36,6 +40,9 @@ def edge_color(im: Image.Image) -> tuple[int, int, int]:
     return tuple(sum(c[i] for c in strip) // len(strip) for i in range(3))  # type: ignore[return-value]
 
 
+EMBLEM_IMAGE = Image.open(EMBLEM).convert('RGBA')
+
+
 def main() -> None:
     icon = Image.open(SOURCE).convert('RGB')
     bg = edge_color(icon)
@@ -50,11 +57,15 @@ def main() -> None:
         round_im.paste(icon.resize((size, size), Image.LANCZOS), (0, 0))
         round_im.putalpha(mask)
         round_im.save(folder / 'ic_launcher_round.png', optimize=True)
-        canvas = Image.new('RGB', (adaptive, adaptive), bg)
-        # The supplied icon already has generous safe padding around the mark.
-        # Fill the adaptive layer so it does not get double-shrunk by Android's 72% safe zone.
-        foreground = icon.resize((adaptive, adaptive), Image.Resampling.LANCZOS)
-        canvas.paste(foreground, (0, 0))
+        # لایهٔ adaptive: پس‌زمینه مشکی از ic_launcher_background.xml می‌آید و
+        # پیش‌زمینه فقط نشان را داخل ناحیهٔ امن نگه می‌دارد.
+        canvas = Image.new('RGBA', (adaptive, adaptive), (0, 0, 0, 0))
+        mark_w = round(adaptive * ADAPTIVE_MARK_SCALE)
+        mark = EMBLEM_IMAGE.resize(
+            (mark_w, round(EMBLEM_IMAGE.height * mark_w / EMBLEM_IMAGE.width)),
+            Image.Resampling.LANCZOS,
+        )
+        canvas.paste(mark, ((adaptive - mark.width) // 2, (adaptive - mark.height) // 2), mark)
         canvas.save(folder / 'ic_launcher_foreground.png', optimize=True)
         print(name, size, adaptive)
 

@@ -11,6 +11,7 @@
 
 خروجی‌ها:
   public/images/karo/logo.png        وردمارک کامل و شفاف (سایدبار، کاشی تیره، اسپلش)
+  public/images/karo/emblem.png      نشان رنگی بدون کاشی و با شفافیت (منبع آیکون adaptive اندروید)
   public/images/karo/mark.png        نشان مربعی برنامه روی کاشی تیره (۵۱۲×۵۱۲)
   public/images/karo/app-icon.png    آیکون برنامه (همان نشان مربعی)
   public/icons/icon-192.png / icon-512.png / icon-maskable-512.png / apple-touch-icon.png
@@ -90,6 +91,7 @@ def main() -> None:
 
     # ۲) نشان مربعی برنامه از بخش نشانِ لوگو
     emblem = emblem_of(logo)
+    emblem.save(BRAND_DIR / 'emblem.png', optimize=True)
     app_icon = square_tile(emblem, 512, 0.62)
     app_icon.save(BRAND_DIR / 'mark.png', optimize=True)
     app_icon.save(BRAND_DIR / 'app-icon.png', optimize=True)
