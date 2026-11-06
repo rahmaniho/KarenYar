@@ -15,6 +15,7 @@ class License extends Model
         'tier',
         'is_lifetime',
         'is_active',
+        'is_trial',
         'starts_at',
         'expires_at',
         'notes',
@@ -26,6 +27,7 @@ class License extends Model
         return [
             'is_lifetime' => 'boolean',
             'is_active' => 'boolean',
+            'is_trial' => 'boolean',
             'starts_at' => 'datetime',
             'expires_at' => 'datetime',
         ];

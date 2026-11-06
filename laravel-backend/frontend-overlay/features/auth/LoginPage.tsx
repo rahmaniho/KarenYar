@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { LogIn } from 'lucide-react';
+import { LogIn, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +15,7 @@ import { useAuthStore } from '@/store/auth-store';
  * نقش کاربر و فروشگاهش از سرور تعیین می‌شود؛ بعد از ورود، مدیر به پنل مدیریت
  * و کاربر فروشگاه به برنامه‌ی فروشگاه هدایت می‌شود.
  */
-export function LoginPage() {
+export function LoginPage({ onSignup }: { onSignup?: () => void }) {
   const login = useAuthStore((s) => s.login);
   const loading = useAuthStore((s) => s.loading);
   const [email, setEmail] = useState('');
@@ -108,6 +108,16 @@ export function LoginPage() {
               <LogIn aria-hidden />
               {loading ? 'در حال ورود…' : 'ورود'}
             </Button>
+
+            {onSignup && (
+              <div className="space-y-2 border-t pt-3 text-center">
+                <p className="text-xs text-muted-foreground">هنوز فروشگاه نساخته‌اید؟</p>
+                <Button type="button" variant="outline" className="w-full" onClick={onSignup}>
+                  <UserPlus aria-hidden />
+                  ساخت فروشگاه و شروع رایگان
+                </Button>
+              </div>
+            )}
           </form>
         </CardContent>
       </Card>

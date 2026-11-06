@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Toaster, type ToasterProps } from 'sonner';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { LockScreen } from '@/components/LockScreen';
 import { LoginPage } from '@/features/auth/LoginPage';
+import { SignupPage } from '@/features/billing/SignupPage';
 import { ManagerApp } from '@/features/manager/ManagerApp';
 import { useLicenseSync } from '@/hooks/use-license-sync';
 import { useAuthStore } from '@/store/auth-store';
@@ -48,6 +49,7 @@ function Splash() {
 }
 
 export function App() {
+  const [screen, setScreen] = useState<'login' | 'signup'>('login');
   const user = useAuthStore((s) => s.user);
   const ready = useAuthStore((s) => s.ready);
   const refresh = useAuthStore((s) => s.refresh);
@@ -80,7 +82,11 @@ export function App() {
   if (!user) {
     return (
       <ErrorBoundary>
-        <LoginPage />
+        {screen === 'signup' ? (
+          <SignupPage onBack={() => setScreen('login')} />
+        ) : (
+          <LoginPage onSignup={() => setScreen('signup')} />
+        )}
         <Toaster position="top-center" richColors closeButton toastOptions={toastOptions} />
       </ErrorBoundary>
     );

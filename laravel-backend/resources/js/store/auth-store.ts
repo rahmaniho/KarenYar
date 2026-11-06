@@ -16,6 +16,7 @@ export interface StoreLicense {
   tier: LicenseTier;
   is_lifetime: boolean;
   is_active: boolean;
+  is_trial?: boolean;
   starts_at: string | null;
   expires_at: string | null;
   notes: string | null;

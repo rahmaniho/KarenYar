@@ -1,0 +1,40 @@
+<?php
+
+namespace App\Http\Resources;
+
+use App\Models\Order;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+/**
+ * @mixin Order
+ */
+class OrderResource extends JsonResource
+{
+    /**
+     * @return array<string, mixed>
+     */
+    public function toArray(Request $request): array
+    {
+        $meta = is_array($this->meta) ? $this->meta : [];
+
+        return [
+            'id' => $this->id,
+            'store_id' => $this->store_id,
+            'store_name' => $this->whenLoaded('store', fn () => $this->store?->name),
+            'user_email' => $this->whenLoaded('user', fn () => $this->user?->email),
+            'plan' => $this->plan,
+            'plan_label' => (string) ($meta['plan_label'] ?? $this->plan),
+            'tier' => $this->tier,
+            'months' => $this->months,
+            'is_lifetime' => (bool) $this->is_lifetime,
+            'amount' => $this->amount,
+            'status' => $this->status,
+            'gateway' => $this->gateway,
+            'reference_id' => $this->reference_id,
+            'paid_at' => $this->paid_at?->toIso8601String(),
+            'created_at' => $this->created_at?->toIso8601String(),
+            'instructions' => $meta['instructions'] ?? null,
+        ];
+    }
+}

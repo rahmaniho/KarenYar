@@ -22,6 +22,7 @@ class LicenseResource extends JsonResource
             'tier' => $this->tier,
             'is_lifetime' => (bool) $this->is_lifetime,
             'is_active' => (bool) $this->is_active,
+            'is_trial' => (bool) $this->is_trial,
             'starts_at' => $this->starts_at?->toIso8601String(),
             'expires_at' => $this->expires_at?->toIso8601String(),
             'notes' => $this->notes,

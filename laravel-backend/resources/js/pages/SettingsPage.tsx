@@ -36,6 +36,7 @@ import { hashPin, isValidPinFormat, verifyPin } from '@/core/utils/pin';
 import { seedDemoData } from '@/core/db/seed';
 import { assetUrl } from '@/lib/utils';
 import { PageHeader } from '@/components/PageHeader';
+import { BillingPanel } from '@/features/billing/BillingPanel';
 import { ImportLocalBackupCard } from '@/features/migration/ImportLocalBackupCard';
 import { FeatureGate } from '@/components/FeatureGate';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -606,6 +607,9 @@ export function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* اشتراک، خرید و تمدید */}
+      <BillingPanel />
 
       {/* منطقه‌ی خطر + درباره */}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">

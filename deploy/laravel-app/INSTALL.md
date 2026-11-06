@@ -97,6 +97,15 @@
 - **به‌روزرسانی**: بستهٔ تازه را در همان مسیر باز کنید، سپس
   `composer install --no-dev` و `php artisan migrate --force` و
   `php artisan optimize` را اجرا کنید.
+- **فروش و تمدید (مسیر پول)**: در `.env` مقدار `KARO_PAYMENT_GATEWAY` را روی
+  `manual` (کارت به کارت، پیش‌فرض) یا `zarinpal` بگذارید. برای زرین‌پال
+  `ZARINPAL_MERCHANT_ID` را از پنل زرین‌پال بگیرید و تا زمان تست
+  `ZARINPAL_SANDBOX=true` بگذارید. سپس `php artisan config:cache`.
+  مبالغ/پلن‌ها در `config/billing.php` تعریف شده‌اند (به تومان).
+- **یادآوری تمدید**: یک Cron روزانه با دستور
+  `php artisan schedule:run >> /dev/null 2>&1` (یا مستقیم
+  `php artisan karo:licenses:remind`) اضافه کنید. ایمیل با `MAIL_*` ارسال
+  می‌شود؛ برای تست ابتدا `php artisan karo:licenses:remind --dry-run`.
 - **HTTPS**: SSL را در cPanel فعال کنید (Let's Encrypt) تا `SESSION_SECURE_COOKIE`
   درست کار کند.
 - **مهاجرت دادهٔ کاربران آفلاین**: هر کاربر از نسخهٔ آفلاین فایل پشتیبان JSON

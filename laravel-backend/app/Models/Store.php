@@ -18,12 +18,14 @@ class Store extends Model
         'phone',
         'address',
         'is_active',
+        'license_reminder_stage',
     ];
 
     protected function casts(): array
     {
         return [
             'is_active' => 'boolean',
+            'license_reminder_stage' => 'integer',
         ];
     }
 
@@ -35,5 +37,10 @@ class Store extends Model
     public function license(): HasOne
     {
         return $this->hasOne(License::class);
+    }
+
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
     }
 }

@@ -10,6 +10,14 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   license_updated: 'تغییر لایسنس',
   data_imported: 'انتقال داده از نسخهٔ آفلاین',
   data_wiped: 'پاک‌سازی دادهٔ فروشگاه',
+  store_self_registered: 'ثبت‌نام آنلاین فروشگاه',
+  order_created: 'ساخت سفارش خرید',
+  order_paid: 'پرداخت تأییدشده',
+  order_failed: 'پرداخت ناموفق',
+  order_canceled: 'لغو سفارش',
+  license_renewed: 'تمدید لایسنس',
+  license_expiry_notice: 'یادآوری تمدید',
+  license_expired_notice: 'اطلاع انقضای لایسنس',
 };
 
 /** کلاس رنگی نشان هر رویداد. */
@@ -24,4 +32,12 @@ export const AUDIT_ACTION_TONES: Record<string, string> = {
   license_updated: 'bg-violet-500/15 text-violet-600 dark:text-violet-300',
   data_imported: 'bg-teal-500/15 text-teal-600 dark:text-teal-300',
   data_wiped: 'bg-red-500/15 text-red-600 dark:text-red-300',
+  store_self_registered: 'bg-sky-500/15 text-sky-600 dark:text-sky-300',
+  order_created: 'bg-amber-500/15 text-amber-600 dark:text-amber-300',
+  order_paid: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300',
+  order_failed: 'bg-red-500/15 text-red-600 dark:text-red-300',
+  order_canceled: 'bg-slate-500/15 text-slate-600 dark:text-slate-300',
+  license_renewed: 'bg-violet-500/15 text-violet-600 dark:text-violet-300',
+  license_expiry_notice: 'bg-amber-500/15 text-amber-600 dark:text-amber-300',
+  license_expired_notice: 'bg-red-500/15 text-red-600 dark:text-red-300',
 };
