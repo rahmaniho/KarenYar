@@ -135,6 +135,9 @@ class TeamController extends Controller
             abort(404);
         }
 
+        // وضعیت را از دیتابیس تازه می‌کنیم تا از دادهٔ کهنه تصمیم گرفته نشود.
+        $member->refresh();
+
         if (! $member->is_active) {
             $this->seats->assertCanAdd($store);
             $member->forceFill(['is_active' => true])->save();

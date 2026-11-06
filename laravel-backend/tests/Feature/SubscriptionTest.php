@@ -52,7 +52,7 @@ function fakeSubscriptionGateway(bool $approve = true): FakeGateway
 }
 
 /** خرید کامل و بازگشت موفق از درگاه. */
-function purchase(array $user, array $payload): Order
+function purchase(User $user, array $payload): Order
 {
     $orderId = (int) test()->actingAs($user)
         ->postJson('/api/subscription/checkout', $payload)

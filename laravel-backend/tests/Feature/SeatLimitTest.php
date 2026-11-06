@@ -101,7 +101,7 @@ it('فعال‌سازی دوبارهٔ کاربر هم کنترل ظرفیت د�
     $this->actingAs($owner)->postJson("/api/team/{$member->id}/restore")->assertOk();
     expect($member->fresh()->is_active)->toBeTrue();
 
-    $member->forceFill(['is_active' => false])->save();
+    $member->refresh()->forceFill(['is_active' => false])->save();
     User::factory()->forStore($store)->create(['email' => 'extra-'.uniqid().'@test.local']);
 
     $this->actingAs($owner)->postJson("/api/team/{$member->id}/restore")->assertStatus(422);
