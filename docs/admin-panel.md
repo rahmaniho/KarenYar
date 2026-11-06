@@ -118,3 +118,25 @@ GET/POST api/manager/managers | PUT/DELETE api/manager/managers/{manager}
 - حساب مدیر: `KARO_MANAGER_EMAIL`/`KARO_MANAGER_PASSWORD` را در `.env` بگذارید و
   `php artisan db:seed --class=DatabaseSeeder` را فقط یک بار اجرا کنید (یا از `tinker` استفاده کنید).
 - اگر روی نسخهٔ قبلی پنل هستید: آدرس `/admin` را به تیم پشتیبانی اعلام کنید؛ `/` هم به داشبورد می‌رود.
+
+## ۹) حساب‌ها و ورود (فروشگاه / مدیر)
+
+هیچ یوزرنیم و پسورد پیش‌فرضی در کد، Seeder یا مستندات وجود ندارد و رمزها با
+bcrypt ذخیره می‌شوند؛ بنابراین رمز فروشگاه از دیتابیس قابل خواندن نیست و باید
+ساخته یا بازنشانی شود.
+
+```bash
+# فروشگاه تازه + مالک + لایسنس آزمایشی (رمز در صورت ندادن، تولید و چاپ می‌شود)
+php artisan karo:store-user owner@shop.ir --create-store="فروشگاه من" --name="مالک" --seats=2
+
+# افزودن/بازنشانی کاربر فروشگاه موجود
+php artisan karo:store-user staff@shop.ir --store=12 --password='Ramz-12345'
+```
+
+- امکانات دستور: `--store` (شناسه/نام/اسلاگ)، `--create-store`، `--seats`،
+  `--trial-days`، `--password`، `--name`؛ خروجی جدول ایمیل + رمز است.
+- لاگ ممیزی: `store_user_created` / `store_user_password_reset`.
+- از رابط پنل هم مدیر می‌تواند در `/admin/stores` فروشگاه و کاربر مالک بسازد
+  (ایمیل + رمز حداقل ۸ نویسه) و رمز را بازنشانی کند.
+- ثبت‌نام خودکار: صفحهٔ ورود → «ثبت‌نام فروشگاه» (`POST /api/register`).
+- تست: `tests/Feature/StoreUserCommandTest.php`.
