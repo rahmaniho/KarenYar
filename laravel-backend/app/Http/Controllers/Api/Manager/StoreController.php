@@ -122,6 +122,7 @@ class StoreController extends Controller
                     $data['license'],
                     $request->user(),
                     (string) ($data['license']['reason'] ?? 'ایجاد اشتراک توسط مدیر'),
+                    'license.',
                 );
             }
 
@@ -182,6 +183,7 @@ class StoreController extends Controller
                     $data['license'],
                     $request->user(),
                     (string) ($data['license']['reason'] ?? 'ویرایش لایسنس توسط مدیر'),
+                    'license.',
                 );
             }
         });

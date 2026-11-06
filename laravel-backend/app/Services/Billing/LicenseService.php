@@ -232,9 +232,14 @@ class LicenseService
      *
      * @throws \Illuminate\Validation\ValidationException|\Throwable
      */
-    public function adminOverride(Store $store, array $data, User $actor, string $reason): License
-    {
-        return DB::transaction(function () use ($store, $data, $actor, $reason) {
+    public function adminOverride(
+        Store $store,
+        array $data,
+        User $actor,
+        string $reason,
+        string $fieldPrefix = '',
+    ): License {
+        return DB::transaction(function () use ($store, $data, $actor, $reason, $fieldPrefix) {
             $license = $store->license()->first();
             $activeUsers = $store->activeUserCount();
 
@@ -243,7 +248,7 @@ class LicenseService
 
             if ($seats < $activeUsers) {
                 throw ValidationException::withMessages([
-                    'seats' => ["این فروشگاه {$activeUsers} کاربر فعال دارد؛ سقف کاربران نمی‌تواند کمتر از آن باشد."],
+                    $fieldPrefix.'seats' => ["این فروشگاه {$activeUsers} کاربر فعال دارد؛ سقف کاربران نمی‌تواند کمتر از آن باشد."],
                 ]);
             }
 
@@ -256,7 +261,7 @@ class LicenseService
 
             if (! $isLifetime && ! $expiresAt) {
                 throw ValidationException::withMessages([
-                    'expires_at' => ['برای اشتراک زمان‌دار، تاریخ انقضا لازم است.'],
+                    $fieldPrefix.'expires_at' => ['برای اشتراک زمان‌دار، تاریخ انقضا لازم است.'],
                 ]);
             }
 

@@ -315,6 +315,20 @@ class SubscriberController extends Controller
     {
         $store = $license->store;
 
+        $lastReference = $license->last_order_reference ?? null;
+        $lastAmount = $license->last_order_amount ?? null;
+
+        if ($lastReference === null && $lastAmount === null) {
+            $latest = Order::query()
+                ->where('store_id', $license->store_id)
+                ->where('status', Order::STATUS_PAID)
+                ->latest('id')
+                ->first(['amount', 'reference_id']);
+
+            $lastReference = $latest?->reference_id;
+            $lastAmount = $latest?->amount;
+        }
+
         return [
             'license_id' => $license->id,
             'store_id' => $license->store_id,
@@ -333,8 +347,8 @@ class SubscriberController extends Controller
             'starts_at' => $license->starts_at?->toIso8601String(),
             'expires_at' => $license->expires_at?->toIso8601String(),
             'days_remaining' => $license->daysRemaining(),
-            'last_transaction' => $license->last_order_reference ?? null,
-            'last_amount' => $license->last_order_amount !== null ? (int) $license->last_order_amount : null,
+            'last_transaction' => $lastReference,
+            'last_amount' => $lastAmount !== null ? (int) $lastAmount : null,
             'license' => new LicenseResource($license),
         ];
     }
