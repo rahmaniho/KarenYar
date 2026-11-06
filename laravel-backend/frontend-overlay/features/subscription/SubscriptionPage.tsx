@@ -190,8 +190,11 @@ export function SubscriptionPage({
     const current = license?.plan_code
       ? plans.find((plan) => plan.code === license.plan_code)
       : null;
-    setPlanCode((current ?? plans[0]).code);
-  }, [license?.plan_code, planCode, plans]);
+    const chosen = current ?? plans[0];
+    setPlanCode(chosen.code);
+    // پیش‌فرض تعداد کاربران = کاربران فعلی اشتراک (برای تمدید/ارتقای بدون تغییر ظرفیت)
+    setSeats(Math.min(Math.max(license?.seats ?? 1, chosen.min_seats), chosen.max_seats));
+  }, [license?.plan_code, license?.seats, planCode, plans]);
 
   const plan = useMemo(
     () => plans.find((item) => item.code === planCode) ?? plans[0] ?? null,
@@ -343,7 +346,8 @@ export function SubscriptionPage({
               {plans.find((item) => item.code === license.plan_code)?.name ?? license.tier}
             </span>
             <span className="text-muted-foreground">
-              {license.seats} کاربر مجاز · {state?.usage.used} کاربر فعال
+              {toFaDigits(license.seats ?? state?.usage.allowed ?? 0)} کاربر مجاز ·{' '}
+              {toFaDigits(state?.usage.used ?? 0)} کاربر فعال
             </span>
             <span className="text-muted-foreground">
               {license.is_lifetime

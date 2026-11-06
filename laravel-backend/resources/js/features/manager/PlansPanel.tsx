@@ -210,7 +210,7 @@ export function PlansPanel() {
   const totalRevenue = plans.reduce((sum, plan) => sum + (plan.sales?.revenue ?? 0), 0);
 
   return (
-    <section className="mt-6">
+    <section className="mt-6 dark">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-lg font-extrabold text-white">
           <Coins className="h-5 w-5 text-[var(--glass-gold,theme(colors.amber.400))]" aria-hidden />

@@ -142,7 +142,7 @@ export function SubscribersPanel() {
   };
 
   return (
-    <section className="mt-6">
+    <section className="mt-6 dark">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-lg font-extrabold text-white">
           <Users className="h-5 w-5 text-[var(--glass-gold,theme(colors.amber.400))]" aria-hidden />
