@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Toaster, type ToasterProps } from 'sonner';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { LockScreen } from '@/components/LockScreen';
+import { LandingPage } from '@/features/landing/LandingPage';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { SignupPage } from '@/features/subscription/SignupPage';
 import { AdminApp } from '@/features/admin/AdminApp';
@@ -48,19 +49,27 @@ function Splash() {
   );
 }
 
+type GuestScreen = 'landing' | 'login' | 'signup';
+
 export function App() {
-  // پس از «پایان دمو» با پرچم کوتاه‌عمر، مستقیم صفحهٔ ثبت‌نام باز می‌شود.
-  const [screen, setScreen] = useState<'login' | 'signup'>(() => {
+  /**
+   * صفحهٔ مهمان: ریشه (`/`) لندینگ است؛ ورود/ثبت‌نام از همان‌جا باز می‌شود.
+   * پس از «پایان دمو» با پرچم کوتاه‌عمر، مستقیم صفحهٔ ثبت‌نام می‌آید و
+   * لینک‌های عمیق (مثل `/store/pos`) کاربر را به ورود می‌برند.
+   */
+  const [screen, setScreen] = useState<GuestScreen>(() => {
     if (typeof window === 'undefined') {
-      return 'login';
+      return 'landing';
     }
 
     const openSignup = window.sessionStorage.getItem('karo:open-signup') === '1';
     if (openSignup) {
       window.sessionStorage.removeItem('karo:open-signup');
+      return 'signup';
     }
 
-    return openSignup ? 'signup' : 'login';
+    const path = window.location.pathname.replace(/\/+$/, '');
+    return path === '' ? 'landing' : 'login';
   });
   const user = useAuthStore((s) => s.user);
   const ready = useAuthStore((s) => s.ready);
@@ -96,8 +105,16 @@ export function App() {
       <ErrorBoundary>
         {screen === 'signup' ? (
           <SignupPage onBack={() => setScreen('login')} />
+        ) : screen === 'login' ? (
+          <LoginPage
+            onSignup={() => setScreen('signup')}
+            onHome={() => setScreen('landing')}
+          />
         ) : (
-          <LoginPage onSignup={() => setScreen('signup')} />
+          <LandingPage
+            onLogin={() => setScreen('login')}
+            onSignup={() => setScreen('signup')}
+          />
         )}
         <Toaster position="top-center" richColors closeButton toastOptions={toastOptions} />
       </ErrorBoundary>

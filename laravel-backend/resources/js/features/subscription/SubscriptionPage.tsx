@@ -21,6 +21,7 @@ import { formatMoney, toFaDigits } from '@/core/currency/currency';
 import { formatJalaliLongISO } from '@/core/jalali/jalali';
 import { cn } from '@/lib/utils';
 import { useAuthStore, type StoreLicense } from '@/store/auth-store';
+import { takePlanIntent } from './plan-intent';
 import {
   DEFAULT_ALLOWED_MONTHS,
   ORDER_TYPE_LABELS,
@@ -184,13 +185,14 @@ export function SubscriptionPage({
     [state],
   );
 
-  // پلن فعلی (یا اولین پلن) به‌عنوان انتخاب اولیه
+  // پلن فعلی (یا پلن انتخاب‌شده در لندینگ، وگرنه اولین پلن) به‌عنوان انتخاب اولیه
   useEffect(() => {
     if (planCode !== null || plans.length === 0) return;
+    const wanted = takePlanIntent();
     const current = license?.plan_code
       ? plans.find((plan) => plan.code === license.plan_code)
       : null;
-    const chosen = current ?? plans[0];
+    const chosen = (wanted ? plans.find((plan) => plan.code === wanted) : null) ?? current ?? plans[0];
     setPlanCode(chosen.code);
     // پیش‌فرض تعداد کاربران = کاربران فعلی اشتراک (برای تمدید/ارتقای بدون تغییر ظرفیت)
     setSeats(Math.min(Math.max(license?.seats ?? 1, chosen.min_seats), chosen.max_seats));

@@ -15,7 +15,13 @@ import { useAuthStore } from '@/store/auth-store';
  * نقش کاربر و فروشگاهش از سرور تعیین می‌شود؛ بعد از ورود، مدیر به پنل مدیریت
  * و کاربر فروشگاه به برنامه‌ی فروشگاه هدایت می‌شود.
  */
-export function LoginPage({ onSignup }: { onSignup?: () => void }) {
+export function LoginPage({
+  onSignup,
+  onHome,
+}: {
+  onSignup?: () => void;
+  onHome?: () => void;
+}) {
   const login = useAuthStore((s) => s.login);
   const demoLogin = useAuthStore((s) => s.demoLogin);
   const loading = useAuthStore((s) => s.loading);
@@ -147,6 +153,18 @@ export function LoginPage({ onSignup }: { onSignup?: () => void }) {
                 {demoLoading ? 'در حال ساخت دمو…' : 'ورود به دموی امن'}
               </Button>
             </div>
+
+            {onHome && (
+              <div className="border-t pt-3 text-center">
+                <button
+                  type="button"
+                  onClick={onHome}
+                  className="text-xs text-muted-foreground underline-offset-4 transition hover:text-foreground hover:underline"
+                >
+                  بازگشت به صفحهٔ معرفی
+                </button>
+              </div>
+            )}
 
             {onSignup && (
               <div className="space-y-2 border-t pt-3 text-center">

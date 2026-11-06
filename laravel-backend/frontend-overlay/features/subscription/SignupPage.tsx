@@ -9,6 +9,7 @@ import { ApiError, apiFetch } from '@/core/api/client';
 import { toFaDigits } from '@/core/currency/currency';
 import { assetUrl } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth-store';
+import { peekPlanIntent } from './plan-intent';
 
 /**
  * ثبت‌نام آنلاین فروشگاه.
@@ -67,6 +68,14 @@ export function SignupPage({ onBack, trialDays = 14 }: { onBack: () => void; tri
       });
 
       await useAuthStore.getState().refresh();
+
+      // اگر پلنی در لندینگ انتخاب شده بود، مستقیم به صفحهٔ اشتراک می‌رویم.
+      if (peekPlanIntent()) {
+        toast.success('فروشگاه شما ساخته شد؛ حالا پلن انتخابی را تکمیل کنید.');
+        window.location.assign('/subscription');
+        return;
+      }
+
       toast.success('فروشگاه شما ساخته شد؛ دورهٔ آزمایشی فعال است.');
     } catch (caught) {
       if (caught instanceof ApiError) {
