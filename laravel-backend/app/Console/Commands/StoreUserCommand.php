@@ -88,8 +88,11 @@ class StoreUserCommand extends Command
                         'role' => User::ROLE_STORE,
                         'store_id' => $store->getKey(),
                         'is_active' => true,
-                        'email_verified_at' => now(),
                     ]);
+
+                    // email_verified_at در $fillable نیست؛ صریح ثبت می‌شود تا
+                    // حساب‌های CLI هم تأییدشده باشند.
+                    $user->forceFill(['email_verified_at' => now()])->save();
                 }
 
                 return ['user' => $user, 'store' => $store ?? $user->store, 'created' => $created];

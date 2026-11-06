@@ -69,8 +69,10 @@ class RegistrationController extends Controller
                 'role' => User::ROLE_STORE,
                 'store_id' => $store->id,
                 'is_active' => true,
-                'email_verified_at' => now(),
             ]);
+
+            // email_verified_at در $fillable مدل نیست؛ صریح ثبت می‌شود.
+            $user->forceFill(['email_verified_at' => now()])->save();
 
             $this->licenses->startTrial($store, $user->id);
 
