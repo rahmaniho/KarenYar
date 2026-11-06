@@ -79,10 +79,11 @@ jobs:
           php artisan test > /tmp/pest.log 2>&1
           status=$?
           if [ $status -ne 0 ]; then
-            grep -E "FAILED|FAIL|Error|Exception|SQLSTATE|⨯|✕" /tmp/pest.log | head -10 | while IFS= read -r line; do
-              echo "::error title=Pest::${line:0:400}"
-            done
+            # متن کامل انتهای لاگ را در یک annotation می‌گذاریم تا از API هم قابل خواندن باشد
+            CLEAN=$(sed -r "s/\x1B\[[0-9;]*[a-zA-Z]//g" /tmp/pest.log | tail -c 55000)
+            MSG=$(printf '%s' "$CLEAN" | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=Pest log tail::$MSG"
             echo "----- tail -----"
-            tail -40 /tmp/pest.log
+            printf '%s\n' "$CLEAN" | tail -40
           fi
           exit $status
