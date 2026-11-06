@@ -1,0 +1,98 @@
+name: Laravel backend
+
+# بررسی نسخهٔ متصل‌به‌سرور:
+# ۱) کپی فرانت‌اند لاراول باید دقیقاً برابر src/ + frontend-overlay/ باشد.
+# ۲) فرانت‌اند باید typecheck و تست‌ها را پاس کند.
+# ۳) تست‌های Pest بک‌اند.
+on:
+  push:
+    branches: [main, 'arena/**']
+    paths:
+      - 'src/**'
+      - 'laravel-backend/**'
+      - 'scripts/sync-laravel-frontend.mjs'
+      - '.github/workflows/laravel.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'laravel-backend/**'
+      - 'scripts/sync-laravel-frontend.mjs'
+      - '.github/workflows/laravel.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-sync:
+    name: هم‌خوانی فرانت‌اند (src + overlay)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: بررسی هم‌خوانی کپی
+        run: node scripts/sync-laravel-frontend.mjs --check
+
+  frontend-checks:
+    name: typecheck + vitest روی کپی لاراول
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: laravel-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: laravel-backend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  backend-tests:
+    name: Pest (بک‌اند)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: laravel-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_sqlite, sqlite3
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: cp .env.example .env && php artisan key:generate
+      - run: npm ci && npm run build
+      # لاگ رانر همیشه قابل دانلود نیست؛ خلاصهٔ خطاها را به شکل annotation نشان می‌دهیم.
+      - name: تست بک‌اند (Pest)
+        shell: bash
+        run: |
+          set +e
+          php artisan test > /tmp/pest.log 2>&1
+          status=$?
+          if [ $status -ne 0 ]; then
+            # لاگ رانر قابل دانلود نیست؛ چند تکه از انتهای لاگ را به شکل annotation منتشر می‌کنیم
+            CLEAN=$(sed -r "s/\x1B\[[0-9;]*[a-zA-Z]//g" /tmp/pest.log)
+            NAMES=$(printf '%s\n' "$CLEAN" | grep -E "FAILED|Tests:" | tr -d '\r' | tail -40)
+            NAMES_MSG=$(printf '%s' "$NAMES" | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=Pest summary::$NAMES_MSG"
+
+            for start in 1 2 3; do
+              CHUNK=$(printf '%s' "$CLEAN" | tail -c 12000 | head -c 4000)
+              CLEAN=$(printf '%s' "$CLEAN" | rev | cut -c4001- | rev)
+              if [ -z "$CHUNK" ]; then break; fi
+              MSG=$(printf '%s' "$CHUNK" | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+              echo "::error title=Pest detail $start::$MSG"
+            done
+            printf '%s\n' "$NAMES"
+            printf '%s\n' "$CLEAN" | tail -40
+          fi
+          exit $status

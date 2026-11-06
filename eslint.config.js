@@ -5,7 +5,21 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist', 'coverage', 'node_modules', 'scripts', 'playwright-report', 'test-results'] },
+  {
+    // laravel-backend/resources/js خروجی تولیدشده‌ی scripts/sync-laravel-frontend.mjs است
+    // (کپی src/ + overlay)؛ منبعِ ویرایش laravel-backend/frontend-overlay است و همان lint می‌شود.
+    ignores: [
+      'dist',
+      'coverage',
+      'node_modules',
+      'scripts',
+      'playwright-report',
+      'test-results',
+      'laravel-backend/resources/js/**',
+      'laravel-backend/public/build/**',
+      'laravel-backend/vendor/**',
+    ],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],
