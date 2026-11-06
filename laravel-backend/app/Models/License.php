@@ -10,12 +10,27 @@ class License extends Model
 {
     use HasFactory;
 
+    public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_SUSPENDED = 'suspended';
+
+    public const STATUS_CANCELED = 'canceled';
+
+    public const STATUS_EXPIRED = 'expired';
+
+    public const STATUS_RENEWAL_PENDING = 'renewal_pending';
+
     protected $fillable = [
         'store_id',
         'tier',
         'is_lifetime',
         'is_active',
         'is_trial',
+        'plan_code',
+        'seats',
+        'status',
         'starts_at',
         'expires_at',
         'notes',
@@ -28,6 +43,7 @@ class License extends Model
             'is_lifetime' => 'boolean',
             'is_active' => 'boolean',
             'is_trial' => 'boolean',
+            'seats' => 'integer',
             'starts_at' => 'datetime',
             'expires_at' => 'datetime',
         ];
@@ -46,7 +62,7 @@ class License extends Model
     /** آیا لایسنس همین حالا معتبر و فعال است؟ */
     public function isCurrentlyValid(): bool
     {
-        if (! $this->is_active) {
+        if (! $this->is_active || in_array($this->status, [self::STATUS_SUSPENDED, self::STATUS_CANCELED], true)) {
             return false;
         }
 
@@ -62,6 +78,31 @@ class License extends Model
         return ! $this->is_lifetime
             && $this->expires_at !== null
             && $this->expires_at->isPast();
+    }
+
+    /**
+     * وضعیت مؤثر برای نمایش: وضعیت مدیریتی + انقضا.
+     */
+    public function effectiveStatus(): string
+    {
+        if ($this->status === self::STATUS_SUSPENDED || $this->status === self::STATUS_CANCELED) {
+            return $this->status;
+        }
+
+        if ($this->is_lifetime) {
+            return self::STATUS_ACTIVE;
+        }
+
+        if ($this->expires_at !== null && $this->expires_at->isPast()) {
+            return self::STATUS_EXPIRED;
+        }
+
+        return $this->status ?: self::STATUS_ACTIVE;
+    }
+
+    public function seats(): int
+    {
+        return max(1, (int) $this->seats);
     }
 
     public function daysRemaining(): ?int

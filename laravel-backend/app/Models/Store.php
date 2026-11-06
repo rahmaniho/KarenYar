@@ -43,4 +43,28 @@ class Store extends Model
     {
         return $this->hasMany(Order::class);
     }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(SubscriptionInvoice::class);
+    }
+
+    public function subscriptionHistory(): HasMany
+    {
+        return $this->hasMany(SubscriptionHistory::class);
+    }
+
+    /** تعداد کاربران فعال (کاربران غیرفعال اشتراک مصرف نمی‌کنند). */
+    public function activeUserCount(): int
+    {
+        return $this->users()->where('is_active', true)->count();
+    }
+
+    /** سقف کاربران مجاز بر اساس لایسنس فعلی. */
+    public function seatsAllowed(): int
+    {
+        $license = $this->license;
+
+        return $license ? $license->seats() : 0;
+    }
 }

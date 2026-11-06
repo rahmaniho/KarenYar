@@ -125,7 +125,7 @@ class SendLicenseReminders extends Command
      */
     private function windows(): array
     {
-        $windows = array_values(array_map('intval', (array) config('billing.reminder_days', [30, 7, 0])));
+        $windows = array_values(array_map('intval', (array) config('billing.reminder_days', [7, 3, 1, 0])));
         rsort($windows);
 
         return $windows;

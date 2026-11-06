@@ -3,7 +3,7 @@ import { Toaster, type ToasterProps } from 'sonner';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { LockScreen } from '@/components/LockScreen';
 import { LoginPage } from '@/features/auth/LoginPage';
-import { SignupPage } from '@/features/billing/SignupPage';
+import { SignupPage } from '@/features/subscription/SignupPage';
 import { ManagerApp } from '@/features/manager/ManagerApp';
 import { useLicenseSync } from '@/hooks/use-license-sync';
 import { useAuthStore } from '@/store/auth-store';

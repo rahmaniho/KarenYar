@@ -4,6 +4,9 @@ namespace App\Services\Billing;
 
 use App\Models\Order;
 use App\Models\Store;
+use App\Models\SubscriptionCoupon;
+use App\Models\SubscriptionPayment;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Services\Billing\Exceptions\PaymentGatewayException;
 use App\Support\AuditLogger;
@@ -12,75 +15,132 @@ use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * چرخهٔ کامل پرداخت: ساخت سفارش، ارسال به درگاه، تأیید و اعمال لایسنس.
+ * چرخهٔ کامل خرید اشتراک: قیمت‌گذاری سمت سرور → سفارش → درگاه → تأیید → فعال‌سازی + فاکتور.
  *
- * اصل طراحی: تا پرداخت تأیید نشده هیچ لایسنسی تغییر نمی‌کند، و تأیید یک
- * سفارش دو بار (مثلاً بازگشت دوباره از درگاه) لایسنس را دو بار تمدید نمی‌کند.
+ * اصول:
+ * - مبلغ همیشه در سرور از تعرفهٔ لحظهٔ خرید محاسبه و در سفارش «قفل» می‌شود.
+ * - مبلغ ارسالی مرورگر هرگز قابل اعتماد نیست و اصلاً دریافت نمی‌شود.
+ * - تا پرداخت تأیید نشده، هیچ لایسنسی تغییر نمی‌کند.
+ * - تأیید تکراری یک سفارش، اشتراک را دو بار تمدید نمی‌کند (قفل ردیف + idempotent).
  */
 class CheckoutService
 {
     public function __construct(
         private readonly PlanCatalog $plans,
+        private readonly PricingEngine $pricing,
+        private readonly CouponService $coupons,
         private readonly PaymentGatewayManager $gateways,
         private readonly LicenseService $licenses,
+        private readonly InvoiceService $invoices,
     ) {}
 
     /**
-     * شروع خرید: سفارش ساخته و به درگاه فرستاده می‌شود.
+     * پیش‌فاکتور/محاسبهٔ قیمت — همان موتور قیمت‌گذاری که در پرداخت استفاده می‌شود.
      *
-     * @return array{order: Order, redirect_url: string|null, instructions: string|null}
+     * @return array<string, mixed>
      *
      * @throws ValidationException
      */
-    public function start(Store $store, User $user, string $planKey, ?string $gatewayKey = null): array
+    public function quote(string $planCode, int $seats, int $months, ?string $couponCode = null): array
     {
-        $plan = $this->plans->find($planKey);
+        [$plan, $coupon] = $this->resolveInputs($planCode, $couponCode);
 
-        if ($plan === null) {
-            throw ValidationException::withMessages(['plan' => ['پلن انتخاب‌شده معتبر نیست.']]);
+        try {
+            return $this->pricing->quote($plan, $seats, $months, $coupon);
+        } catch (PricingException $exception) {
+            throw ValidationException::withMessages([
+                'seats' => [$exception->getMessage()],
+            ]);
+        }
+    }
+
+    /**
+     * @param  array{plan_code: string, seats: int, months: int, coupon_code?: string|null, gateway?: string|null}  $payload
+     * @return array{order: Order, redirect_url: string|null, instructions: string|null}
+     *
+     * @throws ValidationException|Throwable
+     */
+    public function start(Store $store, User $user, array $payload): array
+    {
+        $planCode = (string) $payload['plan_code'];
+        $seats = (int) $payload['seats'];
+        $months = (int) $payload['months'];
+        $couponCode = $payload['coupon_code'] ?? null;
+
+        [$plan, $coupon] = $this->resolveInputs($planCode, $couponCode);
+
+        try {
+            $quote = $this->pricing->quote($plan, $seats, $months, $coupon);
+        } catch (PricingException $exception) {
+            throw ValidationException::withMessages(['seats' => [$exception->getMessage()]]);
         }
 
-        $gatewayKey = $gatewayKey ?: (string) config('billing.gateway', 'manual');
+        $gatewayKey = (string) ($payload['gateway'] ?? config('billing.gateway', 'manual'));
 
         if (! $this->gateways->isAvailable($gatewayKey)) {
             throw ValidationException::withMessages(['gateway' => ['این روش پرداخت در دسترس نیست.']]);
         }
 
+        $type = $this->resolveType($store, $plan, $seats);
+
         $order = Order::create([
             'store_id' => $store->id,
             'user_id' => $user->id,
-            'plan' => $plan['key'],
-            'tier' => $plan['tier'],
-            'months' => $plan['months'] ?? 0,
-            'is_lifetime' => $plan['is_lifetime'],
-            'amount' => $plan['amount'],
+            'plan' => $quote['plan_code'],
+            'tier' => $quote['tier'],
+            'type' => $type,
+            'months' => $quote['months'],
+            'seats' => $quote['seats'],
+            'extra_users' => $quote['extra_users'],
+            'base_monthly' => $quote['base_monthly'],
+            'extra_user_monthly' => $quote['extra_user_monthly'],
+            'subtotal' => $quote['subtotal'],
+            'discount' => $quote['discount'],
+            'coupon_code' => $quote['coupon_code'],
+            'price_snapshot' => $quote,
+            'is_lifetime' => $quote['is_lifetime'],
+            'amount' => $quote['total'],
             'status' => Order::STATUS_PENDING,
             'gateway' => $gatewayKey,
-            'meta' => ['plan_label' => $plan['label']],
+            'meta' => ['plan_label' => $quote['plan_name']],
         ]);
 
         $gateway = $this->gateways->driver($gatewayKey);
+
+        $payment = SubscriptionPayment::create([
+            'order_id' => $order->id,
+            'store_id' => $store->id,
+            'gateway' => $gatewayKey,
+            'amount' => $quote['total'],
+            'currency' => 'toman',
+            'status' => SubscriptionPayment::STATUS_PENDING,
+        ]);
 
         try {
             $result = $gateway->request($order, [
                 'email' => $user->email,
                 'callback_url' => route('api.billing.callback', ['order' => $order->id]),
-                'description' => $plan['label'].' — '.$store->name,
+                'description' => $quote['plan_name'].' — '.$quote['seats'].' کاربر — '.$quote['months'].' ماه',
             ]);
         } catch (Throwable $exception) {
             $order->forceFill([
                 'status' => Order::STATUS_FAILED,
                 'meta' => [
-                    'plan_label' => $plan['label'],
+                    'plan_label' => $quote['plan_name'],
                     'error' => $exception->getMessage(),
                 ],
+            ])->save();
+
+            $payment->forceFill([
+                'status' => SubscriptionPayment::STATUS_FAILED,
+                'payload' => ['error' => $exception->getMessage()],
             ])->save();
 
             AuditLogger::record('order_failed', [
                 'store_id' => $store->id,
                 'subject_type' => 'order',
                 'subject_key' => $order->id,
-                'meta' => ['gateway' => $gatewayKey, 'plan' => $plan['key'], 'error' => $exception->getMessage()],
+                'meta' => ['gateway' => $gatewayKey, 'plan' => $planCode, 'error' => $exception->getMessage()],
             ]);
 
             throw ValidationException::withMessages([
@@ -90,10 +150,14 @@ class CheckoutService
             ]);
         }
 
+        $payment->forceFill([
+            'authority' => $result['authority'],
+        ])->save();
+
         $order->forceFill([
             'gateway_ref' => $result['authority'],
             'meta' => array_filter([
-                'plan_label' => $plan['label'],
+                'plan_label' => $quote['plan_name'],
                 'instructions' => $result['instructions'],
             ], fn ($value) => $value !== null),
         ])->save();
@@ -102,7 +166,14 @@ class CheckoutService
             'store_id' => $store->id,
             'subject_type' => 'order',
             'subject_key' => $order->id,
-            'meta' => ['gateway' => $gatewayKey, 'plan' => $plan['key'], 'amount' => $plan['amount']],
+            'meta' => [
+                'gateway' => $gatewayKey,
+                'plan' => $planCode,
+                'seats' => $seats,
+                'months' => $months,
+                'amount' => $quote['total'],
+                'type' => $type,
+            ],
         ]);
 
         return [
@@ -144,6 +215,8 @@ class CheckoutService
                 ], fn ($value) => $value !== null),
             ])->save();
 
+            $this->failPendingPayment($order, $result['message']);
+
             AuditLogger::record('order_failed', [
                 'store_id' => $order->store_id,
                 'subject_type' => 'order',
@@ -162,10 +235,9 @@ class CheckoutService
     }
 
     /**
-     * ثبت پرداخت و اعمال لایسنس — تنها نقطهٔ مجاز «paid شدن» سفارش.
+     * ثبت پرداخت، فعال‌سازی اشتراک و صدور فاکتور — تنها مسیر «paid شدن» سفارش.
      *
-     * هم‌زمانی با قفل ردیف مدیریت می‌شود و برای سفارش پرداخت‌شده بی‌اثر است
-     * (idempotent)، پس بازگشت تکراری از درگاه لایسنس را دو بار تمدید نمی‌کند.
+     * @throws Throwable
      */
     public function complete(Order $order, ?string $reference = null): Order
     {
@@ -177,13 +249,7 @@ class CheckoutService
                 return $locked;
             }
 
-            $plan = [
-                'tier' => $locked->tier,
-                'months' => $locked->months > 0 ? $locked->months : null,
-                'is_lifetime' => (bool) $locked->is_lifetime,
-            ];
-
-            $license = $this->licenses->applyPlan($locked->store, $plan, $locked->user_id);
+            $license = $this->licenses->applyOrder($locked);
 
             $locked->forceFill([
                 'status' => Order::STATUS_PAID,
@@ -191,15 +257,23 @@ class CheckoutService
                 'reference_id' => $reference ?? $locked->reference_id,
             ])->save();
 
+            $this->settlePendingPayment($locked, $locked->reference_id);
+
+            $invoice = $this->invoices->issue($locked);
+            $this->coupons->redeem($locked->coupon_code);
+
             AuditLogger::record('order_paid', [
                 'store_id' => $locked->store_id,
                 'subject_type' => 'order',
                 'subject_key' => $locked->id,
                 'meta' => [
                     'plan' => $locked->plan,
+                    'seats' => $locked->seats,
+                    'months' => $locked->months,
                     'amount' => $locked->amount,
                     'gateway' => $locked->gateway,
                     'reference' => $locked->reference_id,
+                    'invoice' => $invoice->number,
                 ],
             ]);
 
@@ -209,6 +283,8 @@ class CheckoutService
                 'subject_key' => $license->id,
                 'meta' => [
                     'tier' => $license->tier,
+                    'plan_code' => $license->plan_code,
+                    'seats' => $license->seats,
                     'is_lifetime' => (bool) $license->is_lifetime,
                     'expires_at' => $license->expires_at?->toIso8601String(),
                     'order_id' => $locked->id,
@@ -219,7 +295,7 @@ class CheckoutService
         });
     }
 
-    /** لغو سفارش در انتظار (مثلاً رسید نامعتبر). */
+    /** لغو سفارش در انتظار (رسید نامعتبر یا انصراف). */
     public function cancel(Order $order, ?string $reason = null): Order
     {
         if (! $order->isPending()) {
@@ -242,5 +318,82 @@ class CheckoutService
         ]);
 
         return $order->refresh();
+    }
+
+    /**
+     * آخرین تلاش پرداخت در انتظار را «پرداخت‌شده» علامت می‌زند.
+     * اگر درگاه شمارهٔ مرجع داده باشد و قبلاً ثبت شده باشد، ردیف تکراری ساخته نمی‌شود.
+     */
+    private function settlePendingPayment(Order $order, ?string $reference): void
+    {
+        $payment = $order->payments()
+
+            ->where('status', SubscriptionPayment::STATUS_PENDING)
+            ->latest('id')
+            ->first();
+
+        if ($payment === null) {
+            return;
+        }
+
+        $payment->forceFill([
+            'status' => SubscriptionPayment::STATUS_PAID,
+            'reference_id' => $reference ?? $payment->reference_id,
+            'verified_at' => now(),
+        ])->save();
+    }
+
+    /** تلاش پرداخت جاری را ناموفق ثبت می‌کند تا سابقهٔ تراکنش کامل بماند. */
+    private function failPendingPayment(Order $order, ?string $message): void
+    {
+        $payment = $order->payments()
+            ->where('status', SubscriptionPayment::STATUS_PENDING)
+            ->latest('id')
+            ->first();
+
+        $payment?->forceFill([
+            'status' => SubscriptionPayment::STATUS_FAILED,
+            'payload' => array_filter(['error' => $message], fn ($value) => $value !== null),
+        ])->save();
+    }
+
+    /**
+     * نوع سفارش بر اساس وضعیت فعلی اشتراک — برای گزارش و انتخاب مسیر اجرا.
+     */
+    public function resolveType(Store $store, SubscriptionPlan $plan, int $seats): string
+    {
+        $license = $store->license;
+
+        if ($license === null || ! $license->isCurrentlyValid()) {
+            return Order::TYPE_NEW;
+        }
+
+        $ranks = ['pro' => 2, 'proplus' => 3];
+
+        if (($ranks[$plan->tier] ?? 0) > ($ranks[$license->tier] ?? 0)) {
+            return Order::TYPE_UPGRADE;
+        }
+
+        if ($seats > $license->seats()) {
+            return Order::TYPE_SEATS;
+        }
+
+        return Order::TYPE_RENEWAL;
+    }
+
+    /**
+     * @return array{0: SubscriptionPlan, 1: SubscriptionCoupon|null}
+     *
+     * @throws ValidationException
+     */
+    private function resolveInputs(string $planCode, ?string $couponCode): array
+    {
+        $plan = $this->plans->find($planCode);
+
+        if ($plan === null) {
+            throw ValidationException::withMessages(['plan_code' => ['پلن انتخاب‌شده معتبر یا فعال نیست.']]);
+        }
+
+        return [$plan, $this->coupons->resolve($couponCode, $plan->code)];
     }
 }

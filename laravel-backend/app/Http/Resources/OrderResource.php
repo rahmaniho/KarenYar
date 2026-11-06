@@ -26,7 +26,15 @@ class OrderResource extends JsonResource
             'plan' => $this->plan,
             'plan_label' => (string) ($meta['plan_label'] ?? $this->plan),
             'tier' => $this->tier,
+            'type' => $this->type,
             'months' => $this->months,
+            'seats' => (int) $this->seats,
+            'extra_users' => (int) $this->extra_users,
+            'base_monthly' => (int) $this->base_monthly,
+            'extra_user_monthly' => (int) $this->extra_user_monthly,
+            'subtotal' => (int) $this->subtotal,
+            'discount' => (int) $this->discount,
+            'coupon_code' => $this->coupon_code,
             'is_lifetime' => (bool) $this->is_lifetime,
             'amount' => $this->amount,
             'status' => $this->status,
@@ -35,6 +43,7 @@ class OrderResource extends JsonResource
             'paid_at' => $this->paid_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
             'instructions' => $meta['instructions'] ?? null,
+            'invoice_number' => $this->whenLoaded('invoice', fn () => $this->invoice?->number),
         ];
     }
 }

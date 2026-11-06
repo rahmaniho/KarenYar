@@ -203,6 +203,8 @@ class StoreController extends Controller
             'password' => [$store ? 'nullable' : 'required', 'string', 'min:6', 'max:190'],
             'license' => ['sometimes', 'nullable', 'array'],
             'license.tier' => ['nullable', 'in:pro,proplus'],
+            'license.plan_code' => ['nullable', 'string', 'max:40', 'exists:subscription_plans,code'],
+            'license.seats' => ['nullable', 'integer', 'min:1', 'max:200'],
             'license.is_lifetime' => ['sometimes', 'boolean'],
             'license.is_active' => ['sometimes', 'boolean'],
             'license.starts_at' => ['nullable', 'date'],
@@ -220,6 +222,8 @@ class StoreController extends Controller
     {
         return [
             'tier' => ['nullable', 'in:pro,proplus'],
+            'plan_code' => ['nullable', 'string', 'max:40', 'exists:subscription_plans,code'],
+            'seats' => ['nullable', 'integer', 'min:1', 'max:200'],
             'is_lifetime' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
             'starts_at' => ['nullable', 'date'],
@@ -244,6 +248,9 @@ class StoreController extends Controller
 
         $store->license()->updateOrCreate([], [
             'tier' => $license['tier'] ?? 'pro',
+            'plan_code' => $license['plan_code'] ?? ($store->license?->plan_code),
+            'seats' => (int) ($license['seats'] ?? $store->license?->seats ?? 1),
+            'status' => ($license['is_active'] ?? true) ? 'active' : 'suspended',
             'is_lifetime' => $isLifetime,
             'is_active' => $license['is_active'] ?? true,
             'starts_at' => $license['starts_at'] ?? now(),

@@ -18,7 +18,7 @@ return new class extends Migration
 
         Schema::table('stores', function (Blueprint $table) {
             // چندمین یادآوری تمدید برای این فروشگاه فرستاده شده است
-            // (۰ = هیچ، ۱ = هشدار ۳۰ روز، ۲ = هشدار ۷ روز، ۳ = اطلاع انقضا)
+            // (۰ = هیچ، ۱ = هشدار ۷ روز، ۲ = هشدار ۳ روز، ۳ = هشدار ۱ روز، ۴ = روز انقضا/انقضا)
             $table->unsignedTinyInteger('license_reminder_stage')->default(0);
         });
     }

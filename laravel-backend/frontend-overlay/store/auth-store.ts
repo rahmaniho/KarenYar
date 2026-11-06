@@ -14,6 +14,9 @@ export interface StoreLicense {
   id: number;
   store_id: number;
   tier: LicenseTier;
+  plan_code?: string | null;
+  seats?: number;
+  status?: string;
   is_lifetime: boolean;
   is_active: boolean;
   is_trial?: boolean;

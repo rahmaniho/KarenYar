@@ -13,6 +13,10 @@ function lazyPage(loader: () => Promise<Record<string, ComponentType>>, exportNa
 
 const DashboardPage = lazyPage(() => import('@/pages/DashboardPage'), 'DashboardPage');
 const SettingsPage = lazyPage(() => import('@/pages/SettingsPage'), 'SettingsPage');
+const SubscriptionPage = lazyPage(
+  () => import('@/features/subscription/SubscriptionPage'),
+  'SubscriptionPage',
+);
 const NotFoundPage = lazyPage(() => import('@/pages/NotFoundPage'), 'NotFoundPage');
 const PosPage = lazyPage(() => import('@/features/store/PosPage'), 'PosPage');
 const InventoryPage = lazyPage(() => import('@/features/store/InventoryPage'), 'InventoryPage');
@@ -93,6 +97,7 @@ export function AppRouter() {
           <Route path="payroll/settings" element={<PayrollSettingsPage />} />
           <Route path="calculator" element={<CalculatorPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="subscription" element={<SubscriptionPage />} />
           <Route path="home" element={<Navigate to="/" replace />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>

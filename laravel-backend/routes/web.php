@@ -4,10 +4,14 @@ use App\Http\Controllers\Api\AuditController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\LicenseController;
+use App\Http\Controllers\Api\Manager\CouponController;
 use App\Http\Controllers\Api\Manager\OrderController;
+use App\Http\Controllers\Api\Manager\PlanController;
+use App\Http\Controllers\Api\Manager\SubscriberController;
 use App\Http\Controllers\Api\Manager\StoreController;
 use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\SyncController;
+use App\Http\Controllers\Api\TeamController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -31,9 +35,14 @@ Route::prefix('api')->group(function () {
         ->middleware('throttle:10,60')
         ->name('api.register');
 
-    Route::get('plans', [BillingController::class, 'plans'])
-        ->middleware('throttle:60,1')
+    Route::get('subscription/plans', [BillingController::class, 'plans'])
+        ->middleware('throttle:120,1')
         ->name('api.plans');
+
+    // محاسبهٔ قیمت (پیش‌فاکتور) — فقط سرور قیمت را تعیین می‌کند.
+    Route::get('subscription/quote', [BillingController::class, 'quote'])
+        ->middleware('throttle:120,1')
+        ->name('api.subscription.quote');
 
     // بازگشت از درگاه پرداخت؛ نیازی به نشست ندارد چون تأیید در سرور انجام می‌شود.
     Route::get('billing/callback', [BillingController::class, 'callback'])
@@ -47,10 +56,20 @@ Route::prefix('api')->group(function () {
 
         // ————— اشتراک، خرید و تمدید —————
         Route::middleware('store.user')->group(function () {
-            Route::get('billing', [BillingController::class, 'show'])->name('api.billing');
-            Route::post('billing/checkout', [BillingController::class, 'checkout'])
+            Route::get('subscription', [BillingController::class, 'show'])->name('api.subscription');
+            Route::get('subscription/status', [BillingController::class, 'status'])->name('api.subscription.status');
+            Route::post('subscription/checkout', [BillingController::class, 'checkout'])
                 ->middleware('throttle:15,1')
-                ->name('api.billing.checkout');
+                ->name('api.subscription.checkout');
+            Route::get('subscription/invoices/{number}', [BillingController::class, 'invoice'])
+                ->name('api.subscription.invoice');
+
+            // ————— کاربران فروشگاه و سقف اشتراک —————
+            Route::get('team', [TeamController::class, 'index'])->name('api.team');
+            Route::post('team', [TeamController::class, 'store'])->name('api.team.store');
+            Route::put('team/{member}', [TeamController::class, 'update'])->name('api.team.update');
+            Route::delete('team/{member}', [TeamController::class, 'destroy'])->name('api.team.destroy');
+            Route::post('team/{member}/restore', [TeamController::class, 'restore'])->name('api.team.restore');
         });
 
         // ————— مدیر کل: فروشگاه‌ها و لایسنس‌ها —————
@@ -71,7 +90,27 @@ Route::prefix('api')->group(function () {
             Route::post('orders/{order}/reject', [OrderController::class, 'reject']);
 
             // ————— صدور دورهٔ آزمایشی برای فروشگاه بدون لایسنس —————
-            Route::post('billing/trial', [BillingController::class, 'grantTrial']);
+            Route::post('subscription/trial', [BillingController::class, 'grantTrial']);
+
+            // ————— پلن‌ها و تعرفه‌ها —————
+            Route::get('plans', [PlanController::class, 'index']);
+            Route::post('plans', [PlanController::class, 'store']);
+            Route::put('plans/{plan:code}', [PlanController::class, 'update']);
+            Route::patch('plans/{plan:code}/toggle', [PlanController::class, 'toggle']);
+            Route::get('plans/{plan:code}/prices', [PlanController::class, 'prices']);
+
+            // ————— کدهای تخفیف —————
+            Route::get('coupons', [CouponController::class, 'index']);
+            Route::post('coupons', [CouponController::class, 'store']);
+            Route::put('coupons/{coupon}', [CouponController::class, 'update']);
+            Route::delete('coupons/{coupon}', [CouponController::class, 'destroy']);
+
+            // ————— مشترکان —————
+            Route::get('subscribers', [SubscriberController::class, 'index']);
+            Route::get('subscribers/{license}', [SubscriberController::class, 'show']);
+            Route::post('subscribers/{license}/extend', [SubscriberController::class, 'extend']);
+            Route::post('subscribers/{license}/status', [SubscriberController::class, 'status']);
+            Route::post('subscribers/{license}/seats', [SubscriberController::class, 'seats']);
         });
 
         // ————— کاربر فروشگاه: همگام‌سازی داده —————

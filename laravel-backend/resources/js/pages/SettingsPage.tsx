@@ -36,7 +36,8 @@ import { hashPin, isValidPinFormat, verifyPin } from '@/core/utils/pin';
 import { seedDemoData } from '@/core/db/seed';
 import { assetUrl } from '@/lib/utils';
 import { PageHeader } from '@/components/PageHeader';
-import { BillingPanel } from '@/features/billing/BillingPanel';
+import { BillingPanel } from '@/features/subscription/BillingPanel';
+import { TeamPanel } from '@/features/subscription/TeamPanel';
 import { ImportLocalBackupCard } from '@/features/migration/ImportLocalBackupCard';
 import { FeatureGate } from '@/components/FeatureGate';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -610,6 +611,9 @@ export function SettingsPage() {
 
       {/* اشتراک، خرید و تمدید */}
       <BillingPanel />
+
+      {/* کاربران فروشگاه و سقف اشتراک */}
+      <TeamPanel />
 
       {/* منطقه‌ی خطر + درباره */}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">

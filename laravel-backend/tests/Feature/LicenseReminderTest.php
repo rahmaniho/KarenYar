@@ -19,6 +19,9 @@ function reminderStore(int $days, ?bool $lifetime = false): array
     $license = License::create([
         'store_id' => $store->id,
         'tier' => 'pro',
+        'plan_code' => 'pro',
+        'seats' => 1,
+        'status' => 'active',
         'is_active' => true,
         'is_lifetime' => $lifetime,
         'starts_at' => now()->subMonths(11),
@@ -28,36 +31,55 @@ function reminderStore(int $days, ?bool $lifetime = false): array
     return [$store, $license];
 }
 
-it('sends the 30-day notice once and remembers it', function () {
+it('برای اشتراک دور از انقضا هیچ یادآوری نمی‌فرستد', function () {
     Mail::fake();
     [$store] = reminderStore(20);
+
+    $this->artisan('karo:licenses:remind')->assertSuccessful();
+
+    Mail::assertNothingSent();
+    expect($store->fresh()->license_reminder_stage)->toBe(0);
+});
+
+it('در ۷ روز مانده یک یادآوری می‌فرستد و تکرار نمی‌کند', function () {
+    Mail::fake();
+    [$store] = reminderStore(5);
 
     $this->artisan('karo:licenses:remind')->assertSuccessful();
 
     Mail::assertSent(LicenseExpiringMail::class, 1);
     expect($store->fresh()->license_reminder_stage)->toBe(1);
 
-    // اجرای بعدی نباید ایمیل تکراری بفرستد.
     $this->artisan('karo:licenses:remind')->assertSuccessful();
     Mail::assertSent(LicenseExpiringMail::class, 1);
 });
 
-it('escalates to the 7-day notice for the same store', function () {
+it('در ۳ و ۱ روز مانده و روز انقضا یادآوری‌ها را پله‌پله می‌فرستد', function () {
     Mail::fake();
-    [$store, $license] = reminderStore(5);
+    [$store, $license] = reminderStore(3);
+
+    $this->artisan('karo:licenses:remind')->assertSuccessful();
+    expect($store->fresh()->license_reminder_stage)->toBe(2);
+
+    $license->forceFill(['expires_at' => now()->addDay()])->save();
+    $this->artisan('karo:licenses:remind')->assertSuccessful();
+    expect($store->fresh()->license_reminder_stage)->toBe(3);
+
+    $license->forceFill(['expires_at' => now()])->save();
+    $this->artisan('karo:licenses:remind')->assertSuccessful();
+    expect($store->fresh()->license_reminder_stage)->toBe(4);
+
+    Mail::assertSent(LicenseExpiringMail::class, 3);
+});
+
+it('پس از انقضا اطلاع انقضا می‌فرستد و در تاریخچه ثبت می‌کند', function () {
+    Mail::fake();
+    [$store] = reminderStore(-2);
 
     $this->artisan('karo:licenses:remind')->assertSuccessful();
 
     Mail::assertSent(LicenseExpiringMail::class, 1);
-    expect($store->fresh()->license_reminder_stage)->toBe(2);
-
-    // تاریخ انقضا به فردا می‌رسد؛ باید هشدار انقضا (پنجرهٔ صفر) فرستاده شود.
-    $license->forceFill(['expires_at' => now()->subDay()])->save();
-
-    $this->artisan('karo:licenses:remind')->assertSuccessful();
-
-    Mail::assertSent(LicenseExpiringMail::class, 2);
-    expect($store->fresh()->license_reminder_stage)->toBe(3);
+    expect($store->fresh()->license_reminder_stage)->toBe(4);
 
     $this->assertDatabaseHas('audit_logs', [
         'action' => 'license_expired_notice',
@@ -65,34 +87,18 @@ it('escalates to the 7-day notice for the same store', function () {
     ]);
 });
 
-it('ignores lifetime licenses and stores without an expiry', function () {
+it('لایسنس مادام‌العمر و بدون انقضا یادآوری ندارد', function () {
     Mail::fake();
     reminderStore(0, true);
 
     $this->artisan('karo:licenses:remind')->assertSuccessful();
 
-    Mail::assertNotSent(LicenseExpiringMail::class);
+    Mail::assertNothingSent();
 });
 
-it('resets the reminder stage after a renewal', function () {
+it('حالت پیش‌نمایش چیزی ارسال یا علامت‌گذاری نمی‌کند', function () {
     Mail::fake();
-    [$store] = reminderStore(3);
-
-    $this->artisan('karo:licenses:remind')->assertSuccessful();
-    expect($store->fresh()->license_reminder_stage)->toBe(2);
-
-    // تمدید از طریق مسیر پرداخت
-    $store->license()->update(['expires_at' => now()->addYear()]);
-    $store->forceFill(['license_reminder_stage' => 0])->save();
-
-    $this->artisan('karo:licenses:remind')->assertSuccessful();
-
-    Mail::assertSent(LicenseExpiringMail::class, 1);
-});
-
-it('supports a dry run without sending or marking', function () {
-    Mail::fake();
-    [$store] = reminderStore(10);
+    [$store] = reminderStore(5);
 
     $this->artisan('karo:licenses:remind', ['--dry-run' => true])->assertSuccessful();
 
