@@ -4,7 +4,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { LockScreen } from '@/components/LockScreen';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { SignupPage } from '@/features/subscription/SignupPage';
-import { ManagerApp } from '@/features/manager/ManagerApp';
+import { AdminApp } from '@/features/admin/AdminApp';
 import { useLicenseSync } from '@/hooks/use-license-sync';
 import { useAuthStore } from '@/store/auth-store';
 import { useLockStore } from '@/store/lock-store';
@@ -95,7 +95,7 @@ export function App() {
   if (user.role === 'manager') {
     return (
       <ErrorBoundary>
-        <ManagerApp />
+        <AdminApp />
         <Toaster position="top-center" richColors closeButton toastOptions={toastOptions} />
       </ErrorBoundary>
     );

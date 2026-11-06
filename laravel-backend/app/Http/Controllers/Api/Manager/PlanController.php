@@ -62,7 +62,7 @@ class PlanController extends Controller
      */
     public function update(Request $request, SubscriptionPlan $plan): JsonResponse
     {
-        $updated = $this->plans->update($plan, $this->validated($request, true), $request->user());
+        $updated = $this->plans->update($plan, $this->validated($request, true, $plan), $request->user());
 
         return response()->json(['plan' => $this->plans->serialize($updated)]);
     }
@@ -92,11 +92,11 @@ class PlanController extends Controller
      *
      * @throws ValidationException
      */
-    private function validated(Request $request, bool $partial = false): array
+    private function validated(Request $request, bool $partial = false, ?SubscriptionPlan $plan = null): array
     {
         $required = $partial ? 'sometimes' : 'required';
 
-        return $request->validate([
+        $data = $request->validate([
             'code' => [$partial ? 'sometimes' : 'required', 'string', 'max:40', 'regex:/^[a-z0-9_-]+$/'],
             'name' => [$required, 'string', 'max:80'],
             'tier' => ['sometimes', 'in:pro,proplus'],
@@ -114,5 +114,16 @@ class PlanController extends Controller
         ], [
             'code.regex' => 'کد پلن فقط می‌تواند شامل حروف لاتین کوچک، عدد، خط تیره و زیرخط باشد.',
         ]);
+
+        $min = (int) ($data['min_seats'] ?? $plan?->min_seats ?? 1);
+        $max = (int) ($data['max_seats'] ?? $plan?->max_seats ?? 50);
+
+        if ($min > $max) {
+            throw ValidationException::withMessages([
+                'max_seats' => ['حداکثر کاربران نمی‌تواند کمتر از حداقل کاربران باشد.'],
+            ]);
+        }
+
+        return $data;
     }
 }

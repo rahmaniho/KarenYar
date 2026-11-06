@@ -9,22 +9,32 @@ use Illuminate\Support\Facades\Hash;
 class DatabaseSeeder extends Seeder
 {
     /**
-     * Seed the application's database.
+     * ساخت حساب مدیر کل — فقط با مقادیر محیطی.
      *
-     * حساب مدیر کل به‌صورت پیش‌فرض ساخته می‌شود تا از پنل مدیریت بتوان
-     * فروشگاه‌ها و لایسنس‌ها را تعریف کرد. داده‌ی فروشگاه‌ها هنگام کار با
-     * برنامه از مرورگر به دیتابیس منتقل و ذخیره می‌شود.
+     * هیچ رمز پیش‌فرضی در کد نیست: اگر KARO_MANAGER_EMAIL/KARO_MANAGER_PASSWORD
+     * تنظیم نشده باشد، این Seeder هیچ حسابی نمی‌سازد تا پنل با رمز عمومی باز نشود.
      */
     public function run(): void
     {
+        $email = (string) env('KARO_MANAGER_EMAIL', '');
+        $password = (string) env('KARO_MANAGER_PASSWORD', '');
+
+        if ($email === '' || $password === '') {
+            $this->command?->warn(
+                'KARO_MANAGER_EMAIL و KARO_MANAGER_PASSWORD تنظیم نشده‌اند؛ حساب مدیری ساخته نشد.',
+            );
+
+            return;
+        }
+
         User::updateOrCreate(
-            ['email' => 'manager@hesabyar.local'],
+            ['email' => $email],
             [
-                'name' => 'مدیر کل',
+                'name' => (string) env('KARO_MANAGER_NAME', 'مدیر کل'),
                 'role' => User::ROLE_MANAGER,
                 'store_id' => null,
                 'is_active' => true,
-                'password' => Hash::make('manager1234'),
+                'password' => Hash::make($password),
             ],
         );
     }

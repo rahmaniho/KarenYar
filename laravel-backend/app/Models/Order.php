@@ -28,6 +28,9 @@ class Order extends Model
 
     public const STATUS_CANCELED = 'canceled';
 
+    /** پرداخت تأییدشده که مدیر آن را باطل کرده است (رکورد حفظ می‌شود). */
+    public const STATUS_VOIDED = 'voided';
+
     public const TYPE_NEW = 'new';
 
     public const TYPE_RENEWAL = 'renewal';
@@ -58,6 +61,8 @@ class Order extends Model
         'gateway_ref',
         'reference_id',
         'paid_at',
+        'voided_at',
+        'void_reason',
         'meta',
     ];
 
@@ -75,6 +80,7 @@ class Order extends Model
             'price_snapshot' => 'array',
             'is_lifetime' => 'boolean',
             'paid_at' => 'datetime',
+            'voided_at' => 'datetime',
             'meta' => 'array',
         ];
     }
@@ -103,6 +109,11 @@ class Order extends Model
     public function isPending(): bool
     {
         return $this->status === self::STATUS_PENDING;
+    }
+
+    public function isVoided(): bool
+    {
+        return $this->status === self::STATUS_VOIDED;
     }
 
     public function isPaid(): bool

@@ -43,3 +43,15 @@ if (typeof window !== 'undefined') {
 if (typeof window !== 'undefined') {
   window.scrollTo = () => undefined;
 }
+
+// jsdom برای نمودارها (recharts) به ResizeObserver نیاز دارد
+if (typeof window !== 'undefined' && !('ResizeObserver' in window)) {
+  class ResizeObserverStub {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+
+  (window as unknown as { ResizeObserver: unknown }).ResizeObserver = ResizeObserverStub;
+  (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = ResizeObserverStub;
+}

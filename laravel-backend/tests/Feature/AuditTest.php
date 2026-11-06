@@ -91,10 +91,11 @@ it('records store creation and license changes', function () {
         'is_lifetime' => false,
         'is_active' => true,
         'expires_at' => now()->addMonths(6)->toDateString(),
+        'reason' => 'تمدید شش‌ماهه طبق قرارداد',
     ])->assertOk();
 
     $this->assertDatabaseHas('audit_logs', [
-        'action' => 'license_updated',
+        'action' => 'admin_license_updated',
         'store_id' => $storeId,
     ]);
 });
@@ -128,4 +129,30 @@ it('shows a store user only the events of their own store', function () {
     foreach ($events as $event) {
         expect($event['storeId'])->toBe($storeA->id);
     }
+});
+
+it('فیلتر نوع رویداد، صفحه‌بندی و فهرست اکشن‌ها کار می‌کند', function () {
+    $manager = User::factory()->manager()->create();
+
+    $store = Store::factory()->create();
+    User::factory()->forStore($store)->create(['email' => 'audit-page-'.uniqid().'@test.local']);
+
+    $this->actingAs($manager)->postJson('/api/manager/stores', [
+        'name' => 'فروشگاه فیلتر',
+        'email' => 'audit-filter-'.uniqid().'@test.local',
+        'password' => 'secret123',
+    ])->assertCreated();
+
+    $filtered = $this->actingAs($manager)
+        ->getJson('/api/manager/audit?action=store_created&limit=5')
+        ->assertOk();
+
+    expect($filtered->json('meta'))->toHaveKeys(['page', 'per_page', 'total', 'last_page']);
+
+    foreach ($filtered->json('events') as $event) {
+        expect($event['action'])->toBe('store_created');
+    }
+
+    $actions = $this->actingAs($manager)->getJson('/api/manager/audit/actions')->assertOk();
+    expect(collect($actions->json('actions'))->pluck('action'))->toContain('store_created');
 });

@@ -24,7 +24,10 @@ class StoreResource extends JsonResource
             'phone' => $this->phone,
             'address' => $this->address,
             'is_active' => (bool) $this->is_active,
+            'archived_at' => $this->archived_at?->toIso8601String(),
+            'is_archived' => $this->archived_at !== null,
             'users_count' => $this->whenCounted('users'),
+            'active_users_count' => $this->whenCounted('active_users_count'),
             'license' => $this->whenLoaded('license', fn () => $this->license
                 ? new LicenseResource($this->license)
                 : null),

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * خواندن دفتر رویدادها.
@@ -15,29 +16,61 @@ use Illuminate\Http\Request;
  */
 class AuditController extends Controller
 {
-    /** رویدادهای همهٔ فروشگاه‌ها (فقط مدیر). */
+    /** رویدادهای همهٔ فروشگاه‌ها (فقط مدیر) — با فیلتر و صفحه‌بندی. */
     public function index(Request $request): JsonResponse
     {
         $filters = $request->validate([
             'limit' => ['nullable', 'integer', 'min:1', 'max:200'],
+            'page' => ['nullable', 'integer', 'min:1', 'max:100000'],
             'store_id' => ['nullable', 'integer'],
             'action' => ['nullable', 'string', 'max:60'],
+            'q' => ['nullable', 'string', 'max:120'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date'],
         ]);
 
         $query = AuditLog::query()
             ->with(['user:id,name,email', 'store:id,name'])
-            ->orderByDesc('id')
-            ->limit((int) ($filters['limit'] ?? 60));
+            ->when($filters['store_id'] ?? null, fn ($q, $storeId) => $q->where('store_id', (int) $storeId))
+            ->when($filters['action'] ?? null, fn ($q, $action) => $q->where('action', $action))
+            ->when($filters['from'] ?? null, fn ($q, $from) => $q->where('created_at', '>=', $from))
+            ->when($filters['to'] ?? null, fn ($q, $to) => $q->where('created_at', '<=', $to.' 23:59:59'))
+            ->when($filters['q'] ?? null, function ($q, $term) {
+                $like = '%'.$term.'%';
+                $q->where(fn ($inner) => $inner
+                    ->whereHas('user', fn ($user) => $user->where('name', 'like', $like)->orWhere('email', 'like', $like))
+                    ->orWhereHas('store', fn ($store) => $store->where('name', 'like', $like))
+                    ->orWhere('subject_key', 'like', $like));
+            })
+            ->orderByDesc('id');
 
-        if (! empty($filters['store_id'])) {
-            $query->where('store_id', (int) $filters['store_id']);
-        }
+        $page = $query->paginate((int) ($filters['limit'] ?? 25), ['*'], 'page', (int) ($filters['page'] ?? 1));
 
-        if (! empty($filters['action'])) {
-            $query->where('action', $filters['action']);
-        }
+        return response()->json([
+            'events' => $this->serialize(collect($page->items())),
+            'meta' => [
+                'page' => $page->currentPage(),
+                'per_page' => $page->perPage(),
+                'total' => $page->total(),
+                'last_page' => $page->lastPage(),
+            ],
+        ]);
+    }
 
-        return response()->json(['events' => $this->serialize($query->get())]);
+    /** فهرست نوع رویدادها با تعداد — برای فیلتر پنل مدیریت. */
+    public function actions(): JsonResponse
+    {
+        $actions = AuditLog::query()
+            ->select('action', DB::raw('count(*) as total'))
+            ->groupBy('action')
+            ->orderByDesc('total')
+            ->limit(80)
+            ->get()
+            ->map(fn ($row) => ['action' => (string) $row->action, 'total' => (int) $row->total])
+            ->values()
+            ->all();
+
+        return response()->json(['actions' => $actions]);
     }
 
     /** رویدادهای فروشگاه خود کاربر. */

@@ -19,6 +19,7 @@ class SubscriptionInvoice extends Model
         'total',
         'lines',
         'issued_at',
+        'voided_at',
     ];
 
     protected function casts(): array
@@ -29,7 +30,13 @@ class SubscriptionInvoice extends Model
             'total' => 'integer',
             'lines' => 'array',
             'issued_at' => 'datetime',
+            'voided_at' => 'datetime',
         ];
+    }
+
+    public function isVoided(): bool
+    {
+        return $this->voided_at !== null;
     }
 
     public function order(): BelongsTo

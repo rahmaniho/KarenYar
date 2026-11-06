@@ -33,6 +33,20 @@ class Jalali
     }
 
     /**
+     * نام ماه شمسی با سال، مثل «آبان ۱۴۰۵» — برای برچسب نمودارهای مدیریتی.
+     */
+    public static function monthLabel(CarbonInterface $date): string
+    {
+        [$year, $month] = self::toJalali(
+            (int) $date->format('Y'),
+            (int) $date->format('n'),
+            (int) $date->format('j'),
+        );
+
+        return self::MONTHS[$month - 1].' '.self::digits($year);
+    }
+
+    /**
      * تاریخ شمسی عددی به شکل «۱۴۰۵/۰۸/۱۵».
      */
     public static function numeric(CarbonInterface $date, string $separator = '/'): string
