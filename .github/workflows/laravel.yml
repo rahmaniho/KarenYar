@@ -79,11 +79,20 @@ jobs:
           php artisan test > /tmp/pest.log 2>&1
           status=$?
           if [ $status -ne 0 ]; then
-            # متن کامل انتهای لاگ را در یک annotation می‌گذاریم تا از API هم قابل خواندن باشد
-            CLEAN=$(sed -r "s/\x1B\[[0-9;]*[a-zA-Z]//g" /tmp/pest.log | tail -c 55000)
-            MSG=$(printf '%s' "$CLEAN" | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
-            echo "::error title=Pest log tail::$MSG"
-            echo "----- tail -----"
+            # لاگ رانر قابل دانلود نیست؛ چند تکه از انتهای لاگ را به شکل annotation منتشر می‌کنیم
+            CLEAN=$(sed -r "s/\x1B\[[0-9;]*[a-zA-Z]//g" /tmp/pest.log)
+            NAMES=$(printf '%s\n' "$CLEAN" | grep -E "FAILED|Tests:" | tr -d '\r' | tail -40)
+            NAMES_MSG=$(printf '%s' "$NAMES" | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=Pest summary::$NAMES_MSG"
+
+            for start in 1 2 3; do
+              CHUNK=$(printf '%s' "$CLEAN" | tail -c 12000 | head -c 4000)
+              CLEAN=$(printf '%s' "$CLEAN" | rev | cut -c4001- | rev)
+              if [ -z "$CHUNK" ]; then break; fi
+              MSG=$(printf '%s' "$CHUNK" | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+              echo "::error title=Pest detail $start::$MSG"
+            done
+            printf '%s\n' "$NAMES"
             printf '%s\n' "$CLEAN" | tail -40
           fi
           exit $status
