@@ -293,7 +293,14 @@ export function StoresPage() {
               <div key={store.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
                 <div className="flex items-start gap-2">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-extrabold text-white">{store.name}</p>
+                    <p className="flex items-center gap-1.5 truncate text-sm font-extrabold text-white">
+                      {store.name}
+                      {store.is_demo && (
+                        <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                          دمو
+                        </span>
+                      )}
+                    </p>
                     <p className="truncate text-[11px] text-white/45">
                       {store.owner_name ?? '—'} {store.phone ? `· ${store.phone}` : ''}
                     </p>

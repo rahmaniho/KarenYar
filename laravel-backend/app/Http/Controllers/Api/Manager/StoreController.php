@@ -216,7 +216,8 @@ class StoreController extends Controller
         $mode = $data['mode'] ?? 'archive';
 
         if ($mode === 'purge') {
-            if ($store->archived_at === null) {
+            // دمو قابل بازیابی نیست؛ حذف دائمی‌اش نیازی به آرشیو قبلی ندارد.
+            if (! $store->isDemo() && $store->archived_at === null) {
                 throw ValidationException::withMessages([
                     'mode' => ['حذف دائمی فقط برای فروشگاه آرشیوشده ممکن است؛ ابتدا آرشیو کنید.'],
                 ]);
@@ -228,7 +229,7 @@ class StoreController extends Controller
                 ]);
             }
 
-            $snapshot = ['store_id' => $store->id, 'name' => $store->name];
+            $snapshot = ['store_id' => $store->id, 'name' => $store->name, 'demo' => $store->isDemo()];
 
             DB::transaction(function () use ($store) {
                 User::where('store_id', $store->id)->update(['is_active' => false]);

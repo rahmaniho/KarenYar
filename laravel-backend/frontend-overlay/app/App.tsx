@@ -49,7 +49,19 @@ function Splash() {
 }
 
 export function App() {
-  const [screen, setScreen] = useState<'login' | 'signup'>('login');
+  // پس از «پایان دمو» با پرچم کوتاه‌عمر، مستقیم صفحهٔ ثبت‌نام باز می‌شود.
+  const [screen, setScreen] = useState<'login' | 'signup'>(() => {
+    if (typeof window === 'undefined') {
+      return 'login';
+    }
+
+    const openSignup = window.sessionStorage.getItem('karo:open-signup') === '1';
+    if (openSignup) {
+      window.sessionStorage.removeItem('karo:open-signup');
+    }
+
+    return openSignup ? 'signup' : 'login';
+  });
   const user = useAuthStore((s) => s.user);
   const ready = useAuthStore((s) => s.ready);
   const refresh = useAuthStore((s) => s.refresh);

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuditController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BillingController;
+use App\Http\Controllers\Api\DemoController;
 use App\Http\Controllers\Api\LicenseController;
 use App\Http\Controllers\Api\Manager\CouponController;
 use App\Http\Controllers\Api\Manager\DashboardController;
@@ -37,6 +38,11 @@ Route::prefix('api')->group(function () {
         ->middleware('throttle:10,60')
         ->name('api.register');
 
+    // دموی امن: ساخت فروشگاه آزمایشی کوتاه‌عمر از صفحهٔ ورود (بدون پرداخت جعلی).
+    Route::post('demo/session', [DemoController::class, 'store'])
+        ->middleware('throttle:6,60')
+        ->name('api.demo.start');
+
     Route::get('subscription/plans', [BillingController::class, 'plans'])
         ->middleware('throttle:120,1')
         ->name('api.plans');
@@ -56,22 +62,27 @@ Route::prefix('api')->group(function () {
         Route::get('license', [LicenseController::class, 'show'])->name('api.license');
         Route::get('audit', [AuditController::class, 'mine'])->name('api.audit');
 
+        // پایان دادن به دمو (پاک کردن کامل دادهٔ آن) — فقط برای کاربر دمو.
+        Route::delete('demo/session', [DemoController::class, 'destroy'])
+            ->middleware('throttle:10,1')
+            ->name('api.demo.end');
+
         // ————— اشتراک، خرید و تمدید —————
         Route::middleware('store.user')->group(function () {
             Route::get('subscription', [BillingController::class, 'show'])->name('api.subscription');
             Route::get('subscription/status', [BillingController::class, 'status'])->name('api.subscription.status');
             Route::post('subscription/checkout', [BillingController::class, 'checkout'])
-                ->middleware('throttle:15,1')
+                ->middleware(['throttle:15,1', 'not.demo'])
                 ->name('api.subscription.checkout');
             Route::get('subscription/invoices/{number}', [BillingController::class, 'invoice'])
                 ->name('api.subscription.invoice');
 
             // ————— کاربران فروشگاه و سقف اشتراک —————
             Route::get('team', [TeamController::class, 'index'])->name('api.team');
-            Route::post('team', [TeamController::class, 'store'])->name('api.team.store');
-            Route::put('team/{member}', [TeamController::class, 'update'])->name('api.team.update');
-            Route::delete('team/{member}', [TeamController::class, 'destroy'])->name('api.team.destroy');
-            Route::post('team/{member}/restore', [TeamController::class, 'restore'])->name('api.team.restore');
+            Route::post('team', [TeamController::class, 'store'])->middleware('not.demo')->name('api.team.store');
+            Route::put('team/{member}', [TeamController::class, 'update'])->middleware('not.demo')->name('api.team.update');
+            Route::delete('team/{member}', [TeamController::class, 'destroy'])->middleware('not.demo')->name('api.team.destroy');
+            Route::post('team/{member}/restore', [TeamController::class, 'restore'])->middleware('not.demo')->name('api.team.restore');
         });
 
         // ————— مدیر کل: داشبورد، فروشگاه‌ها، پرداخت‌ها، تعرفه‌ها، مشترکان، مدیران —————
@@ -154,9 +165,9 @@ Route::prefix('api')->group(function () {
         Route::middleware('store.user')->prefix('sync')->group(function () {
             Route::get('pull', [SyncController::class, 'pull']);
             Route::post('push', [SyncController::class, 'push']);
-            Route::post('wipe', [SyncController::class, 'wipe']);
+            Route::post('wipe', [SyncController::class, 'wipe'])->middleware('not.demo');
             // مهاجرت داده‌ی فشرده‌شده/پشتیبان JSON از نسخهٔ آفلاین به سرور
-            Route::post('import', [SyncController::class, 'import']);
+            Route::post('import', [SyncController::class, 'import'])->middleware('not.demo');
         });
     });
 });

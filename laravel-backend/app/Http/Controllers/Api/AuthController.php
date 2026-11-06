@@ -64,6 +64,19 @@ class AuthController extends Controller
                     'email' => ['دسترسی این فروشگاه غیرفعال یا آرشیو شده است. با پشتیبانی تماس بگیرید.'],
                 ]);
             }
+
+            // دموی منقضی دیگر قابل ورود نیست (داده به‌صورت خودکار پاک می‌شود).
+            if ($store->demoExpired()) {
+                AuditLogger::record('login_blocked', [
+                    'user_id' => $user->getKey(),
+                    'store_id' => $user->store_id,
+                    'meta' => ['email' => $user->email, 'reason' => 'demo_expired'],
+                ]);
+
+                throw ValidationException::withMessages([
+                    'email' => ['عمر دموی شما تمام شده است؛ برای ادامه یک فروشگاه واقعی بسازید.'],
+                ]);
+            }
         }
 
         Auth::login($user, $request->boolean('remember'));

@@ -29,7 +29,10 @@ class DashboardController extends Controller
         $prevMonthStart = $monthStart->copy()->subMonth();
         $yearStart = $now->copy()->startOfYear();
 
-        $paid = Order::query()->where('status', Order::STATUS_PAID);
+        // دموها هرگز در آمار واقعی شمرده نمی‌شوند.
+        $paid = Order::query()
+            ->where('status', Order::STATUS_PAID)
+            ->whereHas('store', fn ($store) => $store->where('is_demo', false));
 
         $revenueMonth = (int) (clone $paid)->where('paid_at', '>=', $monthStart)->sum('amount');
         $revenuePrevMonth = (int) (clone $paid)
@@ -41,7 +44,8 @@ class DashboardController extends Controller
         $ordersPending = (int) Order::query()->where('status', Order::STATUS_PENDING)->count();
         $ordersPendingAmount = (int) Order::query()->where('status', Order::STATUS_PENDING)->sum('amount');
 
-        $licenses = License::query();
+        $licenses = License::query()
+            ->whereHas('store', fn ($store) => $store->where('is_demo', false));
         $activeLicenses = (clone $licenses)
             ->where('is_active', true)
             ->whereNotIn('status', [License::STATUS_SUSPENDED, License::STATUS_CANCELED])
@@ -53,15 +57,18 @@ class DashboardController extends Controller
             ->whereBetween('expires_at', [$now, $now->copy()->addDays(7)])
             ->count();
         $subsExpired = (int) License::query()
+            ->whereHas('store', fn ($store) => $store->where('is_demo', false))
             ->where('is_lifetime', false)
             ->whereNotNull('expires_at')
             ->where('expires_at', '<', $now)
             ->count();
-        $subsSuspended = (int) License::query()->where('status', License::STATUS_SUSPENDED)->count();
+        $subsSuspended = (int) License::query()
+            ->whereHas('store', fn ($store) => $store->where('is_demo', false))
+            ->where('status', License::STATUS_SUSPENDED)->count();
 
-        $storesTotal = (int) Store::query()->whereNull('archived_at')->count();
-        $storesArchived = (int) Store::query()->whereNotNull('archived_at')->count();
-        $storesNewThisMonth = (int) Store::query()->where('created_at', '>=', $monthStart)->count();
+        $storesTotal = (int) Store::query()->where('is_demo', false)->whereNull('archived_at')->count();
+        $storesArchived = (int) Store::query()->where('is_demo', false)->whereNotNull('archived_at')->count();
+        $storesNewThisMonth = (int) Store::query()->where('is_demo', false)->where('created_at', '>=', $monthStart)->count();
 
         $growth = $revenuePrevMonth > 0
             ? round((($revenueMonth - $revenuePrevMonth) / $revenuePrevMonth) * 100, 1)
@@ -99,6 +106,7 @@ class DashboardController extends Controller
             ],
             'recent_orders' => OrderResource::collection(
                 Order::query()
+                    ->whereHas('store', fn ($store) => $store->where('is_demo', false))
                     ->with(['store:id,name', 'invoice:id,order_id,number'])
                     ->latest()
                     ->limit(8)
@@ -125,6 +133,7 @@ class DashboardController extends Controller
             ->keyBy('code');
 
         $rows = License::query()
+            ->whereHas('store', fn ($store) => $store->where('is_demo', false))
             ->where('is_active', true)
             ->where('is_trial', false)
             ->whereNotIn('status', [License::STATUS_SUSPENDED, License::STATUS_CANCELED])
@@ -156,6 +165,7 @@ class DashboardController extends Controller
 
         $rows = Order::query()
             ->where('status', Order::STATUS_PAID)
+            ->whereHas('store', fn ($store) => $store->where('is_demo', false))
             ->where('paid_at', '>=', $start)
             ->get(['amount', 'paid_at'])
             ->groupBy(fn (Order $order) => $order->paid_at?->format('Y-m'));
@@ -187,12 +197,14 @@ class DashboardController extends Controller
         $sales = Order::query()
             ->select('plan', DB::raw('count(*) as orders_count'), DB::raw('coalesce(sum(amount),0) as revenue'))
             ->where('status', Order::STATUS_PAID)
+            ->whereHas('store', fn ($store) => $store->where('is_demo', false))
             ->groupBy('plan')
             ->get()
             ->keyBy('plan');
 
         $subs = License::query()
             ->select('plan_code', DB::raw('count(*) as subscribers'))
+            ->whereHas('store', fn ($store) => $store->where('is_demo', false))
             ->where('is_active', true)
             ->groupBy('plan_code')
             ->pluck('subscribers', 'plan_code');
@@ -216,7 +228,8 @@ class DashboardController extends Controller
     private function expiringSoon(Carbon $now): array
     {
         return License::query()
-            ->with('store:id,name,archived_at')
+            ->with('store:id,name,archived_at,is_demo')
+            ->whereHas('store', fn ($store) => $store->where('is_demo', false))
             ->where('is_active', true)
             ->where('is_lifetime', false)
             ->whereNotNull('expires_at')
@@ -250,6 +263,7 @@ class DashboardController extends Controller
                 DB::raw('coalesce(sum(amount),0) as revenue'),
             )
             ->where('status', Order::STATUS_PAID)
+            ->whereHas('store', fn ($store) => $store->where('is_demo', false))
             ->whereNotNull('coupon_code')
             ->groupBy('coupon_code')
             ->orderByDesc('uses')

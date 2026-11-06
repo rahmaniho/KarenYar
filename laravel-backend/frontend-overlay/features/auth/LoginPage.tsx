@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { LogIn, UserPlus } from 'lucide-react';
+import { FlaskConical, LogIn, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,10 +17,12 @@ import { useAuthStore } from '@/store/auth-store';
  */
 export function LoginPage({ onSignup }: { onSignup?: () => void }) {
   const login = useAuthStore((s) => s.login);
+  const demoLogin = useAuthStore((s) => s.demoLogin);
   const loading = useAuthStore((s) => s.loading);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [demoLoading, setDemoLoading] = useState(false);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -37,6 +39,26 @@ export function LoginPage({ onSignup }: { onSignup?: () => void }) {
       } else {
         setError('ارتباط با سرور برقرار نشد. اینترنت را بررسی کنید و دوباره تلاش کنید.');
       }
+    }
+  };
+
+  const startDemo = async () => {
+    setError(null);
+    setDemoLoading(true);
+    try {
+      await demoLogin();
+      toast.success('دمو آماده است؛ همه‌چیز آزمایشی و پس از پایان پاک می‌شود.');
+    } catch (caught) {
+      if (caught instanceof ApiError) {
+        const firstError = caught.errors
+          ? Object.values(caught.errors).flat().find(Boolean)
+          : undefined;
+        setError(firstError ?? caught.message ?? 'ساخت دمو ناموفق بود.');
+      } else {
+        setError('ارتباط با سرور برقرار نشد. اینترنت را بررسی کنید و دوباره تلاش کنید.');
+      }
+    } finally {
+      setDemoLoading(false);
     }
   };
 
@@ -108,6 +130,23 @@ export function LoginPage({ onSignup }: { onSignup?: () => void }) {
               <LogIn aria-hidden />
               {loading ? 'در حال ورود…' : 'ورود'}
             </Button>
+
+            <div className="space-y-2 border-t pt-3 text-center">
+              <p className="text-xs text-muted-foreground">
+                فقط می‌خواهید ببینید؟ یک دموی امن و موقت بسازید — بدون پرداخت، داده‌های واقعی
+                دست‌نخورده و دادهٔ دمو پس از پایان پاک می‌شود.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={startDemo}
+                disabled={demoLoading || loading}
+              >
+                <FlaskConical aria-hidden />
+                {demoLoading ? 'در حال ساخت دمو…' : 'ورود به دموی امن'}
+              </Button>
+            </div>
 
             {onSignup && (
               <div className="space-y-2 border-t pt-3 text-center">

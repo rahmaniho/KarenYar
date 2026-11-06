@@ -99,6 +99,9 @@ export interface AdminStore {
   is_active: boolean;
   archived_at: string | null;
   is_archived: boolean;
+  /** فروشگاه آزمایشی کوتاه‌عمر (دمو) — از آمار درآمد/مشترکان جدا است */
+  is_demo?: boolean;
+  demo_expires_at?: string | null;
   users_count?: number;
   active_users_count?: number;
   license: StoreLicense | null;

@@ -26,6 +26,8 @@ class StoreResource extends JsonResource
             'is_active' => (bool) $this->is_active,
             'archived_at' => $this->archived_at?->toIso8601String(),
             'is_archived' => $this->archived_at !== null,
+            'is_demo' => (bool) $this->is_demo,
+            'demo_expires_at' => $this->demo_expires_at?->toIso8601String(),
             'users_count' => $this->whenCounted('users'),
             'active_users_count' => $this->whenCounted('active_users_count'),
             'license' => $this->whenLoaded('license', fn () => $this->license

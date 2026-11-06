@@ -20,6 +20,8 @@ class Store extends Model
         'is_active',
         'archived_at',
         'license_reminder_stage',
+        'is_demo',
+        'demo_expires_at',
     ];
 
     protected function casts(): array
@@ -28,6 +30,8 @@ class Store extends Model
             'is_active' => 'boolean',
             'archived_at' => 'datetime',
             'license_reminder_stage' => 'integer',
+            'is_demo' => 'boolean',
+            'demo_expires_at' => 'datetime',
         ];
     }
 
@@ -54,6 +58,20 @@ class Store extends Model
     public function subscriptionHistory(): HasMany
     {
         return $this->hasMany(SubscriptionHistory::class);
+    }
+
+    /** آیا این فروشگاه یک دموی کوتاه‌عمر است؟ */
+    public function isDemo(): bool
+    {
+        return (bool) $this->is_demo;
+    }
+
+    /** آیا عمر دموی این فروشگاه تمام شده است؟ (فقط برای فروشگاه دمو معنا دارد) */
+    public function demoExpired(): bool
+    {
+        return $this->isDemo()
+            && $this->demo_expires_at !== null
+            && $this->demo_expires_at->isPast();
     }
 
     /** آیا فروشگاه آرشیو شده است؟ (داده‌ها حفظ می‌شوند و دسترسی بسته است) */

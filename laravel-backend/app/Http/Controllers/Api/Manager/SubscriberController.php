@@ -59,6 +59,8 @@ class SubscriberController extends Controller
                     ->latest('id')
                     ->limit(1),
             ])
+            // دموها مشترک واقعی نیستند و در فهرست/آمار نمی‌آیند.
+            ->whereHas('store', fn ($store) => $store->where('is_demo', false))
             ->when($filters['plan_code'] ?? null, fn ($q, $plan) => $q->where('plan_code', $plan))
             ->when(! ($filters['include_archived'] ?? false), fn ($q) => $q->whereHas('store', fn ($store) => $store->whereNull('archived_at')))
             ->when($filters['q'] ?? null, function ($q, $term) {
@@ -280,9 +282,11 @@ class SubscriberController extends Controller
     private function stats(): array
     {
         $base = fn () => License::query()
-            ->whereHas('store', fn ($store) => $store->whereNull('archived_at'));
+            ->whereHas('store', fn ($store) => $store->whereNull('archived_at')->where('is_demo', false));
 
-        $paid = Order::query()->where('status', Order::STATUS_PAID);
+        $paid = Order::query()
+            ->where('status', Order::STATUS_PAID)
+            ->whereHas('store', fn ($store) => $store->where('is_demo', false));
 
         return [
             'total' => (int) (clone $base())->count(),

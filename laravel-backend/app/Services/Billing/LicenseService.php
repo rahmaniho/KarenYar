@@ -57,6 +57,41 @@ class LicenseService
     }
 
     /**
+     * شروع دموی کوتاه‌عمر (ساعت‌محور) برای فروشگاه آزمایشی.
+     *
+     * لایسنس واقعی و آزمایشی است — هیچ پرداخت یا سفارشی ساخته نمی‌شود؛ فقط یک
+     * دسترسی زمان‌دار که پس از پایان، پاک‌سازی خودکار دمو آن را می‌بندد.
+     */
+    public function startDemo(Store $store, int $hours, ?int $createdBy = null): License
+    {
+        $hours = max(1, min(72, $hours));
+        $expiresAt = now()->addHours($hours);
+
+        $license = $store->license()->updateOrCreate([], [
+            'tier' => 'pro',
+            'plan_code' => 'basic',
+            'seats' => 1,
+            'status' => License::STATUS_ACTIVE,
+            'is_lifetime' => false,
+            'is_active' => true,
+            'is_trial' => true,
+            'starts_at' => now(),
+            'expires_at' => $expiresAt,
+            'notes' => 'دموی امن کارو',
+            'created_by' => $createdBy,
+        ]);
+
+        $this->recordHistory($store, $license, 'demo_started', [
+            'hours' => $hours,
+            'expires_at' => $expiresAt->toIso8601String(),
+        ], 'ساخت دمو خودکار', $createdBy);
+
+        $this->resetReminders($store);
+
+        return $license;
+    }
+
+    /**
      * اعمال یک سفارش پرداخت‌شده روی اشتراک.
      *
      * @throws \Throwable

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureManager;
+use App\Http\Middleware\EnsureNotDemo;
 use App\Http\Middleware\EnsureStoreUser;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -18,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'manager' => EnsureManager::class,
             'store.user' => EnsureStoreUser::class,
+            'not.demo' => EnsureNotDemo::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

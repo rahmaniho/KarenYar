@@ -21,6 +21,7 @@ import { MOBILE_NAV } from './nav-items';
 import { GlobalSearch } from '@/components/GlobalSearch';
 import { useLockStore } from '@/store/lock-store';
 import { AlertsBell } from '@/components/AlertsBell';
+import { DemoBanner } from '@/features/demo/DemoBanner';
 import { assetUrl, cn } from '@/lib/utils';
 import { GlassSidebar, SIDEBAR_WIDTH, SIDEBAR_WIDTH_COLLAPSED } from './sidebar/GlassSidebar';
 import { useSidebarUi } from './sidebar/useSidebarUi';
@@ -255,6 +256,8 @@ export function AppLayout() {
           transition={{ duration: reduceMotion ? 0 : 0.22 }}
           className="mx-auto w-full max-w-6xl px-4 pb-28 pt-5 md:pb-10"
         >
+          <DemoBanner />
+
           <Suspense
             fallback={
               <div className="space-y-4" role="status" aria-label="در حال بارگذاری">

@@ -36,6 +36,9 @@ export interface AuthStore {
   phone: string | null;
   address: string | null;
   is_active: boolean;
+  /** فروشگاه آزمایشیِ کوتاه‌عمر (دمو) */
+  is_demo?: boolean;
+  demo_expires_at?: string | null;
   license: StoreLicense | null;
 }
 
@@ -56,6 +59,10 @@ interface AuthState {
   refresh: () => Promise<void>;
   login: (email: string, password: string, remember?: boolean) => Promise<AuthUser>;
   logout: () => Promise<void>;
+  /** ساخت دموی کوتاه‌عمر و ورود فوری (بدون پرداخت جعلی). */
+  demoLogin: () => Promise<AuthUser>;
+  /** پایان دمو و پاک شدن کامل دادهٔ آن. */
+  endDemo: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()((set) => ({
@@ -101,5 +108,30 @@ export const useAuthStore = create<AuthState>()((set) => ({
     }
     serverDb?.reset();
     set({ user: null });
+  },
+
+  demoLogin: async () => {
+    set({ loading: true });
+    try {
+      const response = await apiFetch<{ user: AuthUser; demo: { expires_at: string; hours: number } }>(
+        '/api/demo/session',
+        { method: 'POST' },
+      );
+      serverDb?.reset();
+      set({ user: response.user, ready: true, loading: false });
+      return response.user;
+    } catch (error) {
+      set({ loading: false });
+      throw error;
+    }
+  },
+
+  endDemo: async () => {
+    try {
+      await apiFetch('/api/demo/session', { method: 'DELETE' });
+    } finally {
+      serverDb?.reset();
+      set({ user: null, ready: true, loading: false });
+    }
   },
 }));
