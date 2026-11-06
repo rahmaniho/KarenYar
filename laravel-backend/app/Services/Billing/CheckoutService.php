@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\Store;
 use App\Models\SubscriptionCoupon;
 use App\Models\SubscriptionPayment;
+use App\Models\SubscriptionHistory;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Services\Billing\Exceptions\PaymentGatewayException;
@@ -295,6 +296,71 @@ class CheckoutService
         });
     }
 
+    /**
+     * ابطال یک پرداخت تأییدشده (void) — بدون حذف رکورد.
+     *
+     * سیاست شفاف: ابطال، سفارش و فاکتور را «باطل» علامت می‌زند و در تاریخچه ثبت می‌کند،
+     * اما اشتراک را خودکار قطع نمی‌کند تا مشتری بی‌خبر نماند؛ مدیر می‌تواند بعد از آن
+     * با دلیل، اشتراک را تعلیق کند. تأیید دوبارهٔ سفارش باطل‌شده ممکن نیست.
+     *
+     * @throws Throwable
+     */
+    public function voidOrder(Order $order, string $reason, User $actor): Order
+    {
+        return DB::transaction(function () use ($order, $reason, $actor) {
+            /** @var Order $locked */
+            $locked = Order::query()->whereKey($order->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($locked->isVoided()) {
+                return $locked;
+            }
+
+            if (! $locked->isPaid()) {
+                throw ValidationException::withMessages([
+                    'order' => ['فقط پرداخت تأییدشده قابل ابطال است.'],
+                ]);
+            }
+
+            $locked->forceFill([
+                'status' => Order::STATUS_VOIDED,
+                'voided_at' => now(),
+                'void_reason' => $reason,
+            ])->save();
+
+            $locked->invoice()->update(['voided_at' => now()]);
+
+            SubscriptionHistory::create([
+                'store_id' => $locked->store_id,
+                'license_id' => $locked->store->license?->id,
+                'action' => 'payment_voided',
+                'reason' => $reason,
+                'payload' => [
+                    'order_id' => $locked->id,
+                    'amount' => (int) $locked->amount,
+                    'invoice' => $locked->invoice?->number,
+                ],
+                'actor_id' => $actor->id,
+                'created_at' => now(),
+            ]);
+
+            AuditLogger::record('order_voided', [
+                'store_id' => $locked->store_id,
+                'user_id' => $actor->id,
+                'subject_type' => 'order',
+                'subject_key' => $locked->id,
+                'meta' => [
+                    'reason' => $reason,
+                    'amount' => (int) $locked->amount,
+                    'gateway' => $locked->gateway,
+                    'reference' => $locked->reference_id,
+                    'invoice' => $locked->invoice?->number,
+                ],
+            ]);
+
+            return $locked->refresh();
+        });
+    }
+
     /** لغو سفارش در انتظار (رسید نامعتبر یا انصراف). */
     public function cancel(Order $order, ?string $reason = null): Order
     {
@@ -333,6 +399,20 @@ class CheckoutService
             ->first();
 
         if ($payment === null) {
+            // تأیید دستی بدون تلاش قبلی (مثلاً سفارش ثبت‌شده توسط مدیر) هم باید رکورد پرداخت داشته باشد.
+            SubscriptionPayment::create([
+                'order_id' => $order->id,
+                'store_id' => $order->store_id,
+                'gateway' => $order->gateway,
+                'amount' => (int) $order->amount,
+                'currency' => 'toman',
+                'status' => SubscriptionPayment::STATUS_PAID,
+                'authority' => $order->gateway_ref,
+                'reference_id' => $reference,
+                'payload' => ['source' => 'manual_approval'],
+                'verified_at' => now(),
+            ]);
+
             return;
         }
 

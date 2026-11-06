@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BillingController;
 use App\Http\Controllers\Api\LicenseController;
 use App\Http\Controllers\Api\Manager\CouponController;
+use App\Http\Controllers\Api\Manager\DashboardController;
+use App\Http\Controllers\Api\Manager\ManagerAccountController;
 use App\Http\Controllers\Api\Manager\OrderController;
 use App\Http\Controllers\Api\Manager\PlanController;
 use App\Http\Controllers\Api\Manager\SubscriberController;
@@ -72,45 +74,80 @@ Route::prefix('api')->group(function () {
             Route::post('team/{member}/restore', [TeamController::class, 'restore'])->name('api.team.restore');
         });
 
-        // ————— مدیر کل: فروشگاه‌ها و لایسنس‌ها —————
-        Route::middleware('manager')->prefix('manager')->group(function () {
+        // ————— مدیر کل: داشبورد، فروشگاه‌ها، پرداخت‌ها، تعرفه‌ها، مشترکان، مدیران —————
+        // خواندن‌ها سقف نرخ بالاتری دارند؛ عملیات نوشتن/حذف محدودتر است.
+        Route::middleware(['manager', 'throttle:180,1'])->prefix('manager')->group(function () {
+            // داشبورد
+            Route::get('dashboard', [DashboardController::class, 'index']);
+
+            // حساب‌های مدیر کل
+            Route::get('managers', [ManagerAccountController::class, 'index']);
+            Route::post('managers', [ManagerAccountController::class, 'store'])
+                ->middleware('throttle:30,1');
+            Route::put('managers/{manager}', [ManagerAccountController::class, 'update'])
+                ->middleware('throttle:30,1');
+            Route::delete('managers/{manager}', [ManagerAccountController::class, 'destroy'])
+                ->middleware('throttle:30,1');
+
+            // فروشگاه‌ها و لایسنس‌ها
             Route::get('stores', [StoreController::class, 'index']);
-            Route::post('stores', [StoreController::class, 'store']);
+            Route::post('stores', [StoreController::class, 'store'])
+                ->middleware('throttle:30,1');
             Route::get('stores/{store}', [StoreController::class, 'show']);
-            Route::put('stores/{store}', [StoreController::class, 'update']);
-            Route::delete('stores/{store}', [StoreController::class, 'destroy']);
-            Route::put('stores/{store}/license', [StoreController::class, 'updateLicense']);
+            Route::put('stores/{store}', [StoreController::class, 'update'])
+                ->middleware('throttle:60,1');
+            Route::delete('stores/{store}', [StoreController::class, 'destroy'])
+                ->middleware('throttle:20,1');
+            Route::post('stores/{store}/restore', [StoreController::class, 'restore'])
+                ->middleware('throttle:30,1');
+            Route::put('stores/{store}/license', [StoreController::class, 'updateLicense'])
+                ->middleware('throttle:60,1');
 
-            // ————— دفتر رویدادها —————
+            // دفتر رویدادها
             Route::get('audit', [AuditController::class, 'index']);
+            Route::get('audit/actions', [AuditController::class, 'actions']);
 
-            // ————— سفارش‌ها و تأیید پرداخت دستی —————
+            // سفارش‌ها، تأیید و ابطال پرداخت دستی
             Route::get('orders', [OrderController::class, 'index']);
-            Route::post('orders/{order}/approve', [OrderController::class, 'approve']);
-            Route::post('orders/{order}/reject', [OrderController::class, 'reject']);
+            Route::post('orders/{order}/approve', [OrderController::class, 'approve'])
+                ->middleware('throttle:30,1');
+            Route::post('orders/{order}/reject', [OrderController::class, 'reject'])
+                ->middleware('throttle:30,1');
+            Route::post('orders/{order}/void', [OrderController::class, 'void'])
+                ->middleware('throttle:20,1');
 
-            // ————— صدور دورهٔ آزمایشی برای فروشگاه بدون لایسنس —————
-            Route::post('subscription/trial', [BillingController::class, 'grantTrial']);
+            // صدور دورهٔ آزمایشی برای فروشگاه بدون لایسنس
+            Route::post('subscription/trial', [BillingController::class, 'grantTrial'])
+                ->middleware('throttle:30,1');
 
-            // ————— پلن‌ها و تعرفه‌ها —————
+            // پلن‌ها و تعرفه‌ها
             Route::get('plans', [PlanController::class, 'index']);
-            Route::post('plans', [PlanController::class, 'store']);
-            Route::put('plans/{plan:code}', [PlanController::class, 'update']);
-            Route::patch('plans/{plan:code}/toggle', [PlanController::class, 'toggle']);
+            Route::post('plans', [PlanController::class, 'store'])
+                ->middleware('throttle:30,1');
+            Route::put('plans/{plan:code}', [PlanController::class, 'update'])
+                ->middleware('throttle:30,1');
+            Route::patch('plans/{plan:code}/toggle', [PlanController::class, 'toggle'])
+                ->middleware('throttle:30,1');
             Route::get('plans/{plan:code}/prices', [PlanController::class, 'prices']);
 
-            // ————— کدهای تخفیف —————
+            // کدهای تخفیف
             Route::get('coupons', [CouponController::class, 'index']);
-            Route::post('coupons', [CouponController::class, 'store']);
-            Route::put('coupons/{coupon}', [CouponController::class, 'update']);
-            Route::delete('coupons/{coupon}', [CouponController::class, 'destroy']);
+            Route::post('coupons', [CouponController::class, 'store'])
+                ->middleware('throttle:30,1');
+            Route::put('coupons/{coupon}', [CouponController::class, 'update'])
+                ->middleware('throttle:30,1');
+            Route::delete('coupons/{coupon}', [CouponController::class, 'destroy'])
+                ->middleware('throttle:30,1');
 
-            // ————— مشترکان —————
+            // مشترکان
             Route::get('subscribers', [SubscriberController::class, 'index']);
             Route::get('subscribers/{license}', [SubscriberController::class, 'show']);
-            Route::post('subscribers/{license}/extend', [SubscriberController::class, 'extend']);
-            Route::post('subscribers/{license}/status', [SubscriberController::class, 'status']);
-            Route::post('subscribers/{license}/seats', [SubscriberController::class, 'seats']);
+            Route::post('subscribers/{license}/extend', [SubscriberController::class, 'extend'])
+                ->middleware('throttle:40,1');
+            Route::post('subscribers/{license}/status', [SubscriberController::class, 'status'])
+                ->middleware('throttle:40,1');
+            Route::post('subscribers/{license}/seats', [SubscriberController::class, 'seats'])
+                ->middleware('throttle:40,1');
         });
 
         // ————— کاربر فروشگاه: همگام‌سازی داده —————

@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Support\AuditLogger;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * اشتراک فروشگاه = لایسنس فروشگاه.
@@ -216,6 +217,94 @@ class LicenseService
         ], $reason, $actor->id);
 
         return $license->refresh();
+    }
+
+    /**
+     * ویرایش کامل لایسنس توسط مدیر کل (پلن، سطح، سقف کاربران، انقضا، وضعیت).
+     *
+     * قواعد:
+     * - سقف کاربران هرگز کمتر از تعداد کاربران فعال پذیرفته نمی‌شود.
+     * - تاریخ شروع دورهٔ فعلی حفظ می‌شود (بازنویسی نمی‌شود).
+     * - پلن انتخابی، سطح (tier) را تعیین می‌کند تا داده ناسازگار ساخته نشود.
+     * - دلیل تغییر در تاریخچهٔ اشتراک و دفتر رویدادها ثبت می‌شود.
+     *
+     * @param  array{plan_code?: string|null, tier?: string|null, seats?: int|null, is_lifetime?: bool, is_active?: bool, starts_at?: string|null, expires_at?: string|null, notes?: string|null}  $data
+     *
+     * @throws \Illuminate\Validation\ValidationException|\Throwable
+     */
+    public function adminOverride(Store $store, array $data, User $actor, string $reason): License
+    {
+        return DB::transaction(function () use ($store, $data, $actor, $reason) {
+            $license = $store->license()->first();
+            $activeUsers = $store->activeUserCount();
+
+            $isLifetime = (bool) ($data['is_lifetime'] ?? $license?->is_lifetime ?? false);
+            $seats = isset($data['seats']) ? (int) $data['seats'] : ($license?->seats() ?? 1);
+
+            if ($seats < $activeUsers) {
+                throw ValidationException::withMessages([
+                    'seats' => ["این فروشگاه {$activeUsers} کاربر فعال دارد؛ سقف کاربران نمی‌تواند کمتر از آن باشد."],
+                ]);
+            }
+
+            $plan = null;
+            if (! empty($data['plan_code'])) {
+                $plan = SubscriptionPlan::where('code', $data['plan_code'])->first();
+            }
+
+            $expiresAt = $data['expires_at'] ?? $license?->expires_at;
+
+            if (! $isLifetime && ! $expiresAt) {
+                throw ValidationException::withMessages([
+                    'expires_at' => ['برای اشتراک زمان‌دار، تاریخ انقضا لازم است.'],
+                ]);
+            }
+
+            $status = array_key_exists('is_active', $data)
+                ? ($data['is_active'] ? License::STATUS_ACTIVE : License::STATUS_SUSPENDED)
+                : ($license?->status ?? License::STATUS_ACTIVE);
+
+            $before = [
+                'tier' => $license?->tier,
+                'plan_code' => $license?->plan_code,
+                'seats' => $license?->seats(),
+                'is_lifetime' => $license?->is_lifetime,
+                'status' => $license?->status,
+                'expires_at' => $license?->expires_at?->toIso8601String(),
+            ];
+
+            $attributes = [
+                'tier' => $plan?->tier ?? ($data['tier'] ?? $license?->tier ?? 'pro'),
+                'plan_code' => $plan?->code ?? ($data['plan_code'] ?? $license?->plan_code),
+                'seats' => max(1, $seats),
+                'status' => $status,
+                'is_lifetime' => $isLifetime,
+                'is_active' => $status === License::STATUS_ACTIVE,
+                'is_trial' => $license?->is_trial ?? false,
+                'starts_at' => $data['starts_at'] ?? $license?->starts_at ?? now(),
+                'expires_at' => $isLifetime ? null : $expiresAt,
+                'notes' => $data['notes'] ?? $license?->notes,
+                'created_by' => $actor->id,
+            ];
+
+            $license = $store->license()->updateOrCreate([], $attributes);
+            $this->resetReminders($store);
+
+            $this->recordHistoryInTransaction($store, $license, 'admin_license_updated', [
+                'before' => $before,
+                'after' => [
+                    'tier' => $license->tier,
+                    'plan_code' => $license->plan_code,
+                    'seats' => $license->seats(),
+                    'is_lifetime' => (bool) $license->is_lifetime,
+                    'status' => $license->status,
+                    'expires_at' => $license->expires_at?->toIso8601String(),
+                ],
+                'reason' => $reason,
+            ], $reason, $actor->id);
+
+            return $license->refresh();
+        });
     }
 
     /**

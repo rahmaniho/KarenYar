@@ -273,3 +273,17 @@ it('کاربر فروشگاه به بخش مدیریت پلن‌ها و مشتر
         'code' => 'X', 'type' => 'percent', 'value' => 5,
     ])->assertForbidden();
 });
+
+it('حداکثر کاربران نمی‌تواند کمتر از حداقل باشد', function () {
+    $manager = adminUser();
+
+    $this->actingAs($manager)->postJson('/api/manager/plans', [
+        'code' => 'broken-plan',
+        'name' => 'پلن اشتباه',
+        'tier' => 'pro',
+        'base_monthly' => 10_000,
+        'extra_user_monthly' => 5_000,
+        'min_seats' => 10,
+        'max_seats' => 2,
+    ])->assertStatus(422)->assertJsonValidationErrors('max_seats');
+});

@@ -41,12 +41,29 @@ class AuthController extends Controller
             AuditLogger::record('login_blocked', [
                 'user_id' => $user->getKey(),
                 'store_id' => $user->store_id,
-                'meta' => ['email' => $user->email],
+                'meta' => ['email' => $user->email, 'reason' => 'inactive_user'],
             ]);
 
             throw ValidationException::withMessages([
                 'email' => ['این حساب غیرفعال شده است. با پشتیبانی تماس بگیرید.'],
             ]);
+        }
+
+        // فروشگاه آرشیو/غیرفعال: ورود کاربران آن مسدود است، اما داده‌ها دست‌نخورده می‌مانند.
+        if ($user->isStore()) {
+            $store = $user->store;
+
+            if ($store === null || ! $store->is_active || $store->archived_at !== null) {
+                AuditLogger::record('login_blocked', [
+                    'user_id' => $user->getKey(),
+                    'store_id' => $user->store_id,
+                    'meta' => ['email' => $user->email, 'reason' => 'store_archived_or_inactive'],
+                ]);
+
+                throw ValidationException::withMessages([
+                    'email' => ['دسترسی این فروشگاه غیرفعال یا آرشیو شده است. با پشتیبانی تماس بگیرید.'],
+                ]);
+            }
         }
 
         Auth::login($user, $request->boolean('remember'));

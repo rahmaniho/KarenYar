@@ -77,7 +77,15 @@
 7. **مجوز پوشه‌ها**: `storage/` و `bootstrap/cache/` باید توسط کاربر وب‌سرور
    قابل نوشتن باشند (معمولاً `chmod -R ug+rwX storage bootstrap/cache`).
 
-8. **حساب مدیر کل بسازید**:
+8. **حساب مدیر کل بسازید** (روش پیشنهادی؛ هیچ رمز پیش‌فرضی در کد نیست):
+
+   ```bash
+   KARO_MANAGER_EMAIL=admin@example.com \
+   KARO_MANAGER_PASSWORD='یک-رمز-قوی' \
+   php artisan db:seed --class=DatabaseSeeder
+   ```
+
+   یا با tinker:
 
    ```bash
    php artisan tinker --execute="\App\Models\User::create(['name'=>'مدیر','email'=>'admin@karen-soft.ir','password'=>'رمز-قوی','role'=>'manager','is_active'=>true]);"

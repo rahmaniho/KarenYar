@@ -18,6 +18,7 @@ class Store extends Model
         'phone',
         'address',
         'is_active',
+        'archived_at',
         'license_reminder_stage',
     ];
 
@@ -25,6 +26,7 @@ class Store extends Model
     {
         return [
             'is_active' => 'boolean',
+            'archived_at' => 'datetime',
             'license_reminder_stage' => 'integer',
         ];
     }
@@ -52,6 +54,12 @@ class Store extends Model
     public function subscriptionHistory(): HasMany
     {
         return $this->hasMany(SubscriptionHistory::class);
+    }
+
+    /** آیا فروشگاه آرشیو شده است؟ (داده‌ها حفظ می‌شوند و دسترسی بسته است) */
+    public function isArchived(): bool
+    {
+        return $this->archived_at !== null;
     }
 
     /** تعداد کاربران فعال (کاربران غیرفعال اشتراک مصرف نمی‌کنند). */

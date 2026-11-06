@@ -44,6 +44,10 @@ class OrderResource extends JsonResource
             'created_at' => $this->created_at?->toIso8601String(),
             'instructions' => $meta['instructions'] ?? null,
             'invoice_number' => $this->whenLoaded('invoice', fn () => $this->invoice?->number),
+            'invoice_voided' => $this->whenLoaded('invoice', fn () => (bool) $this->invoice?->voided_at),
+            'voided_at' => $this->voided_at?->toIso8601String(),
+            'void_reason' => $this->void_reason,
+            'is_voided' => $this->isVoided(),
         ];
     }
 }
